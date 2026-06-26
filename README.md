@@ -57,15 +57,18 @@ Active development, built in phase order (see [`ARGUS_CONTEXT.md`](ARGUS_CONTEXT
 - ✅ **Phase 1 — Static analysis:** built-in code rules, dependency audit (npm/pip), secret
   detection (regex + Shannon entropy + git history), LLM reasoning layer, HTML/JSON/Markdown
   reports. `argus scan` works end-to-end. *(Semgrep optional — it has no native Windows build.)*
-- 🚧 **Phase 2 — Attack agents (MVP):** ReconBot, Injector (SQLi: error/time/boolean), and
-  AuthBreaker (JWT weak-secret cracking, alg:none, cookie flags) driven by an orchestration
-  loop. `argus attack --url <running-app>` works end-to-end. The remaining 10 agents and the
-  Docker auto-sandbox are in progress.
+- 🚧 **Phase 2 — Attack agents (9 of 13):** ReconBot, CrawlerBot, Injector (SQLi:
+  error/time/boolean), AuthBreaker (JWT cracking, alg:none, cookie flags), XSSHunter
+  (reflected), SSRFProber (blind via callback server + cloud metadata), HeaderPoker (CORS /
+  header bypass), CSRFHunter (clickjacking + form tokens), and GraphQLAgent (introspection) —
+  driven by an orchestration loop with an out-of-band callback server. `argus attack --url
+  <running-app>` works end-to-end. Remaining agents (IDOR, Fuzzer, FileAttacker, RaceCondition,
+  WebSocket) and the Docker auto-sandbox are in progress.
 - 🚧 **GUI:** React + Vite + TypeScript desktop UI — all five screens (Dashboard, New Scan,
   Live Attack, Reports, Settings) ported from the design and working with the live-attack
   animation. Tauri shell + live wiring to the Python engine are next.
 
-Test suite: 36 unit tests (`pytest`).
+Test suite: 40 unit tests (`pytest`).
 
 ## GUI (development)
 
