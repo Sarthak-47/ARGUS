@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Argus Report — {{ result.target }}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --obsidian:#08080C; --stone-dark:#0F0F15; --stone-carved:#171720;
+    --relief:#1E1E2A; --goldenrod:#B8860B; --bronze:#CD7F32; --crimson:#8B0000;
+    --sienna:#8B4513; --gold-pale:#D4A853; --parchment:#C4A882; --stone-text:#6B5A45;
+    --ember:#2A1F0E;
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--obsidian); color:var(--parchment);
+        font-family:'Cormorant Garamond',serif; font-size:16px; line-height:1.5; }
+  .wrap{ max-width:1100px; margin:0 auto; padding:48px 32px 96px; }
+  .brand{ display:flex; align-items:center; gap:14px; margin-bottom:8px; }
+  .brand .mark{ color:var(--goldenrod); font-size:26px; }
+  .brand h1{ font-family:'Cinzel',serif; font-weight:700; font-size:22px;
+             letter-spacing:0.28em; color:var(--gold-pale); margin:0; }
+  .target{ font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--stone-text); }
+  .meander{ height:14px; margin:26px 0; opacity:0.55; background-repeat:repeat-x;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='14'%3E%3Cpath d='M1 12 V4 H12 V12 H7 V8 H9 M22 12 V4 H33 V12 H28 V8 H30 M43 12 V4' stroke='%23B8860B' fill='none' stroke-width='1.3'/%3E%3C/svg%3E"); }
+  .summary{ display:flex; align-items:center; gap:48px; border:1px solid var(--relief);
+            background:var(--stone-dark); padding:34px 38px; }
+  .score{ text-align:center; padding-right:42px; border-right:1px solid var(--relief); }
+  .score .num{ font-family:'Cinzel',serif; font-weight:700; font-size:76px; line-height:0.8;
+               color:{{ risk_band_color }}; }
+  .score .lbl{ font-family:'Cinzel',serif; font-size:10px; letter-spacing:0.22em;
+               color:var(--stone-text); margin-bottom:10px; }
+  .score .band{ font-style:italic; color:{{ risk_band_color }}; margin-top:8px; }
+  .counts{ display:flex; gap:40px; flex-wrap:wrap; }
+  .count .dot{ display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:8px; }
+  .count .n{ font-family:'Cinzel',serif; font-size:34px; font-weight:600; }
+  .count .c-lbl{ font-family:'Cinzel',serif; font-size:10px; letter-spacing:0.18em;
+                 color:var(--stone-text); }
+  .meta{ font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--stone-text);
+         margin:18px 0 8px; }
+  h2{ font-family:'Cinzel',serif; font-size:13px; letter-spacing:0.22em; color:var(--goldenrod);
+      text-transform:uppercase; margin:40px 0 14px; }
+  .finding{ border:1px solid var(--relief); background:var(--stone-dark); margin-bottom:10px; }
+  .f-head{ display:flex; align-items:center; gap:14px; padding:16px 20px; }
+  .sev{ font-family:'Cinzel',serif; font-size:10px; letter-spacing:0.12em; }
+  .sq{ width:9px; height:9px; border-radius:2px; display:inline-block; }
+  .f-title{ font-size:18px; color:var(--parchment); flex:1; }
+  .f-loc{ font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--stone-text); }
+  .f-body{ padding:0 20px 18px; }
+  .f-body .kv{ font-family:'Cinzel',serif; font-size:9px; letter-spacing:0.18em;
+               color:var(--stone-text); margin:14px 0 6px; }
+  pre{ background:var(--obsidian); border:1px solid var(--relief); padding:12px 14px; margin:0;
+       font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--parchment);
+       white-space:pre-wrap; word-break:break-word; line-height:1.5; }
+  .desc{ color:var(--parchment); }
+  .detector{ font-family:'Cinzel',serif; font-size:10px; letter-spacing:0.06em; color:var(--bronze); }
+  footer{ margin-top:48px; font-family:'JetBrains Mono',monospace; font-size:11px;
+          color:var(--stone-text); text-align:center; }
+  table.cb{ border-collapse:collapse; font-family:'JetBrains Mono',monospace; font-size:12px; }
+  table.cb td{ padding:3px 18px 3px 0; color:var(--parchment); }
+  table.cb td.k{ color:var(--stone-text); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand"><span class="mark">◈</span><h1>ARGUS</h1></div>
+  <div class="target">{{ result.target }}</div>
+
+  <div class="meander"></div>
+
+  <div class="summary">
+    <div class="score">
+      <div class="lbl">RISK SCORE</div>
+      <div class="num">{{ risk_score }}</div>
+      <div class="band">{{ risk_band|capitalize }}</div>
+    </div>
+    <div class="counts">
+      {% for sev in ['CRITICAL','HIGH','MEDIUM','LOW','INFO'] %}
+      <div class="count">
+        <div><span class="dot" style="background:{{ sev_color[sev] }}"></span>
+             <span class="n" style="color:{{ sev_color[sev] }}">{{ counts[sev] }}</span></div>
+        <div class="c-lbl">{{ sev }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% if codebase %}
+  <h2>Codebase</h2>
+  <table class="cb">
+    <tr><td class="k">Primary language</td><td>{{ codebase.primary_language or 'unknown' }}</td></tr>
+    <tr><td class="k">Files / LOC</td><td>{{ codebase.file_count }} files · {{ codebase.total_loc }} lines</td></tr>
+    {% if codebase.frameworks %}<tr><td class="k">Frameworks</td><td>{{ codebase.frameworks|join(', ') }}</td></tr>{% endif %}
+    {% if codebase.high_risk_files %}<tr><td class="k">High-risk files</td><td>{{ codebase.high_risk_files|length }}</td></tr>{% endif %}
+  </table>
+  {% endif %}
+
+  <div class="meander"></div>
+
+  <h2>Findings — {{ findings|length }}</h2>
+  {% for f in findings %}
+  <div class="finding">
+    <div class="f-head">
+      <span class="sq" style="background:{{ sev_color[f.severity.value] }}"></span>
+      <span class="sev" style="color:{{ sev_color[f.severity.value] }}">{{ f.severity.value }}</span>
+      <span class="f-title">{{ f.title }}</span>
+      <span class="f-loc">{{ f.location }}</span>
+    </div>
+    <div class="f-body">
+      <span class="detector">{{ f.detector }}</span>{% if f.cwe %} · <span class="f-loc">{{ f.cwe }}</span>{% endif %}
+      {% if f.description %}<div class="kv">WHAT IS IT</div><div class="desc">{{ f.description }}</div>{% endif %}
+      {% if f.evidence %}<div class="kv">EVIDENCE</div><pre>{{ f.evidence }}</pre>{% endif %}
+      {% if f.exploit %}<div class="kv">EXPLOIT</div><div class="desc">{{ f.exploit }}</div>{% endif %}
+      {% if f.fix %}<div class="kv">FIX</div><pre>{{ f.fix }}</pre>{% endif %}
+    </div>
+  </div>
+  {% else %}
+  <p style="color:var(--stone-text); font-style:italic;">No findings — the eye saw nothing amiss.</p>
+  {% endfor %}
+
+  <footer>Generated by Argus v{{ version }} · {{ generated }}{% if result.llm_provider %} · LLM: {{ result.llm_provider }}{% endif %}</footer>
+</div>
+</body>
+</html>
