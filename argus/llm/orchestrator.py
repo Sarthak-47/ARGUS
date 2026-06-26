@@ -17,32 +17,43 @@ from argus.agents.authbreaker import AuthBreaker
 from argus.agents.base import AgentReport, AttackContext
 from argus.agents.crawlerbot import CrawlerBot
 from argus.agents.csrfhunter import CSRFHunter
+from argus.agents.fileattacker import FileAttacker
+from argus.agents.fuzzer import Fuzzer
 from argus.agents.graphqlagent import GraphQLAgent
 from argus.agents.headerpoker import HeaderPoker
+from argus.agents.idorhunter import IDORHunter
 from argus.agents.injector import Injector
+from argus.agents.racecondition import RaceCondition
 from argus.agents.reconbot import ReconBot
 from argus.agents.ssrfprober import SSRFProber
+from argus.agents.websocketagent import WebSocketAgent
 from argus.agents.xsshunter import XSSHunter
 from argus.models import Finding
 
-# Registry of currently-implemented agents (the rest of the 13 land here over time).
+# The full 13-agent swarm (ReconBot runs separately, first).
 AGENT_REGISTRY = {
     "reconbot": ReconBot,
     "crawlerbot": CrawlerBot,
     "injector": Injector,
     "authbreaker": AuthBreaker,
+    "idorhunter": IDORHunter,
     "xsshunter": XSSHunter,
     "ssrfprober": SSRFProber,
     "headerpoker": HeaderPoker,
     "csrfhunter": CSRFHunter,
+    "fileattacker": FileAttacker,
+    "fuzzer": Fuzzer,
+    "racecondition": RaceCondition,
     "graphqlagent": GraphQLAgent,
+    "websocketagent": WebSocketAgent,
 }
 
 # Default priority order for the agents we run after recon. CrawlerBot runs early
-# to widen the surface; injection/XSS/SSRF then have more endpoints to hit.
+# to widen the surface; high-signal exploit agents next; fuzz/race last (noisier).
 _DEFAULT_ORDER = [
-    "crawlerbot", "injector", "authbreaker", "xsshunter",
-    "ssrfprober", "headerpoker", "csrfhunter", "graphqlagent",
+    "crawlerbot", "injector", "authbreaker", "idorhunter", "xsshunter",
+    "ssrfprober", "headerpoker", "csrfhunter", "fileattacker", "graphqlagent",
+    "websocketagent", "fuzzer", "racecondition",
 ]
 
 
