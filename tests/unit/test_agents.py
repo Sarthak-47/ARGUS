@@ -57,7 +57,10 @@ def test_with_param_preserves_other_params():
 
 
 def test_select_order_default():
-    assert _select_order(None, []) == ["injector", "authbreaker"]
+    order = _select_order(None, [])
+    assert order[0] == "crawlerbot"  # widen the surface first
+    assert "injector" in order and "xsshunter" in order and "ssrfprober" in order
+    assert "reconbot" not in order  # recon runs separately, first
 
 
 def test_select_order_biases_authbreaker_on_prior_jwt():
@@ -68,6 +71,33 @@ def test_select_order_biases_authbreaker_on_prior_jwt():
 
 def test_select_order_respects_requested_subset():
     assert _select_order(["injector"], []) == ["injector"]
+
+
+def test_ssrf_param_hint_matches_url_like_names():
+    from argus.agents.ssrfprober import _URL_PARAM_HINT
+    assert _URL_PARAM_HINT.search("url")
+    assert _URL_PARAM_HINT.search("redirect")
+    assert _URL_PARAM_HINT.search("webhook")
+    assert not _URL_PARAM_HINT.search("username")  # word-boundary: not a URL param
+
+
+def test_xss_with_param_builds_query():
+    from argus.agents.xsshunter import _with_param
+    url = _with_param("http://t/search", "q", "<x>")
+    assert "q=" in url and url.startswith("http://t/search?")
+
+
+def test_crawlerbot_404_similarity():
+    from argus.agents.crawlerbot import CrawlerBot
+    cb = CrawlerBot()
+    assert cb._similar("not found page", "not found page") is True
+    assert cb._similar("a" * 50, "b" * 400) is False
+
+
+def test_registry_contains_expanded_agents():
+    from argus.llm.orchestrator import AGENT_REGISTRY
+    for name in ("crawlerbot", "xsshunter", "ssrfprober", "headerpoker", "csrfhunter", "graphqlagent"):
+        assert name in AGENT_REGISTRY
 
 
 @pytest.mark.asyncio
