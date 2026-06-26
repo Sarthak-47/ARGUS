@@ -1,0 +1,49 @@
+:root {
+  --obsidian: #08080c;
+  --stone-dark: #0f0f15;
+  --stone-carved: #171720;
+  --relief: #1e1e2a;
+  --goldenrod: #b8860b;
+  --bronze: #cd7f32;
+  --crimson: #8b0000;
+  --sienna: #8b4513;
+  --gold-pale: #d4a853;
+  --parchment: #c4a882;
+  --stone-text: #6b5a45;
+  --ember: #2a1f0e;
+  --weathered: #4a4035;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; padding: 0; height: 100%; background: var(--obsidian); }
+body { font-family: "Cormorant Garamond", serif; color: var(--parchment); }
+
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: var(--obsidian); }
+::-webkit-scrollbar-thumb { background: var(--relief); }
+::-webkit-scrollbar-thumb:hover { background: var(--ember); }
+
+button { font-family: inherit; }
+input { font-family: inherit; }
+
+@keyframes argusPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+@keyframes argusCrimson { 0% { background: rgba(139, 0, 0, 0.55); } 100% { background: rgba(139, 0, 0, 0.1); } }
+@keyframes argusFlashNum { 0% { transform: scale(1.18); color: #d4a853; } 100% { transform: scale(1); color: #8b0000; } }
+@keyframes argusEyeDraw {
+  0% { transform: scale(0.1) rotate(-25deg); opacity: 0; stroke: #cd7f32; }
+  70% { opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+@keyframes argusTrace { from { stroke-dashoffset: 480; } to { stroke-dashoffset: 0; } }
+@keyframes argusBreathe { 0%, 100% { opacity: 0.85; } 50% { opacity: 1; } }
+
+/* hover affordances ported from the design's style-hover */
+.nav-item:hover { background: var(--relief) !important; color: var(--parchment) !important; }
+.row-hover:hover { background: var(--ember) !important; }
+.btn-ghost:hover { background: var(--ember) !important; }
+.btn-solid:hover { background: var(--bronze) !important; }
+.btn-outline:hover { border-color: var(--bronze) !important; color: var(--bronze) !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
