@@ -61,9 +61,20 @@ Active development, built in phase order (see [`ARGUS_CONTEXT.md`](ARGUS_CONTEXT
   AuthBreaker (JWT weak-secret cracking, alg:none, cookie flags) driven by an orchestration
   loop. `argus attack --url <running-app>` works end-to-end. The remaining 10 agents and the
   Docker auto-sandbox are in progress.
-- ⏳ **GUI:** Tauri + React desktop app (next).
+- 🚧 **GUI:** React + Vite + TypeScript desktop UI — all five screens (Dashboard, New Scan,
+  Live Attack, Reports, Settings) ported from the design and working with the live-attack
+  animation. Tauri shell + live wiring to the Python engine are next.
 
 Test suite: 36 unit tests (`pytest`).
+
+## GUI (development)
+
+```bash
+cd gui
+npm install
+npm run dev        # http://localhost:5173
+npm run build      # type-check + production build
+```
 
 ## License
 
