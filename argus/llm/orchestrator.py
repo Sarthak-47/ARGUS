@@ -15,19 +15,35 @@ import httpx
 
 from argus.agents.authbreaker import AuthBreaker
 from argus.agents.base import AgentReport, AttackContext
+from argus.agents.crawlerbot import CrawlerBot
+from argus.agents.csrfhunter import CSRFHunter
+from argus.agents.graphqlagent import GraphQLAgent
+from argus.agents.headerpoker import HeaderPoker
 from argus.agents.injector import Injector
 from argus.agents.reconbot import ReconBot
+from argus.agents.ssrfprober import SSRFProber
+from argus.agents.xsshunter import XSSHunter
 from argus.models import Finding
 
 # Registry of currently-implemented agents (the rest of the 13 land here over time).
 AGENT_REGISTRY = {
     "reconbot": ReconBot,
+    "crawlerbot": CrawlerBot,
     "injector": Injector,
     "authbreaker": AuthBreaker,
+    "xsshunter": XSSHunter,
+    "ssrfprober": SSRFProber,
+    "headerpoker": HeaderPoker,
+    "csrfhunter": CSRFHunter,
+    "graphqlagent": GraphQLAgent,
 }
 
-# Default priority order for the agents we run after recon.
-_DEFAULT_ORDER = ["injector", "authbreaker"]
+# Default priority order for the agents we run after recon. CrawlerBot runs early
+# to widen the surface; injection/XSS/SSRF then have more endpoints to hit.
+_DEFAULT_ORDER = [
+    "crawlerbot", "injector", "authbreaker", "xsshunter",
+    "ssrfprober", "headerpoker", "csrfhunter", "graphqlagent",
+]
 
 
 def _select_order(requested: list[str] | None, prior: list[Finding]) -> list[str]:
@@ -50,43 +66,56 @@ async def run_attack_async(
     *,
     requested_agents: list[str] | None = None,
     prior_findings: list[Finding] | None = None,
-    callback_host: str | None = None,
+    use_callback: bool = True,
     concurrency: int = 10,
     on_event=None,
 ) -> tuple[list[Finding], list[AgentReport]]:
     """Run recon + selected agents against ``base_url``. Returns (findings, reports)."""
+    from argus.sandbox.callback_server import CallbackServer
+
     prior = prior_findings or []
     reports: list[AgentReport] = []
 
+    callback = None
+    if use_callback:
+        try:
+            callback = CallbackServer().start()
+        except OSError:
+            callback = None
+
     headers = {"User-Agent": "Argus/0.1 (+https://github.com/Sarthak-47/ARGUS)"}
-    async with httpx.AsyncClient(
-        follow_redirects=True, headers=headers, verify=False, timeout=15.0
-    ) as client:
-        ctx = AttackContext(
-            base_url,
-            client=client,
-            concurrency=concurrency,
-            prior_findings=prior,
-            callback_host=callback_host,
-            on_event=on_event,
-        )
+    try:
+        async with httpx.AsyncClient(
+            follow_redirects=True, headers=headers, verify=False, timeout=15.0
+        ) as client:
+            ctx = AttackContext(
+                base_url,
+                client=client,
+                concurrency=concurrency,
+                prior_findings=prior,
+                callback=callback,
+                on_event=on_event,
+            )
 
-        # 1) Recon always first
-        recon = ReconBot()
-        reports.append(await recon.run(ctx))
+            # 1) Recon always first
+            recon = ReconBot()
+            reports.append(await recon.run(ctx))
 
-        # 2) Ordered post-recon agents
-        order = _select_order(requested_agents, prior)
-        for name in order:
-            agent_cls = AGENT_REGISTRY[name]
-            agent = agent_cls()
-            try:
-                reports.append(await agent.run(ctx))
-            except Exception as exc:  # an agent must never sink the whole run
-                reports.append(AgentReport(agent=agent.name, status="error", notes=[str(exc)]))
-                ctx.emit(agent.name, f"agent error: {exc}", "crit")
+            # 2) Ordered post-recon agents
+            order = _select_order(requested_agents, prior)
+            for name in order:
+                agent_cls = AGENT_REGISTRY[name]
+                agent = agent_cls()
+                try:
+                    reports.append(await agent.run(ctx))
+                except Exception as exc:  # an agent must never sink the whole run
+                    reports.append(AgentReport(agent=agent.name, status="error", notes=[str(exc)]))
+                    ctx.emit(agent.name, f"agent error: {exc}", "crit")
 
-        return ctx.findings, reports
+            return ctx.findings, reports
+    finally:
+        if callback is not None:
+            callback.stop()
 
 
 def run_attack_sync(base_url: str, **kwargs):
