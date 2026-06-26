@@ -167,18 +167,80 @@ def export_last(fmt: str = "html", output: str | None = None) -> None:
     _export(result, fmt, output)
 
 
-def run_attack(target: str | None = None, url: str | None = None, agents: str | None = None) -> None:
-    out.banner()
+def run_attack(
+    target: str | None = None,
+    url: str | None = None,
+    agents: str | None = None,
+    *,
+    banner: bool = True,
+) -> ScanResult | None:
+    from argus.llm.orchestrator import AGENT_REGISTRY, run_attack_sync
+    from argus.sandbox.docker_manager import availability_note
+    from argus.state import load_result, save_result
+
+    if banner:
+        out.banner()
     out.rule("ATTACK AGENT")
-    if not url and not target:
-        out.error("Provide a target repo or --url of a running app.")
+
+    base_url = url
+    if not base_url:
+        # No running URL given. Auto-sandboxing needs Docker, which we treat as optional.
+        if target:
+            out.warn("Attacking a repo requires spinning it up in a sandbox.")
+            out.info(availability_note())
+            out.info("For now, start the app yourself and run: "
+                     "[wheat1]argus attack --url http://localhost:PORT[/]")
+        else:
+            out.error("Provide --url of a running app (or a target repo once Docker is set up).")
         raise typer.Exit(code=1)
-    out.warn("Phase 2 (attack agent swarm) is under construction.")
-    out.info("Coming next: ReconBot, Injector, AuthBreaker and the rest of the 13 agents.")
-    if agents:
-        out.info(f"Requested agents: {agents}")
-    if url:
-        out.info(f"Will target running app: {url}")
+
+    requested = [a.strip().lower() for a in agents.split(",")] if agents else None
+    if requested:
+        unknown = [a for a in requested if a not in AGENT_REGISTRY]
+        if unknown:
+            out.warn(f"Not yet implemented (ignored): {', '.join(unknown)}")
+
+    # Bias agent order using the last scan's findings, if any.
+    prior = load_result()
+    prior_findings = prior.findings if prior else []
+
+    out.step(f"Target: [wheat1]{base_url}[/]")
+    out.step("Deploying agents… (ReconBot first)")
+
+    def feed(agent: str, text: str, sev: str) -> None:
+        if sev == "crit":
+            out.console.print(f"  [dark_orange3]\\[{agent}][/] [bold red]✓ {text}[/]")
+        else:
+            out.console.print(f"  [dark_orange3]\\[{agent}][/] [grey58]{text}[/]")
+
+    findings, reports = run_attack_sync(
+        base_url, requested_agents=requested, prior_findings=prior_findings, on_event=feed
+    )
+
+    result = ScanResult(target=base_url, phase="attack")
+    result.extend(findings)
+    result.finished_at = time.time()
+
+    out.console.print()
+    _attack_summary(reports)
+    out.risk_panel(result)
+    out.findings_table(result)
+    save_result(result)
+    return result
+
+
+def _attack_summary(reports) -> None:
+    from rich.table import Table
+
+    table = Table(show_header=True, header_style="bold yellow3", border_style="grey30")
+    table.add_column("AGENT", style="dark_orange3")
+    table.add_column("STATUS")
+    table.add_column("REQUESTS", justify="right")
+    table.add_column("FINDINGS", justify="right")
+    for r in reports:
+        style = "bold red" if r.status == "error" else "yellow3"
+        table.add_row(r.agent, f"[{style}]{r.status}[/]", str(r.requests_sent), str(r.findings))
+    out.console.print(table)
 
 
 def run_audit(target: str, fix: bool = False, agents: str | None = None) -> None:
@@ -186,6 +248,7 @@ def run_audit(target: str, fix: bool = False, agents: str | None = None) -> None
     out.rule("FULL AUDIT")
     run_scan(target)
     out.console.print()
-    run_attack(target=target, agents=agents)
+    out.info("Phase 1 complete. For Phase 2, point Argus at the running app:")
+    out.info("[wheat1]argus attack --url http://localhost:PORT[/]")
     if fix:
-        out.info("--fix: fix suggestions will be generated once Phase 2 lands.")
+        out.info("--fix: fix suggestions will be generated once the fix engine lands.")
