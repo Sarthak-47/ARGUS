@@ -1,0 +1,37 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Argus runtime artifacts
+argus-report/
+*.argus.json
+.argus-cache/
+
+# Node / GUI
+node_modules/
+gui/dist/
+gui/src-tauri/target/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Secrets / local config
+.env
+*.local.toml
+
+# Raw Claude Design export (reference for the GUI phase, not source)
+_design_export/
