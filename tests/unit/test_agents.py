@@ -94,10 +94,37 @@ def test_crawlerbot_404_similarity():
     assert cb._similar("a" * 50, "b" * 400) is False
 
 
-def test_registry_contains_expanded_agents():
+def test_registry_contains_full_swarm():
     from argus.llm.orchestrator import AGENT_REGISTRY
-    for name in ("crawlerbot", "xsshunter", "ssrfprober", "headerpoker", "csrfhunter", "graphqlagent"):
-        assert name in AGENT_REGISTRY
+    expected = {
+        "reconbot", "crawlerbot", "injector", "authbreaker", "idorhunter", "xsshunter",
+        "ssrfprober", "headerpoker", "csrfhunter", "fileattacker", "fuzzer",
+        "racecondition", "graphqlagent", "websocketagent",
+    }
+    assert expected <= set(AGENT_REGISTRY)  # all 13 agents + recon registered
+
+
+def test_idor_finds_numeric_path_segment():
+    from argus.agents.idorhunter import _INT_SEG, _replace_path_int
+    assert _INT_SEG.search("/api/orders/10472").group(1) == "10472"
+    assert _replace_path_int("http://t/api/orders/10472", "10472", "10473") == "http://t/api/orders/10473"
+
+
+def test_fileattacker_param_and_signatures():
+    from argus.agents.fileattacker import _FILE_PARAM, _SIGS
+    assert _FILE_PARAM.search("file") and _FILE_PARAM.search("download")
+    assert _SIGS.search("root:x:0:0:root:/root:/bin/bash")
+    assert _SIGS.search("[fonts]\n[extensions]")
+    assert not _SIGS.search("nothing interesting here")
+
+
+def test_fuzzer_error_signatures():
+    from argus.agents.fuzzer import _ERROR_SIG, _PAYLOADS
+    assert _ERROR_SIG.search("Traceback (most recent call last):")
+    assert _ERROR_SIG.search("ValueError: invalid literal")
+    assert len(_PAYLOADS) >= 8  # includes the unicode edge payload (no null bytes)
+    # ensure no payload contains a NUL byte
+    assert all("\x00" not in p for _, p in _PAYLOADS)
 
 
 @pytest.mark.asyncio
