@@ -55,7 +55,7 @@ class AttackContext:
         client: httpx.AsyncClient,
         concurrency: int = 10,
         prior_findings: list[Finding] | None = None,
-        callback_host: str | None = None,
+        callback=None,
         on_event: Callable[[str, str, str], None] | None = None,
     ):
         self.base_url = base_url.rstrip("/")
@@ -64,7 +64,8 @@ class AttackContext:
         self.findings: list[Finding] = []
         self.prior_findings = prior_findings or []
         self.recon: dict[str, Any] = {}
-        self.callback_host = callback_host
+        self.callback = callback                      # CallbackServer | None (blind detection)
+        self.callback_host = getattr(callback, "base_url", None)
         self.semaphore = asyncio.Semaphore(concurrency)
         self._on_event = on_event
         self.requests_sent = 0
