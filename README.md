@@ -50,9 +50,20 @@ argus config --show                       # show current configuration
 
 ## Status
 
-Early development. See [`ARGUS_CONTEXT.md`](ARGUS_CONTEXT.md) for the full architecture and
-roadmap. Built in phase order: Phase 0 (foundation) → Phase 1 (static analysis) →
-Phase 2 (attack agents) → GUI.
+Active development, built in phase order (see [`ARGUS_CONTEXT.md`](ARGUS_CONTEXT.md)).
+
+- ✅ **Phase 0 — Foundation:** Typer CLI, Rich output, TOML config, repo ingestion, GPU/VRAM
+  detection, unified LLM provider (Ollama/Groq/Gemini/Claude/OpenRouter, BYOK).
+- ✅ **Phase 1 — Static analysis:** built-in code rules, dependency audit (npm/pip), secret
+  detection (regex + Shannon entropy + git history), LLM reasoning layer, HTML/JSON/Markdown
+  reports. `argus scan` works end-to-end. *(Semgrep optional — it has no native Windows build.)*
+- 🚧 **Phase 2 — Attack agents (MVP):** ReconBot, Injector (SQLi: error/time/boolean), and
+  AuthBreaker (JWT weak-secret cracking, alg:none, cookie flags) driven by an orchestration
+  loop. `argus attack --url <running-app>` works end-to-end. The remaining 10 agents and the
+  Docker auto-sandbox are in progress.
+- ⏳ **GUI:** Tauri + React desktop app (next).
+
+Test suite: 36 unit tests (`pytest`).
 
 ## License
 
