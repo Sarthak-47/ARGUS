@@ -65,8 +65,10 @@ Active development, built in phase order (see [`ARGUS_CONTEXT.md`](ARGUS_CONTEXT
   <running-app>` works end-to-end. Remaining agents (IDOR, Fuzzer, FileAttacker, RaceCondition,
   WebSocket) and the Docker auto-sandbox are in progress.
 - 🚧 **GUI:** React + Vite + TypeScript desktop UI — all five screens (Dashboard, New Scan,
-  Live Attack, Reports, Settings) ported from the design and working with the live-attack
-  animation. Tauri shell + live wiring to the Python engine are next.
+  Live Attack, Reports, Settings) ported from the design with the live-attack animation. The
+  Reports screen renders **real engine output**: drop an `argus scan --format json` result at
+  `gui/public/report.json` and it shows actual findings/risk (falls back to demo data). The
+  Tauri shell for native packaging is the remaining step.
 
 Test suite: 40 unit tests (`pytest`).
 
