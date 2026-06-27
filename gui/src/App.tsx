@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { C, FONT } from "./theme";
 import { useStore } from "./store";
 import { Sidebar } from "./components/Sidebar";
@@ -10,6 +11,11 @@ import { Settings } from "./screens/Settings";
 
 export default function App() {
   const screen = useStore((s) => s.screen);
+  const loadReport = useStore((s) => s.loadReport);
+
+  useEffect(() => {
+    loadReport();
+  }, [loadReport]);
 
   return (
     <div style={{ position: "fixed", inset: 0, display: "flex", background: C.obsidian, color: C.parchment, fontFamily: FONT.body, overflow: "hidden" }}>

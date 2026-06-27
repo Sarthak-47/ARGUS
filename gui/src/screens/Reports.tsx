@@ -1,23 +1,32 @@
-import { C, FONT, sevColor } from "../theme";
+import { C, FONT, sevColor, bandColor } from "../theme";
 import { FINDINGS } from "../data";
 import { useStore } from "../store";
 import { GreekKeyDivider } from "../components/Decor";
 
 export function Reports() {
   const s = useStore();
+  const live = s.report;
+  const allFindings = live ? live.findings : FINDINGS;
+  const target = live ? live.target : "github.com/user/ecommerce-app";
+
   const counts = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 } as Record<string, number>;
-  FINDINGS.forEach((f) => (counts[f.severity] = (counts[f.severity] || 0) + 1));
-  const filtered = s.filter === "All" ? FINDINGS : FINDINGS.filter((f) => f.severity === s.filter.toUpperCase());
-  const sel = FINDINGS.find((f) => f.id === s.selectedId) || null;
+  allFindings.forEach((f) => (counts[f.severity] = (counts[f.severity] || 0) + 1));
+  const filtered = s.filter === "All" ? allFindings : allFindings.filter((f) => f.severity === s.filter.toUpperCase());
+  const sel = allFindings.find((f) => f.id === s.selectedId) || null;
 
   return (
     <section style={{ display: "flex", height: "100%", minHeight: 0, position: "relative", overflow: "hidden" }}>
       <div style={{ flex: 1, minWidth: 0, overflowY: "auto", padding: "32px 42px 64px 42px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
-          <div style={{ fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.22em", color: C.stoneText }}>
-            ARGUS <span style={{ color: C.relief }}>/</span>{" "}
-            <span style={{ fontFamily: FONT.code, letterSpacing: 0, fontSize: 12, color: C.parchment }}>github.com/user/ecommerce-app</span>{" "}
-            <span style={{ color: C.relief }}>/</span> <span style={{ color: C.goldenrod }}>REPORT</span>
+          <div style={{ fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.22em", color: C.stoneText, display: "flex", alignItems: "center", gap: 10 }}>
+            <span>
+              ARGUS <span style={{ color: C.relief }}>/</span>{" "}
+              <span style={{ fontFamily: FONT.code, letterSpacing: 0, fontSize: 12, color: C.parchment }}>{target}</span>{" "}
+              <span style={{ color: C.relief }}>/</span> <span style={{ color: C.goldenrod }}>REPORT</span>
+            </span>
+            <span style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 12, letterSpacing: 0, color: live ? C.goldenrod : C.stoneText }}>
+              {live ? "● live data" : "○ demo data"}
+            </span>
           </div>
           <button className="btn-ghost" style={{ fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.16em", color: C.bronze, background: "transparent", border: `1px solid ${C.bronze}`, padding: "10px 18px", cursor: "pointer" }}>
             EXPORT REPORT
@@ -28,8 +37,12 @@ export function Reports() {
         <div style={{ border: `1px solid ${C.relief}`, background: C.stoneDark, padding: 38, display: "flex", alignItems: "center", gap: 52, marginBottom: 6 }}>
           <div style={{ textAlign: "center", paddingRight: 52, borderRight: `1px solid ${C.relief}` }}>
             <div style={{ fontFamily: FONT.display, fontSize: 10, letterSpacing: "0.22em", color: C.stoneText, marginBottom: 12 }}>RISK SCORE</div>
-            <div style={{ fontFamily: FONT.display, fontSize: 78, fontWeight: 700, color: C.sienna, lineHeight: 0.8 }}>{s.reportRisk}</div>
-            <div style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 16, letterSpacing: "0.04em", color: C.sienna, marginTop: 10 }}>High</div>
+            <div style={{ fontFamily: FONT.display, fontSize: 78, fontWeight: 700, color: live ? bandColor(live.riskScore) : C.sienna, lineHeight: 0.8 }}>
+              {live ? live.riskScore : s.reportRisk}
+            </div>
+            <div style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 16, letterSpacing: "0.04em", color: live ? bandColor(live.riskScore) : C.sienna, marginTop: 10 }}>
+              {live ? live.band : "High"}
+            </div>
           </div>
           <div style={{ display: "flex", gap: 44, flex: 1 }}>
             {(["CRITICAL", "HIGH", "MEDIUM", "LOW"] as const).map((lbl) => (

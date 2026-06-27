@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { AGENTS, TIMELINE, type AgentState, type FeedLine } from "./data";
+import { mapReport, type LoadedReport } from "./adapter";
 
 export type Screen = "dashboard" | "scan" | "live" | "report" | "settings";
 
@@ -39,8 +40,11 @@ interface State {
   reportRisk: number;
   // settings
   provider: string;
+  // real engine data (null => use bundled demo data)
+  report: LoadedReport | null;
 
   setScreen: (s: Screen) => void;
+  loadReport: () => Promise<void>;
   toggleAgent: (n: string) => void;
   selectAllAgents: () => void;
   togglePhase: (p: "phase1" | "phase2") => void;
@@ -76,6 +80,21 @@ export const useStore = create<State>((set, get) => ({
   selectedId: null,
   reportRisk: 0,
   provider: "Groq",
+  report: null,
+
+  loadReport: async () => {
+    // Pull a real Argus report if one was dropped into the app's public dir.
+    try {
+      const res = await fetch("report.json", { cache: "no-store" });
+      if (!res.ok) return;
+      const json = await res.json();
+      if (json && Array.isArray(json.findings)) {
+        set({ report: mapReport(json) });
+      }
+    } catch {
+      /* no report available — keep demo data */
+    }
+  },
 
   setScreen: (s) => {
     set({ screen: s, selectedId: null });
