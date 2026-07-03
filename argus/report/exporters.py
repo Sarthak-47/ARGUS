@@ -79,6 +79,10 @@ def to_sarif(result: ScanResult) -> str:
             "message": {"text": _sarif_message(f)},
             "properties": {"severity": f.severity.value, "confidence": f.confidence},
         }
+        if f.poc:
+            entry["properties"]["poc_curl"] = f.poc.get("curl", "")
+            entry["properties"]["poc_request"] = f.poc.get("request", "")
+            entry["properties"]["poc_response"] = f.poc.get("response", "")
         if f.file:
             region = {"startLine": f.line} if f.line else {"startLine": 1}
             entry["locations"] = [{

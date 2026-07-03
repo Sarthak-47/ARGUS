@@ -114,6 +114,7 @@
       {% if f.description %}<div class="kv">WHAT IS IT</div><div class="desc">{{ f.description }}</div>{% endif %}
       {% if f.evidence %}<div class="kv">EVIDENCE</div><pre>{{ f.evidence }}</pre>{% endif %}
       {% if f.exploit %}<div class="kv">EXPLOIT</div><div class="desc">{{ f.exploit }}</div>{% endif %}
+      {% if f.poc and f.poc.curl %}<div class="kv">PROOF OF CONCEPT</div><pre>{{ f.poc.curl }}</pre>{% endif %}
       {% if f.fix %}<div class="kv">FIX</div><pre>{{ f.fix }}</pre>{% endif %}
     </div>
   </div>

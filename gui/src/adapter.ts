@@ -22,6 +22,7 @@ export interface EngineFinding {
   cwe?: string | null;
   confidence?: string;
   confirmed?: boolean;
+  poc?: { type?: string; curl?: string; request?: string; response?: string } | null;
 }
 
 export interface EngineReport {
@@ -83,11 +84,11 @@ export function mapReport(json: EngineReport): LoadedReport {
     agent: detectorToAgent(f.detector),
     cvss: f.cvss != null ? String(f.cvss) : "—",
     whatIs: f.description || "",
-    // Phase-1 findings carry a code/evidence snippet rather than HTTP; Phase-2
-    // findings put request/response detail in evidence. Show what we have.
-    request: f.evidence || "",
-    response: f.confirmed ? "Exploit confirmed by Argus." : "",
-    repro: f.exploit || "",
+    // Prefer a real captured proof-of-concept (Step 2) over generic evidence —
+    // it's a reproducible request/response, not just a matched snippet.
+    request: f.poc?.request || f.evidence || "",
+    response: f.poc?.response || (f.confirmed ? "Exploit confirmed by Argus." : ""),
+    repro: f.poc?.curl || f.exploit || "",
     fix: f.fix || "",
   }));
 

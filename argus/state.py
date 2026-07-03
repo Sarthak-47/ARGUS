@@ -69,6 +69,7 @@ def load_result() -> ScanResult | None:
             evidence=fd.get("evidence", ""),
             exploit=fd.get("exploit", ""),
             fix=fd.get("fix", ""),
+            poc=fd.get("poc", {}),
             cvss=fd.get("cvss"),
             cwe=fd.get("cwe"),
             confidence=fd.get("confidence", "medium"),
