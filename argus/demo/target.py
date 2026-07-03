@@ -100,6 +100,8 @@ class _Handler(BaseHTTPRequestHandler):
                 "<a href='/graphql'>api</a>"
                 "<form action='/transfer' method='post'>"
                 "<input type='hidden' name='amount' value='100'><input name='to'></form>"
+                "<form action='/api/redeem' method='post'>"
+                "<input name='code' value='SAVE10'></form>"
                 "</body></html>"
             ).encode()
             self._send(200, "text/html", body, cookie=f"session={_JWT}")
@@ -147,6 +149,12 @@ class _Handler(BaseHTTPRequestHandler):
                 "data": {"__typename": "Query", "__schema": {"queryType": {"name": "Query"},
                          "types": [{"name": "User", "kind": "OBJECT"}]}}
             }).encode())
+        elif u.path == "/api/redeem":
+            # Deliberately vulnerable: no state tracking at all, so the "same" coupon
+            # code can be redeemed any number of times — the stackable-discount
+            # business-logic pattern BusinessLogicAgent is built to catch.
+            self._send(200, "application/json",
+                       json.dumps({"status": "redeemed", "discount": "10%"}).encode())
         else:
             self._send(200, "text/plain", b"ok:" + raw[:40])
 
