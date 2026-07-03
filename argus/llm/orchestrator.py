@@ -23,6 +23,7 @@ from argus.agents.graphqlagent import GraphQLAgent
 from argus.agents.headerpoker import HeaderPoker
 from argus.agents.idorhunter import IDORHunter
 from argus.agents.injector import Injector
+from argus.agents.mcpsecurity import MCPSecurityAgent
 from argus.agents.racecondition import RaceCondition
 from argus.agents.reconbot import ReconBot
 from argus.agents.ssrfprober import SSRFProber
@@ -46,6 +47,7 @@ AGENT_REGISTRY = {
     "racecondition": RaceCondition,
     "graphqlagent": GraphQLAgent,
     "websocketagent": WebSocketAgent,
+    "mcpsecurity": MCPSecurityAgent,
 }
 
 # Default priority order for the agents we run after recon. CrawlerBot runs early
@@ -53,7 +55,7 @@ AGENT_REGISTRY = {
 _DEFAULT_ORDER = [
     "crawlerbot", "injector", "authbreaker", "idorhunter", "xsshunter",
     "ssrfprober", "headerpoker", "csrfhunter", "fileattacker", "graphqlagent",
-    "websocketagent", "fuzzer", "racecondition",
+    "websocketagent", "mcpsecurity", "fuzzer", "racecondition",
 ]
 
 
