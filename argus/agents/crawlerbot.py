@@ -84,7 +84,7 @@ class CrawlerBot(BaseAgent):
                     confidence="medium",
                 ))
 
-        await gather_limited([probe(p, l, s) for p, l, s in _PATHS], limit=ctx.semaphore._value or 8)
+        await gather_limited([probe(p, label, sev) for p, label, sev in _PATHS], limit=ctx.semaphore._value or 8)
         await self._backup_sweep(ctx, not_found)
 
         report.requests_sent = ctx.requests_sent

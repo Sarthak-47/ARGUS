@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
-from argus.agents.base import AgentReport, AttackContext, BaseAgent, Endpoint
+from argus.agents.base import AgentReport, AttackContext, BaseAgent
 from argus.models import Finding, Severity
 
 _INT_SEG = re.compile(r"/(\d{1,12})(?=/|$)")

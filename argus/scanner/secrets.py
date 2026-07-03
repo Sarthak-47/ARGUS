@@ -162,7 +162,7 @@ def scan_git_history(root: Path, max_commits: int = 200) -> list[Finding]:
     """Scan recent git history for secrets that were later removed."""
     try:
         from git import Repo
-        from git.exc import InvalidGitRepositoryError, GitCommandError
+        from git.exc import GitCommandError
     except ImportError:
         return []
 

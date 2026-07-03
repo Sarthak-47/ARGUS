@@ -11,14 +11,6 @@ import sys
 from contextlib import contextmanager
 
 from rich.console import Console
-
-# Windows consoles default to cp1252 and choke on the design glyphs (◈, ■, —).
-# Reconfigure the standard streams to UTF-8 so Argus renders everywhere.
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
-    except (AttributeError, ValueError):
-        pass
 from rich.panel import Panel
 from rich.progress import (
     BarColumn,
@@ -31,6 +23,16 @@ from rich.table import Table
 from rich.text import Text
 
 from argus.models import ScanResult, Severity
+
+
+# Windows consoles default to cp1252 and choke on the design glyphs (◈, ■, —).
+# Reconfigure the standard streams to UTF-8 so Argus renders everywhere. Done at
+# import time (before any Console write) but after imports to keep linters happy.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+    except (AttributeError, ValueError):
+        pass
 
 console = Console()
 

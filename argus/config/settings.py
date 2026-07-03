@@ -12,7 +12,6 @@ import os
 from pathlib import Path
 from typing import Any
 
-import platformdirs
 import tomli_w
 
 try:  # Python 3.11+
