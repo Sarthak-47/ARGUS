@@ -35,6 +35,8 @@ dependencies = [
 # Heavy / platform-specific tools. Installed on demand; Argus degrades gracefully without them.
 semgrep = ["semgrep>=1.50"]
 audit = ["pip-audit>=2.7"]
+# DOM-XSS/SPA testing (DomXSSHunter). Also run `playwright install chromium` once installed.
+browser = ["playwright>=1.45"]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.4"]
 
 [project.scripts]

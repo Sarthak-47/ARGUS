@@ -18,6 +18,7 @@ from argus.agents.base import AgentReport, AttackContext
 from argus.agents.businesslogic import BusinessLogicAgent
 from argus.agents.crawlerbot import CrawlerBot
 from argus.agents.csrfhunter import CSRFHunter
+from argus.agents.domxss import DomXSSHunter
 from argus.agents.fileattacker import FileAttacker
 from argus.agents.fuzzer import Fuzzer
 from argus.agents.graphqlagent import GraphQLAgent
@@ -50,12 +51,15 @@ AGENT_REGISTRY = {
     "websocketagent": WebSocketAgent,
     "mcpsecurity": MCPSecurityAgent,
     "businesslogic": BusinessLogicAgent,
+    "domxss": DomXSSHunter,
 }
 
 # Default priority order for the agents we run after recon. CrawlerBot runs early
 # to widen the surface; high-signal exploit agents next; fuzz/race last (noisier).
 # BusinessLogicAgent sits late so the surface it reasons over is as complete as
 # possible — it silently no-ops without a configured LLM provider (see its docstring).
+# DomXSSHunter is deliberately NOT in this list — it needs the optional `browser`
+# extra (Playwright + a Chromium download) and only runs via --agents domxss.
 _DEFAULT_ORDER = [
     "crawlerbot", "injector", "authbreaker", "idorhunter", "xsshunter",
     "ssrfprober", "headerpoker", "csrfhunter", "fileattacker", "graphqlagent",
