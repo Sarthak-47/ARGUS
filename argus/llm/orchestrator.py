@@ -15,6 +15,7 @@ import httpx
 
 from argus.agents.authbreaker import AuthBreaker
 from argus.agents.base import AgentReport, AttackContext
+from argus.agents.businesslogic import BusinessLogicAgent
 from argus.agents.crawlerbot import CrawlerBot
 from argus.agents.csrfhunter import CSRFHunter
 from argus.agents.fileattacker import FileAttacker
@@ -48,14 +49,17 @@ AGENT_REGISTRY = {
     "graphqlagent": GraphQLAgent,
     "websocketagent": WebSocketAgent,
     "mcpsecurity": MCPSecurityAgent,
+    "businesslogic": BusinessLogicAgent,
 }
 
 # Default priority order for the agents we run after recon. CrawlerBot runs early
 # to widen the surface; high-signal exploit agents next; fuzz/race last (noisier).
+# BusinessLogicAgent sits late so the surface it reasons over is as complete as
+# possible — it silently no-ops without a configured LLM provider (see its docstring).
 _DEFAULT_ORDER = [
     "crawlerbot", "injector", "authbreaker", "idorhunter", "xsshunter",
     "ssrfprober", "headerpoker", "csrfhunter", "fileattacker", "graphqlagent",
-    "websocketagent", "mcpsecurity", "fuzzer", "racecondition",
+    "websocketagent", "mcpsecurity", "businesslogic", "fuzzer", "racecondition",
 ]
 
 

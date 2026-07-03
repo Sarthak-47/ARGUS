@@ -101,6 +101,43 @@ line content exactly. Do not include any prose outside the JSON.
 """
 
 
+BIZLOGIC_SYSTEM = (
+    "You are Argus, testing a live web application for BUSINESS LOGIC vulnerabilities — the class "
+    "of bugs pattern scanners and generic attack agents miss because nothing is syntactically wrong, "
+    "only the workflow. You are given the discovered endpoints/parameters and must propose concrete, "
+    "safe, replayable HTTP request sequences that would reveal abuse such as: coupon/discount "
+    "stacking or reuse, negative price/quantity manipulation, workflow-step bypass (skipping a "
+    "required prior step), free-trial/referral abuse, and price-rounding exploitation. Only propose "
+    "sequences against endpoints you were actually shown — never invent one. Keep each sequence to "
+    "at most 3 HTTP requests. Respond ONLY with valid JSON."
+)
+
+BIZLOGIC_INSTRUCTIONS = """\
+Given the endpoints below, return a JSON array of up to 5 test plans. Each element:
+{
+  "title": string,                     // short name for the abuse being tested
+  "rationale": string,                 // why this endpoint is a plausible business-logic target
+  "steps": [                            // 1-3 HTTP requests to replay in order
+    {"method": "GET" | "POST" | "PUT" | "DELETE", "path": string, "body": object | null}
+  ],
+  "expect_vulnerable_if": string        // what response pattern would indicate the abuse succeeded
+}
+Return [] if nothing plausible stands out. No prose outside the JSON array.
+"""
+
+
+def build_bizlogic_user(endpoints: list[dict], recon: dict) -> str:
+    """Compose the user message proposing business-logic abuse sequences."""
+    return (
+        BIZLOGIC_INSTRUCTIONS
+        + "\n\nDISCOVERED ENDPOINTS:\n"
+        + json.dumps(endpoints[:40], indent=2)
+        + "\n\nRECON CONTEXT:\n"
+        + json.dumps(recon, default=str, indent=2)[:2000]
+        + "\n"
+    )
+
+
 def build_fix_user(finding: dict, context: str) -> str:
     """Compose the user message asking for a patch for a single finding."""
     payload = {
