@@ -202,6 +202,7 @@ def run_attack(
     banner: bool = True,
 ) -> ScanResult | None:
     from argus.llm.orchestrator import AGENT_REGISTRY, run_attack_sync
+    from argus.llm.provider import get_provider
     from argus.sandbox.docker_manager import availability_note
     from argus.state import load_result, save_result
 
@@ -231,6 +232,14 @@ def run_attack(
     prior = load_result()
     prior_findings = prior.findings if prior else []
 
+    # Resolve an LLM provider once, if configured — enables provider-gated agents
+    # (BusinessLogicAgent) without requiring one; raw HTTP agents ignore it entirely.
+    settings = load_settings()
+    provider = get_provider(settings)
+    if provider is not None:
+        out.info(f"LLM provider available: [yellow3]{provider.name}[/] ({provider.model}) — "
+                 "business-logic reasoning enabled.")
+
     out.step(f"Target: [wheat1]{base_url}[/]")
     out.step("Deploying agents… (ReconBot first)")
 
@@ -241,7 +250,8 @@ def run_attack(
             out.console.print(f"  [dark_orange3]\\[{agent}][/] [grey58]{text}[/]")
 
     findings, reports = run_attack_sync(
-        base_url, requested_agents=requested, prior_findings=prior_findings, on_event=feed
+        base_url, requested_agents=requested, prior_findings=prior_findings,
+        provider=provider, on_event=feed,
     )
 
     result = ScanResult(target=base_url, phase="attack")

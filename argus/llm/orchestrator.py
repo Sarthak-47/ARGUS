@@ -80,6 +80,7 @@ async def run_attack_async(
     requested_agents: list[str] | None = None,
     prior_findings: list[Finding] | None = None,
     use_callback: bool = True,
+    provider=None,
     concurrency: int = 10,
     on_event=None,
 ) -> tuple[list[Finding], list[AgentReport]]:
@@ -107,6 +108,7 @@ async def run_attack_async(
                 concurrency=concurrency,
                 prior_findings=prior,
                 callback=callback,
+                provider=provider,
                 on_event=on_event,
             )
 

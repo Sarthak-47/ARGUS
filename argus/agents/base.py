@@ -56,6 +56,7 @@ class AttackContext:
         concurrency: int = 10,
         prior_findings: list[Finding] | None = None,
         callback=None,
+        provider=None,
         on_event: Callable[[str, str, str], None] | None = None,
     ):
         self.base_url = base_url.rstrip("/")
@@ -66,6 +67,7 @@ class AttackContext:
         self.recon: dict[str, Any] = {}
         self.callback = callback                      # CallbackServer | None (blind detection)
         self.callback_host = getattr(callback, "base_url", None)
+        self.provider = provider                       # BaseProvider | None — LLM access for agents
         self.semaphore = asyncio.Semaphore(concurrency)
         self._on_event = on_event
         self.requests_sent = 0
@@ -137,6 +139,23 @@ class BaseAgent:
         start = time.perf_counter()
         resp = await self._request(ctx, method, url, **kwargs)
         return resp, time.perf_counter() - start
+
+    # ----- LLM access (opt-in; most agents never touch this) -----
+    async def complete(self, ctx: AttackContext, system: str, user: str, *, json_mode: bool = False) -> str | None:
+        """Call the configured LLM provider, or return None if none is set / it fails.
+
+        ``BaseProvider.complete`` is synchronous (blocking httpx calls), so it runs
+        in a thread to avoid stalling the event loop other agents share.
+        """
+        if ctx.provider is None:
+            return None
+        from argus.llm.provider import LLMError
+
+        try:
+            result = await asyncio.to_thread(ctx.provider.complete, system, user, json_mode=json_mode)
+        except LLMError:
+            return None
+        return result.text
 
 
 async def gather_limited(coros: list[Awaitable], limit: int = 20) -> list:
