@@ -1,0 +1,14 @@
+.git
+.venv
+**/__pycache__
+**/*.pyc
+gui/node_modules
+gui/dist
+argus-report
+_design_export
+.pytest_cache
+.ruff_cache
+.mypy_cache
+*.egg-info
+dist
+build

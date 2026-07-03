@@ -1,0 +1,33 @@
+# Example: drop this into any repo's .github/workflows/ to scan it with Argus and
+# publish findings to the Security tab. This file is a template for consumers —
+# Argus's own CI is in ci.yml.
+name: Argus Security Scan (example)
+
+on:
+  workflow_dispatch:      # example template — run manually
+  # pull_request:         # uncomment to scan every PR
+  #   branches: [main]
+
+permissions:
+  contents: read
+  security-events: write  # required to upload SARIF to code scanning
+
+jobs:
+  argus:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Argus scan
+        id: argus
+        uses: Sarthak-47/ARGUS@main
+        with:
+          target: "."
+          fail-on: ""       # e.g. "critical" to fail the build on critical findings
+          format: "sarif"
+
+      - name: Upload SARIF to code scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ steps.argus.outputs.sarif-file }}

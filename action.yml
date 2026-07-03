@@ -1,0 +1,57 @@
+name: "Argus Security Scan"
+description: "AI-powered security audit — static analysis with SARIF output for GitHub code scanning."
+author: "Sarthak-47"
+branding:
+  icon: "eye"
+  color: "yellow"
+
+inputs:
+  target:
+    description: "Path or repo URL to scan."
+    required: false
+    default: "."
+  fail-on:
+    description: "Fail the job if a finding at/above this severity exists (critical|high|medium|low). Empty = never fail."
+    required: false
+    default: ""
+  format:
+    description: "Report format to produce (sarif|json|html|markdown)."
+    required: false
+    default: "sarif"
+  version:
+    description: "Argus version/ref to install (PyPI version, or a git ref). Default: latest from PyPI."
+    required: false
+    default: ""
+
+outputs:
+  sarif-file:
+    description: "Path to the generated SARIF file."
+    value: ${{ steps.scan.outputs.sarif-file }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install Argus
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.version }}" ]; then
+          pip install "argus-sec==${{ inputs.version }}" \
+            || pip install "git+https://github.com/Sarthak-47/ARGUS.git@${{ inputs.version }}"
+        else
+          pip install argus-sec \
+            || pip install "git+https://github.com/Sarthak-47/ARGUS.git"
+        fi
+
+    - name: Run Argus scan
+      id: scan
+      shell: bash
+      run: |
+        FAIL_FLAG=""
+        if [ -n "${{ inputs.fail-on }}" ]; then FAIL_FLAG="--fail-on ${{ inputs.fail-on }}"; fi
+        argus scan "${{ inputs.target }}" --no-llm --format "${{ inputs.format }}" $FAIL_FLAG
+        echo "sarif-file=argus-report/argus.sarif" >> "$GITHUB_OUTPUT"
