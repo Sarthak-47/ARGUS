@@ -6,6 +6,8 @@
 
 *Point it at a repo. It reads the code, spins up the app, and attacks it.*
 
+[![CI](https://github.com/Sarthak-47/ARGUS/actions/workflows/ci.yml/badge.svg)](https://github.com/Sarthak-47/ARGUS/actions/workflows/ci.yml)
+
 </div>
 
 ---
