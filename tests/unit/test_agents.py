@@ -14,8 +14,10 @@ import httpx
 import pytest
 
 from argus.agents.authbreaker import AuthBreaker, _b64url_decode, _b64url_encode
+from argus.agents.base import AttackContext, BaseAgent
 from argus.agents.injector import _with_param
 from argus.llm.orchestrator import _select_order
+from argus.llm.provider import LLMResult
 from argus.models import Finding, Severity
 from argus.sandbox.callback_server import CallbackServer
 
@@ -135,3 +137,50 @@ async def test_callback_server_records_hit():
             await client.get(url)
         assert cb.was_hit(token) is True
         assert cb.hits(token)[0]["path"].strip("/").startswith(token[:6])
+
+
+class _FakeProvider:
+    name = "fake"
+    model = "fake-model"
+
+    def __init__(self, text: str = '{"ok": true}'):
+        self._text = text
+
+    def complete(self, system, user, *, json_mode=False):
+        return LLMResult(self._text, self.name, self.model)
+
+
+class _RaisingProvider:
+    def complete(self, system, user, *, json_mode=False):
+        from argus.llm.provider import LLMError
+        raise LLMError("boom")
+
+
+@pytest.mark.asyncio
+async def test_base_agent_complete_returns_none_without_provider():
+    async with httpx.AsyncClient() as client:
+        ctx = AttackContext("http://t", client=client, provider=None)
+        result = await BaseAgent().complete(ctx, "sys", "user")
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_base_agent_complete_returns_provider_text():
+    async with httpx.AsyncClient() as client:
+        ctx = AttackContext("http://t", client=client, provider=_FakeProvider('{"x": 1}'))
+        result = await BaseAgent().complete(ctx, "sys", "user", json_mode=True)
+    assert result == '{"x": 1}'
+
+
+@pytest.mark.asyncio
+async def test_base_agent_complete_returns_none_on_llm_error():
+    async with httpx.AsyncClient() as client:
+        ctx = AttackContext("http://t", client=client, provider=_RaisingProvider())
+        result = await BaseAgent().complete(ctx, "sys", "user")
+    assert result is None
+
+
+def test_attack_context_provider_defaults_to_none():
+    import httpx as _httpx
+    ctx = AttackContext("http://t", client=_httpx.AsyncClient())
+    assert ctx.provider is None
