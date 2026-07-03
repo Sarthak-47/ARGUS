@@ -101,5 +101,19 @@ def test_state_save_load_roundtrip_preserves_poc():
     assert top.poc.get("curl") == "curl -i -X GET 'http://t/users?name=x'"
 
 
+def test_state_save_load_roundtrip_preserves_metadata():
+    r = ScanResult(target="t", phase="scan")
+    r.add(Finding(title="X", severity=Severity.HIGH, category="c", file="f.py", line=1,
+                  metadata={"llm_enriched": True}))
+    r.add(Finding(title="X", severity=Severity.HIGH, category="c", file="f.py", line=1,
+                  detector="semgrep"))  # collides -> merges, producing merged_count/merged_detectors
+    save_result(r)
+    loaded = load_result()
+    top = loaded.sorted_findings()[0]
+    assert top.metadata.get("llm_enriched") is True
+    assert top.metadata.get("merged_count") == 2
+    assert "semgrep" in top.metadata.get("merged_detectors", [])
+
+
 def test_load_result_none_when_absent():
     assert load_result() is None

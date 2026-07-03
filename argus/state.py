@@ -75,6 +75,7 @@ def load_result() -> ScanResult | None:
             confidence=fd.get("confidence", "medium"),
             references=fd.get("references", []),
             confirmed=fd.get("confirmed", False),
+            metadata=fd.get("metadata", {}),
         )
         result.add(f)
     return result
