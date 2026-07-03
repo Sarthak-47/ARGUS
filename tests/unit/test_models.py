@@ -21,8 +21,10 @@ def test_finding_location_prefers_endpoint():
 
 def test_risk_score_saturates_at_100():
     r = ScanResult(target="t")
-    for _ in range(5):
-        r.add(Finding(title="c", severity=Severity.CRITICAL))  # 40 each -> 200 raw
+    for i in range(5):
+        # distinct locations: identical, unlocated findings would legitimately dedup
+        # (see test_dedup.py) — these represent 5 genuinely separate vulnerabilities.
+        r.add(Finding(title="c", severity=Severity.CRITICAL, file=f"f{i}.py", line=1))  # 40 each -> 200 raw
     assert r.risk_score == 100
     assert r.risk_band == "CRITICAL"
 

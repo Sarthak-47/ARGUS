@@ -80,6 +80,7 @@ class Finding:
     evidence: str = ""              # matched snippet / HTTP request-response
     exploit: str = ""               # exploit scenario
     fix: str = ""                   # concrete remediation, ideally a diff
+    poc: dict[str, Any] = field(default_factory=dict)  # reproducible proof: {"type","curl","request","response"}
     cvss: float | None = None
     cwe: str | None = None
     confidence: str = "medium"      # low | medium | high
@@ -99,6 +100,17 @@ class Finding:
         if self.file and self.line:
             return f"{self.file}:{self.line}"
         return self.file or "—"
+
+    def dedup_key(self) -> tuple:
+        """Identity used to merge near-duplicate findings from different detectors.
+
+        Keyed on category + location + line + normalized title (not on ``id``, which
+        is random per-instance). Two findings collide only when they plausibly describe
+        the same underlying issue at the same spot — safer than keying on detector alone,
+        which would wrongly merge distinct bugs that happen to share a line.
+        """
+        loc = (self.file or self.endpoint or "").lower()
+        return (self.category, loc, self.line, self.title.strip().lower())
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -135,6 +147,9 @@ class CodebaseMap:
         return d
 
 
+_CONFIDENCE_RANK = {"low": 0, "medium": 1, "high": 2}
+
+
 @dataclass
 class ScanResult:
     """The complete result of a scan/attack/audit — what the report is built from."""
@@ -147,13 +162,41 @@ class ScanResult:
     finished_at: float | None = None
     llm_provider: str | None = None
     errors: list[str] = field(default_factory=list)
+    _seen: dict[tuple, Finding] = field(default_factory=dict, init=False, repr=False, compare=False)
 
     # ----- aggregation helpers -----
     def add(self, finding: Finding) -> None:
-        self.findings.append(finding)
+        """Append a finding, merging it into an existing near-duplicate if one exists.
+
+        Detectors regularly overlap (a built-in rule and Semgrep flagging the same SQLi
+        line, for instance); without this, the same bug shows up twice in every report.
+        """
+        key = finding.dedup_key()
+        existing = self._seen.get(key)
+        if existing is None:
+            self._seen[key] = finding
+            self.findings.append(finding)
+            return
+
+        if finding.severity.rank > existing.severity.rank:
+            existing.severity = finding.severity
+        if _CONFIDENCE_RANK.get(finding.confidence, 0) > _CONFIDENCE_RANK.get(existing.confidence, 0):
+            existing.confidence = finding.confidence
+        for ref in finding.references:
+            if ref not in existing.references:
+                existing.references.append(ref)
+        if finding.confirmed:
+            existing.confirmed = True
+        if finding.poc and not existing.poc:
+            existing.poc = finding.poc
+        merged = existing.metadata.setdefault("merged_detectors", [existing.detector])
+        if finding.detector not in merged:
+            merged.append(finding.detector)
+        existing.metadata["merged_count"] = existing.metadata.get("merged_count", 1) + 1
 
     def extend(self, findings: list[Finding]) -> None:
-        self.findings.extend(findings)
+        for f in findings:
+            self.add(f)
 
     def counts(self) -> dict[str, int]:
         out = {s.value: 0 for s in Severity}
@@ -187,6 +230,7 @@ class ScanResult:
             "risk_score": self.risk_score,
             "risk_band": self.risk_band,
             "counts": self.counts(),
+            "dedup_merged": sum(1 for f in self.findings if f.metadata.get("merged_count", 1) > 1),
             "codebase_map": self.codebase_map.to_dict() if self.codebase_map else None,
             "findings": [f.to_dict() for f in self.sorted_findings()],
             "started_at": self.started_at,
