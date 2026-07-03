@@ -49,6 +49,16 @@ def setup() -> None:
     run_setup()
 
 
+@app.command()
+def demo(
+    no_attack: bool = typer.Option(False, "--no-attack", help="Static scan only; skip the live attack."),
+) -> None:
+    """Run a zero-setup showcase against a bundled vulnerable app."""
+    from argus.commands.demo_cmd import run_demo
+
+    run_demo(attack=not no_attack)
+
+
 # --------------------------------------------------------------------------- #
 # scan  (Phase 1)
 # --------------------------------------------------------------------------- #
