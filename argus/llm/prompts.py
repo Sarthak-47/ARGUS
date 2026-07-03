@@ -79,3 +79,46 @@ def build_freeform_user(rel_path: str, code: str) -> str:
         + code[:8000]
         + "\n```\n"
     )
+
+
+FIX_SYSTEM = (
+    "You are Argus, a precise application-security engineer writing a minimal patch for one "
+    "finding. You will be shown the finding and the exact lines of code around it. Produce the "
+    "smallest correct fix — do not refactor unrelated code, do not change formatting elsewhere, "
+    "and never invent code you were not shown. If you cannot produce a safe, targeted patch, say "
+    "so honestly. Respond ONLY with valid JSON."
+)
+
+FIX_INSTRUCTIONS = """\
+For the finding below, return a JSON object with exactly these keys:
+{
+  "can_fix": boolean,       // false if a safe, minimal patch isn't possible from the context shown
+  "diff": string,           // a unified diff (---/+++/@@ hunk) touching ONLY the shown file, or ""
+  "explanation": string     // 1-2 sentences on what the patch does and why it's safe
+}
+The diff must apply cleanly against the exact code context shown below — match whitespace and
+line content exactly. Do not include any prose outside the JSON.
+"""
+
+
+def build_fix_user(finding: dict, context: str) -> str:
+    """Compose the user message asking for a patch for a single finding."""
+    payload = {
+        "title": finding.get("title"),
+        "category": finding.get("category"),
+        "severity": finding.get("severity"),
+        "file": finding.get("file"),
+        "line": finding.get("line"),
+        "evidence": finding.get("evidence"),
+        "cwe": finding.get("cwe"),
+        "suggested_fix": finding.get("fix"),
+    }
+    return (
+        FIX_INSTRUCTIONS
+        + "\n\nFINDING:\n"
+        + json.dumps(payload, indent=2)
+        + "\n\nCODE CONTEXT (the lines around the finding, with line numbers):\n"
+        + "```\n"
+        + context[:4000]
+        + "\n```\n"
+    )

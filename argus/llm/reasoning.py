@@ -1,21 +1,25 @@
 """LLM reasoning layer over deterministic findings.
 
-Two jobs implemented here:
+Three jobs implemented here:
   - enrich_findings: validate/explain/severity-justify each finding in context.
   - freeform_review: read high-risk files in full for logic flaws (--deep).
-Both are best-effort: any LLM/parse error leaves the original findings intact.
+  - generate_fixes: produce a minimal unified-diff patch per finding (`argus fix`).
+All three are best-effort: any LLM/parse error leaves the original state intact.
 """
 
 from __future__ import annotations
 
 import json
 import re
+from dataclasses import dataclass
 from pathlib import Path
 
 from argus.llm.prompts import (
     ENRICH_SYSTEM,
+    FIX_SYSTEM,
     FREEFORM_SYSTEM,
     build_enrich_user,
+    build_fix_user,
     build_freeform_user,
 )
 from argus.llm.provider import BaseProvider, LLMError
@@ -143,3 +147,51 @@ def freeform_review(
                 metadata={"llm_review": True},
             ))
     return out
+
+
+@dataclass
+class FixResult:
+    """A proposed patch for one finding."""
+
+    finding_id: str
+    file: str
+    diff: str
+    explanation: str
+
+
+def generate_fixes(
+    provider: BaseProvider,
+    root: Path,
+    findings: list[Finding],
+    *,
+    max_findings: int = 20,
+    on_progress=None,
+) -> list[FixResult]:
+    """Ask the LLM for a minimal unified diff per fixable finding.
+
+    Only findings with a ``file`` are fixable this way (Phase-2/HTTP findings have
+    no source file to patch). Findings the model can't safely fix, or where the
+    response fails to parse, are silently skipped — same resilience pattern as
+    :func:`enrich_findings`.
+    """
+    fixable = [f for f in findings if f.file][:max_findings]
+    results: list[FixResult] = []
+
+    for i, f in enumerate(fixable):
+        if on_progress:
+            on_progress(i + 1, len(fixable))
+        context = _context_for(root, f)
+        try:
+            res = provider.complete(FIX_SYSTEM, build_fix_user(f.to_dict(), context), json_mode=True)
+        except LLMError:
+            continue
+        parsed = _extract_json(res.text)
+        if not isinstance(parsed, dict) or not parsed.get("can_fix") or not parsed.get("diff"):
+            continue
+        results.append(FixResult(
+            finding_id=f.id,
+            file=f.file,
+            diff=str(parsed["diff"]),
+            explanation=str(parsed.get("explanation", "")).strip(),
+        ))
+    return results
