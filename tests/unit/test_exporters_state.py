@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from argus.models import Finding, ScanResult, Severity
-from argus.report.exporters import to_html, to_json, to_markdown, export
+from argus.report.exporters import to_html, to_json, to_markdown, to_sarif, export
 from argus.state import save_result, load_result
 
 
@@ -42,9 +42,24 @@ def test_to_html_renders_branding_and_findings():
     assert "#8B0000" in html  # critical colour present
 
 
+def test_to_sarif_is_valid_2_1_0():
+    data = json.loads(to_sarif(_sample()))
+    assert data["version"] == "2.1.0"
+    run = data["runs"][0]
+    assert run["tool"]["driver"]["name"] == "Argus"
+    assert len(run["results"]) == 2
+    # CRITICAL/HIGH map to error level
+    levels = {r["level"] for r in run["results"]}
+    assert "error" in levels
+    # a file-based finding carries a physical location
+    located = [r for r in run["results"] if "locations" in r]
+    assert located and "physicalLocation" in located[0]["locations"][0]
+
+
 def test_export_writes_each_format(tmp_path):
     r = _sample()
-    for fmt, name in [("html", "index.html"), ("json", "report.json"), ("markdown", "report.md")]:
+    for fmt, name in [("html", "index.html"), ("json", "report.json"),
+                      ("markdown", "report.md"), ("sarif", "argus.sarif")]:
         path = export(r, fmt, str(tmp_path / fmt))
         assert path.exists() and path.name == name
 

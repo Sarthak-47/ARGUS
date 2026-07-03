@@ -121,6 +121,7 @@ def run_scan(
     depth: str | None = None,
     no_llm: bool = False,
     export_format: str | None = None,
+    fail_on: str | None = None,
 ) -> ScanResult:
     from argus.state import save_result
 
@@ -140,7 +141,25 @@ def run_scan(
 
     out.console.print()
     out.info("Run [wheat1]argus attack --url <running-app>[/] to actively exploit these findings.")
+
+    _maybe_fail(result, fail_on)
     return result
+
+
+def _maybe_fail(result: ScanResult, fail_on: str | None) -> None:
+    """Exit non-zero when a finding meets/exceeds the --fail-on severity (for CI)."""
+    if not fail_on:
+        return
+    from argus.models import Severity
+
+    threshold = Severity.coerce(fail_on)
+    worst = [f for f in result.findings if f.severity.rank >= threshold.rank]
+    if worst:
+        out.error(
+            f"{len(worst)} finding(s) at or above {threshold.value} "
+            f"(--fail-on {fail_on.lower()}) — failing."
+        )
+        raise typer.Exit(code=2)
 
 
 def _export(result: ScanResult, fmt: str, output: str | None) -> Path:

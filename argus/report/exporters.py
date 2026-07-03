@@ -49,6 +49,80 @@ def to_json(result: ScanResult) -> str:
     return json.dumps(result.to_dict(), indent=2)
 
 
+_SARIF_LEVEL = {
+    "CRITICAL": "error", "HIGH": "error", "MEDIUM": "warning", "LOW": "note", "INFO": "note",
+}
+
+
+def to_sarif(result: ScanResult) -> str:
+    """SARIF 2.1.0 output for GitHub code scanning / any SARIF consumer."""
+    rules: dict[str, dict] = {}
+    results: list[dict] = []
+
+    for f in result.sorted_findings():
+        rule_id = f.detector or f.category or "argus"
+        if rule_id not in rules:
+            rule = {
+                "id": rule_id,
+                "name": f.category or "finding",
+                "shortDescription": {"text": f.title},
+                "defaultConfiguration": {"level": _SARIF_LEVEL.get(f.severity.value, "note")},
+                "properties": {"security-severity": str(f.cvss) if f.cvss else _severity_number(f.severity.value)},
+            }
+            if f.cwe:
+                rule["properties"]["cwe"] = f.cwe
+            rules[rule_id] = rule
+
+        entry: dict = {
+            "ruleId": rule_id,
+            "level": _SARIF_LEVEL.get(f.severity.value, "note"),
+            "message": {"text": _sarif_message(f)},
+            "properties": {"severity": f.severity.value, "confidence": f.confidence},
+        }
+        if f.file:
+            region = {"startLine": f.line} if f.line else {"startLine": 1}
+            entry["locations"] = [{
+                "physicalLocation": {
+                    "artifactLocation": {"uri": f.file},
+                    "region": region,
+                }
+            }]
+        elif f.endpoint:
+            entry["locations"] = [{
+                "logicalLocations": [{"fullyQualifiedName": f.endpoint, "kind": "endpoint"}]
+            }]
+        results.append(entry)
+
+    sarif = {
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [{
+            "tool": {"driver": {
+                "name": "Argus",
+                "informationUri": "https://github.com/Sarthak-47/ARGUS",
+                "version": __import__("argus").__version__,
+                "rules": list(rules.values()),
+            }},
+            "results": results,
+        }],
+    }
+    return json.dumps(sarif, indent=2)
+
+
+def _severity_number(sev: str) -> str:
+    # GitHub maps 'security-severity' 0-10 to its own buckets.
+    return {"CRITICAL": "9.5", "HIGH": "8.0", "MEDIUM": "5.0", "LOW": "3.0", "INFO": "1.0"}.get(sev, "1.0")
+
+
+def _sarif_message(f) -> str:
+    parts = [f.title]
+    if f.description:
+        parts.append(f.description)
+    if f.fix:
+        parts.append(f"Fix: {f.fix}")
+    return " — ".join(parts)
+
+
 def to_markdown(result: ScanResult) -> str:
     lines: list[str] = []
     a = lines.append
@@ -98,6 +172,10 @@ def export(result: ScanResult, fmt: str, output_dir: str) -> Path:
     if fmt == "json":
         path = out / "report.json"
         path.write_text(to_json(result), encoding="utf-8")
+        return path
+    if fmt == "sarif":
+        path = out / "argus.sarif"
+        path.write_text(to_sarif(result), encoding="utf-8")
         return path
     if fmt in ("md", "markdown"):
         path = out / "report.md"
