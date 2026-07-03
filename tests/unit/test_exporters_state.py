@@ -16,6 +16,8 @@ def _sample() -> ScanResult:
         category="injection", detector="rule:py-sql-fstring", file="app.py", line=7,
         evidence="cur.execute('... ' + name)", description="User input flows into SQL.",
         fix="Use parameterised queries.", cwe="CWE-89",
+        poc={"type": "http", "curl": "curl -i -X GET 'http://t/users?name=x'",
+             "request": "GET http://t/users?name=x", "response": "HTTP 500\nSQL syntax error"},
     ))
     r.add(Finding(title="Weak hash", severity=Severity.MEDIUM, category="crypto"))
     return r
@@ -42,6 +44,12 @@ def test_to_html_renders_branding_and_findings():
     assert "#8B0000" in html  # critical colour present
 
 
+def test_to_html_renders_poc_when_present():
+    html = to_html(_sample())
+    assert "PROOF OF CONCEPT" in html
+    assert "curl -i -X GET" in html
+
+
 def test_to_sarif_is_valid_2_1_0():
     data = json.loads(to_sarif(_sample()))
     assert data["version"] == "2.1.0"
@@ -51,8 +59,20 @@ def test_to_sarif_is_valid_2_1_0():
     # CRITICAL/HIGH map to error level
     levels = {r["level"] for r in run["results"]}
     assert "error" in levels
-    # a file-based finding carries a physical location
-    located = [r for r in run["results"] if "locations" in r]
+
+
+def test_to_sarif_includes_poc_properties():
+    data = json.loads(to_sarif(_sample()))
+    results = data["runs"][0]["results"]
+    with_poc = [r for r in results if "poc_curl" in r["properties"]]
+    assert len(with_poc) == 1
+    assert "curl -i -X GET" in with_poc[0]["properties"]["poc_curl"]
+
+
+def test_to_sarif_file_based_finding_has_physical_location():
+    data = json.loads(to_sarif(_sample()))
+    results = data["runs"][0]["results"]
+    located = [r for r in results if "locations" in r]
     assert located and "physicalLocation" in located[0]["locations"][0]
 
 
@@ -72,6 +92,13 @@ def test_state_save_load_roundtrip():
     assert loaded.target == "github.com/user/app"
     assert loaded.risk_score == 48
     assert loaded.sorted_findings()[0].title == "SQL injection in /users"
+
+
+def test_state_save_load_roundtrip_preserves_poc():
+    save_result(_sample())
+    loaded = load_result()
+    top = loaded.sorted_findings()[0]
+    assert top.poc.get("curl") == "curl -i -X GET 'http://t/users?name=x'"
 
 
 def test_load_result_none_when_absent():
