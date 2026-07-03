@@ -151,3 +151,43 @@ async def gather_limited(coros: list[Awaitable], limit: int = 20) -> list:
                 return None
 
     return await asyncio.gather(*(_wrap(c) for c in coros))
+
+
+# Headers that must never appear verbatim in a captured PoC — a security tool must
+# not leak the very credentials it used while proving a vulnerability.
+_SENSITIVE_HEADERS = {"authorization", "cookie", "set-cookie", "x-api-key"}
+_POC_BODY_LIMIT = 2000
+
+
+def build_http_poc(method: str, url: str, resp: httpx.Response, *, body: str | None = None) -> dict[str, str]:
+    """Build a reproducible proof-of-concept from a confirmed HTTP exchange.
+
+    Captures a runnable curl command plus the raw request/response so a confirmed
+    finding is provable, not just asserted — sensitive headers are redacted and the
+    response body is truncated so reports stay a sane size and never echo secrets.
+    """
+    headers: dict[str, str] = {}
+    req = getattr(resp, "request", None)
+    if req is not None:
+        for k, v in req.headers.items():
+            headers[k] = "***REDACTED***" if k.lower() in _SENSITIVE_HEADERS else v
+
+    curl_parts = ["curl", "-i", "-X", method, f"'{url}'"]
+    for k, v in headers.items():
+        curl_parts.append(f"-H '{k}: {v}'")
+    if body:
+        curl_parts.append(f"--data '{body[:500]}'")
+
+    header_lines = "\n".join(f"{k}: {v}" for k, v in headers.items())
+    request_text = f"{method} {url}" + (f"\n{header_lines}" if header_lines else "")
+
+    status = getattr(resp, "status_code", "?")
+    resp_body = (getattr(resp, "text", "") or "")[:_POC_BODY_LIMIT]
+    response_text = f"HTTP {status}\n{resp_body}"
+
+    return {
+        "type": "http",
+        "curl": " ".join(curl_parts),
+        "request": request_text,
+        "response": response_text,
+    }

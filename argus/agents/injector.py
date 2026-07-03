@@ -13,7 +13,7 @@ from __future__ import annotations
 import re
 from urllib.parse import urlencode, urlparse, parse_qs, urlunparse
 
-from argus.agents.base import AgentReport, AttackContext, BaseAgent, Endpoint
+from argus.agents.base import AgentReport, AttackContext, BaseAgent, Endpoint, build_http_poc
 from argus.models import Finding, Severity
 
 # Database error signatures (error-based SQLi).
@@ -118,6 +118,7 @@ class Injector(BaseAgent):
                     cwe="CWE-89",
                     cvss=9.8,
                     confidence="high",
+                    poc=build_http_poc(ep.method, url, resp),
                 ))
                 return True
         return False

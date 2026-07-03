@@ -12,7 +12,7 @@ from __future__ import annotations
 import uuid
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
-from argus.agents.base import AgentReport, AttackContext, BaseAgent, Endpoint
+from argus.agents.base import AgentReport, AttackContext, BaseAgent, Endpoint, build_http_poc
 from argus.models import Finding, Severity
 
 _GUESS_PARAMS = ["q", "search", "name", "query", "s", "id", "redirect", "next", "msg", "error"]
@@ -69,6 +69,7 @@ class XSSHunter(BaseAgent):
                     cwe="CWE-79",
                     cvss=6.1,
                     confidence="high",
+                    poc=build_http_poc(ep.method, url, resp),
                 ))
 
         report.requests_sent = ctx.requests_sent
