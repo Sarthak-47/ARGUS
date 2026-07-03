@@ -21,7 +21,7 @@ from argus.models import ScanResult
 
 
 def _do_scan(target: str, deep: bool, depth: str | None, no_llm: bool) -> ScanResult:
-    from argus.scanner import dependencies, ingestion, rules_builtin, secrets, semgrep_runner
+    from argus.scanner import dependencies, ingestion, rules_builtin, secrets, semgrep_runner, supplychain
 
     settings = load_settings()
     result = ScanResult(target=target, phase="scan")
@@ -59,6 +59,14 @@ def _do_scan(target: str, deep: bool, depth: str | None, no_llm: bool) -> ScanRe
         dep_findings, dep_notes = dependencies.audit_dependencies(root)
         result.extend(dep_findings)
         for note in dep_notes:
+            out.info(note)
+
+        # 4b) Supply-chain manifest analysis ------------------------------------
+        out.step("Checking dependency manifests for supply-chain risk…")
+        manifests = result.codebase_map.dependency_manifests if result.codebase_map else []
+        sc_findings, sc_notes = supplychain.audit_supply_chain(root, manifests)
+        result.extend(sc_findings)
+        for note in sc_notes:
             out.info(note)
 
         # 5) Secret detection --------------------------------------------------
