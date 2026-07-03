@@ -50,6 +50,17 @@ def setup() -> None:
 
 
 @app.command()
+def fix(
+    target: str = typer.Argument(..., help="Repo path to fix (local paths only for --apply)."),
+    apply: bool = typer.Option(False, "--apply", help="Write patches to disk. Default is dry-run (preview only)."),
+) -> None:
+    """Generate LLM-written patches for fixable findings; preview or apply them."""
+    from argus.pipeline import run_fix
+
+    run_fix(target, apply=apply)
+
+
+@app.command()
 def demo(
     no_attack: bool = typer.Option(False, "--no-attack", help="Static scan only; skip the live attack."),
 ) -> None:

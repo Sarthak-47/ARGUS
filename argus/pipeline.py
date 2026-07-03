@@ -270,4 +270,74 @@ def run_audit(target: str, fix: bool = False, agents: str | None = None) -> None
     out.info("Phase 1 complete. For Phase 2, point Argus at the running app:")
     out.info("[wheat1]argus attack --url http://localhost:PORT[/]")
     if fix:
-        out.info("--fix: fix suggestions will be generated once the fix engine lands.")
+        out.console.print()
+        run_fix(target, apply=False)
+
+
+def run_fix(target: str, *, apply: bool = False) -> None:
+    """Generate (and optionally apply) minimal patches for fixable findings.
+
+    Fixable = findings with a ``file`` (Phase-2/HTTP findings have no source file
+    to patch). Requires an LLM provider — there's no deterministic way to write a
+    correct code patch. Dry-run by default; ``apply=True`` writes patches to disk.
+    """
+    from argus.config import load_settings
+    from argus.fix import apply_fixes
+    from argus.llm.provider import get_provider
+    from argus.llm.reasoning import generate_fixes
+    from argus.scanner import ingestion
+
+    out.banner()
+    out.rule(f"AUTO-FIX — {target}")
+
+    result = _do_scan(target, deep=False, depth=None, no_llm=True)
+    fixable = [f for f in result.findings if f.file]
+    if not fixable:
+        out.success("No fixable (file-based) findings.")
+        return
+
+    settings = load_settings()
+    provider = get_provider(settings)
+    if provider is None:
+        out.error("No LLM provider configured — fix generation needs one "
+                  "(run [wheat1]argus setup[/] or [wheat1]argus config --provider ...[/]).")
+        raise typer.Exit(code=1)
+
+    # Re-ingest for a root to read/patch: _do_scan already deleted a remote clone.
+    try:
+        ingested = ingestion.ingest(target)
+    except FileNotFoundError as exc:
+        out.error(str(exc))
+        raise typer.Exit(code=1)
+
+    try:
+        if ingested.cleanup and apply:
+            out.error(
+                "--apply only supports local paths today — a remote clone has nowhere "
+                "persistent to write to. Clone the repo locally and run "
+                "[wheat1]argus fix <local-path> --apply[/]."
+            )
+            raise typer.Exit(code=1)
+
+        out.step(f"Generating fixes via [yellow3]{provider.name}[/] ({provider.model})…")
+        with out.progress() as prog:
+            task = prog.add_task("generating fixes", total=len(fixable[:20]) or 1)
+
+            def cb(done: int, total: int) -> None:
+                prog.update(task, completed=done, total=total)
+
+            fixes = generate_fixes(provider, ingested.root, fixable, on_progress=cb)
+
+        if not fixes:
+            out.warn("No safe, minimal patch could be produced for any finding.")
+            return
+
+        applied = apply_fixes(ingested.root, fixes, apply=apply)
+        out.console.print()
+        if apply:
+            out.success(f"Applied {len(applied)} fix(es). Re-run argus scan to confirm.")
+        else:
+            out.info(f"{len(applied)} fix(es) previewed above (dry-run). Re-run with --apply to write them.")
+    finally:
+        if ingested.cleanup:
+            shutil.rmtree(ingested.root, ignore_errors=True)
