@@ -158,8 +158,12 @@ Nobody else combines all six. That's the gap Argus owns.
 - ✅ **`argus fix`**: LLM-generated patches for fixable findings — dry-run preview or `--apply`.
 - ✅ **`argus demo`**: zero-setup showcase against a bundled vulnerable app.
 - ✅ **GUI**: five screens rendering real engine data, including captured PoCs.
-- ✅ **CI-ready**: SARIF output, `--fail-on`, GitHub Action, green test suite (92 tests).
-- 🚧 Native packaging (Tauri `.exe`/`.dmg`/`.AppImage`) and PyPI publish.
+- ✅ **Desktop shell**: Tauri 2.0 wraps the GUI as a real native app (`npm run tauri build`) —
+  verified ~9MB `.exe` that launches and runs. `desktop-release.yml` builds Windows/macOS/Linux
+  installers on tag. Wiring it to invoke the Python engine directly is the next step.
+- ✅ **CI-ready**: SARIF output, `--fail-on`, GitHub Action, green test suite (103 tests).
+- ✅ **Package verified**: `python -m build` + `twine check` pass; the built wheel installs into
+  a clean venv and runs. `release.yml` publishes to PyPI on tag via trusted publishing.
 
 *Semgrep is optional and layered in when available — it has no native Windows build, so Argus's
 own rules carry the scan there (use the Docker image for full Semgrep).*

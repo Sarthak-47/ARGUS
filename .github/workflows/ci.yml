@@ -59,3 +59,30 @@ jobs:
 
       - name: Type-check & build
         run: npm run build
+
+  desktop:
+    name: Desktop shell (cargo check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux system dependencies (webkitgtk)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            gui/src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('gui/src-tauri/Cargo.lock') }}
+
+      - name: cargo check (fast compile-error catch, no full build)
+        working-directory: gui/src-tauri
+        run: cargo check

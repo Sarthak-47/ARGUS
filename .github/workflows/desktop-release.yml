@@ -1,0 +1,58 @@
+# Builds the Argus desktop app for Windows/macOS/Linux and attaches the
+# installers (.exe/.msi, .dmg, .AppImage/.deb) to a GitHub Release whenever a
+# version tag is pushed (e.g. `git tag v0.1.0 && git push --tags`).
+#
+# No secrets required for an unsigned build (this workflow's default). Code
+# signing (Apple notarization, Windows Authenticode) can be added later via
+# additional secrets — see https://tauri.app/distribute/sign/ — without
+# changing this workflow's structure.
+name: Desktop Release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+          - platform: macos-latest
+          - platform: ubuntu-latest
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux system dependencies (webkitgtk)
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: gui/package-lock.json
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend dependencies
+        working-directory: gui
+        run: npm ci
+
+      - name: Build and release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: gui
+          tagName: ${{ github.ref_name }}
+          releaseName: "Argus Desktop ${{ github.ref_name }}"
+          releaseBody: "Automated build of the Argus desktop app. See CHANGELOG / commit history for details."
+          releaseDraft: true
+          prerelease: false
