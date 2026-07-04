@@ -118,13 +118,21 @@ Add Argus to any repo and publish findings to GitHub's **Security tab**:
 
 ## Desktop GUI
 
-A React + Vite desktop UI ("a war room inside the Parthenon") with five screens — Dashboard,
-New Scan, Live Attack, Reports, Settings — that renders **real engine output** (drop an
-`argus scan --format json` result at `gui/public/report.json`).
+A React + Vite + Tauri desktop app ("a war room inside the Parthenon") with five screens —
+Dashboard, New Scan, Live Attack, Reports, Settings — that renders **real engine output** (drop
+an `argus scan --format json` result at `gui/public/report.json`).
 
 ```bash
-cd gui && npm install && npm run dev      # http://localhost:5173
+cd gui
+npm install
+npm run dev              # browser dev server, http://localhost:5173
+npm run tauri dev        # native window (needs Rust: https://rustup.rs)
+npm run tauri build      # produces a real .exe/.dmg/.AppImage in src-tauri/target/release
 ```
+
+The native shell is ~9MB and starts in well under a second — a fraction of an Electron
+equivalent. Wiring the desktop window to invoke the Python engine directly (rather than reading
+a dropped-in `report.json`) is tracked as the next step.
 
 ## Why Argus
 
