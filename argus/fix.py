@@ -93,6 +93,24 @@ def apply_diff_to_text(original: str, diff_text: str) -> str | None:
     return text
 
 
+def _would_break_syntax(filename: str, text: str) -> bool:
+    """True if writing ``text`` to a file of this type would leave it unparseable.
+
+    LLM-produced diffs occasionally look like they matched cleanly (the content
+    search succeeds) but are still semantically wrong — e.g. a substitution
+    written as a bare context line plus an unindented addition, which parses as
+    "insert this new line here" rather than "replace the old line with this one"
+    and corrupts the file even though every hunk matched. A syntax check is the
+    last line of defense: never write a patch that leaves the file broken.
+    """
+    if filename.endswith(".py"):
+        try:
+            compile(text, filename, "exec")
+        except SyntaxError:
+            return True
+    return False
+
+
 def apply_fixes(root: Path, fixes: list[FixResult], *, apply: bool = False) -> list[AppliedFix]:
     """Preview (default) or write each fix's patch. Returns the fixes that validated."""
     results: list[AppliedFix] = []
@@ -107,6 +125,10 @@ def apply_fixes(root: Path, fixes: list[FixResult], *, apply: bool = False) -> l
         patched = apply_diff_to_text(original, fx.diff)
         if patched is None:
             out.warn(f"Skipped {fx.file}: diff did not match the current file content exactly")
+            continue
+
+        if _would_break_syntax(fx.file, patched):
+            out.warn(f"Skipped {fx.file}: patch would leave the file with invalid syntax")
             continue
 
         out.console.print()

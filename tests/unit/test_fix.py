@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from argus.fix import apply_diff_to_text, apply_fixes, _parse_hunks
+from argus.fix import apply_diff_to_text, apply_fixes, _parse_hunks, _would_break_syntax
 from argus.llm.provider import LLMResult
 from argus.llm.reasoning import FixResult, generate_fixes
 from argus.models import Finding, Severity
@@ -80,6 +80,43 @@ def test_apply_fixes_apply_writes_file(tmp_path):
 def test_apply_fixes_skips_unreadable_or_mismatched(tmp_path):
     fixes = [FixResult(finding_id="x", file="missing.py", diff=_DIFF, explanation="n/a")]
     assert apply_fixes(tmp_path, fixes, apply=True) == []
+
+
+def test_would_break_syntax_catches_bad_python():
+    assert _would_break_syntax("app.py", "def f(:\n    pass\n") is True
+    assert _would_break_syntax("app.py", "def f():\n    pass\n") is False
+
+
+def test_would_break_syntax_ignores_non_python_files():
+    # No validator for other languages yet — must not false-positive-reject them.
+    assert _would_break_syntax("app.js", "function f( {{{ broken") is False
+
+
+def test_apply_fixes_rejects_diff_that_would_corrupt_syntax(tmp_path):
+    """Regression test for a real failure mode seen with a live LLM (qwen2.5:7b):
+    a single-context-line hunk that content-matches as a bare substring (so the
+    content-match rule "succeeds") but is written as context + an unindented
+    addition rather than a proper substitution — degenerate to a single-line
+    old_block, the substring search finds it mid-line and preserves the file's
+    original indentation before it, but the appended line has none of its own,
+    leaving the file syntactically broken. The syntax check must catch this."""
+    original = (
+        "def ping(host):\n"
+        "    subprocess.call(\"ping \" + host, shell=True)\n"
+        "    return \"ok\"\n"
+    )
+    bad_diff = (
+        "@@ -2,1 +2,2 @@\n"
+        " subprocess.call(\"ping \" + host, shell=True)\n"
+        "+subprocess.call(['ping', host], shell=False)\n"
+    )
+    f = tmp_path / "app.py"
+    f.write_text(original, encoding="utf-8")
+    fixes = [FixResult(finding_id="x", file="app.py", diff=bad_diff, explanation="fix cmd injection")]
+
+    applied = apply_fixes(tmp_path, fixes, apply=True)
+    assert applied == []
+    assert f.read_text(encoding="utf-8") == original  # untouched — never corrupted
 
 
 class _FakeProvider:
