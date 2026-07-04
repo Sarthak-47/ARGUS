@@ -77,6 +77,64 @@ async def test_confirms_abuse_when_every_replayed_step_succeeds():
 
 
 @pytest.mark.asyncio
+async def test_corrects_method_to_match_known_endpoint():
+    """Regression test for a real observation with a live local model (qwen2.5:7b):
+    it proposed GET for a step even though the endpoint list explicitly says the
+    real endpoint is POST-only. The agent must use recon's known method, not the
+    model's guess — otherwise a real vulnerability silently 404s."""
+    seen_methods = []
+
+    async def handler(request):
+        seen_methods.append(request.method)
+        if request.url.path == "/api/redeem":
+            if request.method == "POST":
+                return httpx.Response(200, json={"status": "redeemed"})
+            return httpx.Response(404)  # GET is not handled — the real bug being guarded against
+        return httpx.Response(404)
+
+    plan = [{
+        "title": "Coupon reuse",
+        "rationale": "replay",
+        "steps": [
+            {"method": "GET", "path": "/api/redeem", "body": {"code": "SAVE10"}},
+            {"method": "GET", "path": "/api/redeem", "body": {"code": "SAVE10"}},
+        ],
+        "expect_vulnerable_if": "both calls return 200",
+    }]
+    provider = _FakePlanProvider(plan)
+    async with _mock_client(handler) as client:
+        ctx = AttackContext("http://t", client=client, provider=provider)
+        ctx.add_endpoint(Endpoint(url="http://t/api/redeem", method="POST"))
+        await BusinessLogicAgent().run(ctx)
+
+    assert seen_methods == ["POST", "POST"]  # corrected from the model's GET
+    assert any(f.detector == "businesslogic" for f in ctx.findings)
+
+
+@pytest.mark.asyncio
+async def test_confirms_abuse_when_model_returns_bare_object_not_array():
+    """Regression test for a real observation with a live local model (qwen2.5:7b):
+    it ignored the 'return a JSON array' instruction and returned a single bare
+    object (one plan, no surrounding []) when it only found one plausible abuse.
+    The parser must accept that instead of silently discarding a real finding."""
+    async def handler(request):
+        if request.url.path == "/api/redeem":
+            return httpx.Response(200, json={"status": "redeemed"})
+        return httpx.Response(404)
+
+    bare_object_plan = _STACKABLE_COUPON_PLAN[0]  # a dict, not wrapped in a list
+    provider = _FakePlanProvider(bare_object_plan)
+    async with _mock_client(handler) as client:
+        ctx = AttackContext("http://t", client=client, provider=provider)
+        ctx.add_endpoint(Endpoint(url="http://t/api/redeem", method="POST"))
+        report = await BusinessLogicAgent().run(ctx)
+
+    assert report.status == "complete"
+    findings = [f for f in ctx.findings if f.detector == "businesslogic"]
+    assert len(findings) == 1
+
+
+@pytest.mark.asyncio
 async def test_does_not_confirm_when_a_step_is_rejected():
     async def handler(request):
         # First redeem succeeds, second is correctly rejected -> NOT vulnerable.

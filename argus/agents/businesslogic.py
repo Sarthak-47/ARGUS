@@ -25,6 +25,7 @@ from argus.llm.prompts import BIZLOGIC_SYSTEM, build_bizlogic_user
 from argus.models import Finding, Severity
 
 _JSON_ARR = re.compile(r"\[.*\]", re.DOTALL)
+_JSON_OBJ = re.compile(r"\{.*\}", re.DOTALL)
 _MAX_PLANS = 5
 _MAX_STEPS_PER_PLAN = 3
 
@@ -72,16 +73,38 @@ class BusinessLogicAgent(BaseAgent):
     def _parse_plans(self, raw: str | None) -> list[dict]:
         if not raw:
             return []
+
+        # Try the instructed shape first: a JSON array of plan objects. Note the
+        # regex is greedy/non-anchored, so if the model instead returns a single
+        # bare plan object, this can spuriously match that object's *inner*
+        # "steps" array (a list of step-dicts, not plan-dicts) — in that case the
+        # filter below correctly yields nothing and we fall through to the
+        # object check rather than returning an empty result early.
         m = _JSON_ARR.search(raw)
-        if not m:
-            return []
-        try:
-            parsed = json.loads(m.group(0))
-        except json.JSONDecodeError:
-            return []
-        if not isinstance(parsed, list):
-            return []
-        return [item for item in parsed if isinstance(item, dict) and item.get("steps")]
+        if m:
+            try:
+                parsed = json.loads(m.group(0))
+            except json.JSONDecodeError:
+                parsed = None
+            if isinstance(parsed, list):
+                plans = [item for item in parsed if isinstance(item, dict) and item.get("steps")]
+                if plans:
+                    return plans
+
+        # Smaller/local models (observed with qwen2.5:7b) sometimes ignore the
+        # "return a JSON array" instruction and return a single bare object when
+        # they only found one plausible plan — accept that too rather than
+        # silently discarding a real proposal over a formatting technicality.
+        m = _JSON_OBJ.search(raw)
+        if m:
+            try:
+                parsed = json.loads(m.group(0))
+            except json.JSONDecodeError:
+                return []
+            if isinstance(parsed, dict) and parsed.get("steps"):
+                return [parsed]
+
+        return []
 
     async def _execute_plan(self, ctx: AttackContext, plan: dict) -> bool:
         title = str(plan.get("title", "Business logic abuse"))[:120]
@@ -92,6 +115,13 @@ class BusinessLogicAgent(BaseAgent):
             return False
         steps = steps[:_MAX_STEPS_PER_PLAN]
 
+        # Trust our own recon over the model's stated method: smaller/local models
+        # (observed with qwen2.5:7b) sometimes default every step to GET even when
+        # the endpoint list explicitly says POST, which silently 404s a legitimate
+        # test against a real vulnerability. We already know the real method from
+        # crawling the app — use it instead of re-guessing.
+        known_methods = {ep.url: ep.method for ep in ctx.endpoint_list()}
+
         responses: list[tuple[str, str, object]] = []
         for step in steps:
             if not isinstance(step, dict):
@@ -101,6 +131,8 @@ class BusinessLogicAgent(BaseAgent):
             if not path:
                 return False
             url = urljoin(ctx.base_url + "/", path.lstrip("/"))
+            if url in known_methods and known_methods[url] != method:
+                method = known_methods[url]
             body = step.get("body") if isinstance(step.get("body"), dict) else None
             ctx.emit(self.name, f"testing: {title} — {method} {path}")
             resp = (
