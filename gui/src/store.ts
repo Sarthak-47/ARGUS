@@ -1,6 +1,7 @@
 // Global UI state + the live-attack demo engine, ported from the design's DCLogic.
 
 import { create } from "zustand";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { AGENTS, TIMELINE, type AgentState, type FeedLine } from "./data";
 import { mapReport, type LoadedReport } from "./adapter";
 
@@ -42,9 +43,18 @@ interface State {
   provider: string;
   // real engine data (null => use bundled demo data)
   report: LoadedReport | null;
+  // real desktop-invoked scan (only possible inside the Tauri shell)
+  target: string;
+  isDesktop: boolean;
+  auditRunning: boolean;
+  auditError: string | null;
+  argusAvailable: boolean | null;
 
   setScreen: (s: Screen) => void;
   loadReport: () => Promise<void>;
+  setTarget: (t: string) => void;
+  runRealAudit: () => Promise<void>;
+  checkArgusAvailable: () => Promise<void>;
   toggleAgent: (n: string) => void;
   selectAllAgents: () => void;
   togglePhase: (p: "phase1" | "phase2") => void;
@@ -81,6 +91,44 @@ export const useStore = create<State>((set, get) => ({
   reportRisk: 0,
   provider: "Groq",
   report: null,
+  target: "",
+  isDesktop: isTauri(),
+  auditRunning: false,
+  auditError: null,
+  argusAvailable: null,
+
+  setTarget: (t) => set({ target: t }),
+
+  checkArgusAvailable: async () => {
+    if (!isTauri()) return;
+    try {
+      const ok = await invoke<boolean>("check_argus_available");
+      set({ argusAvailable: ok });
+    } catch {
+      set({ argusAvailable: false });
+    }
+  },
+
+  runRealAudit: async () => {
+    const { target, phase1, phase2, scanChecked } = get();
+    if (!target.trim()) {
+      set({ auditError: "Enter a target path or URL first." });
+      return;
+    }
+    set({ auditRunning: true, auditError: null });
+    try {
+      const mode = phase2 ? "audit" : "scan";
+      const agents = phase1 && phase2
+        ? Object.entries(scanChecked).filter(([, on]) => on).map(([n]) => n).join(",")
+        : undefined;
+      const json = await invoke<string>("run_audit", { target: target.trim(), mode, agents });
+      const report = mapReport(JSON.parse(json));
+      set({ report, auditRunning: false, screen: "report" });
+      get().countReport();
+    } catch (err) {
+      set({ auditRunning: false, auditError: String(err) });
+    }
+  },
 
   loadReport: async () => {
     // Pull a real Argus report if one was dropped into the app's public dir.

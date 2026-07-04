@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { C, FONT } from "../theme";
 import { AGENTS, DESC } from "../data";
 import { useStore } from "../store";
@@ -6,6 +7,11 @@ export function NewScan() {
   const s = useStore();
   const allOn = AGENTS.every((n) => s.scanChecked[n]);
 
+  useEffect(() => {
+    if (s.isDesktop) s.checkArgusAvailable();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s.isDesktop]);
+
   return (
     <section style={{ padding: "36px 46px 64px 46px", maxWidth: 900 }}>
       <div style={{ fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.24em", color: C.stoneText, marginBottom: 34 }}>
@@ -13,9 +19,11 @@ export function NewScan() {
       </div>
 
       <Label>TARGET</Label>
-      <div style={{ display: "flex", gap: 10, marginBottom: 38 }}>
+      <div style={{ display: "flex", gap: 10, marginBottom: s.isDesktop ? 10 : 38 }}>
         <input
-          defaultValue="https://github.com/user/ecommerce-app"
+          value={s.target}
+          onChange={(e) => s.setTarget(e.target.value)}
+          placeholder="https://github.com/user/ecommerce-app or a local path"
           style={{
             flex: 1, background: C.stoneDark, border: `1px solid ${C.bronze}`, color: C.parchment,
             fontFamily: FONT.code, fontSize: 13, padding: "14px 16px", outline: "none",
@@ -23,6 +31,22 @@ export function NewScan() {
         />
         <button className="btn-outline" style={ghostBtn}>BROWSE LOCAL</button>
       </div>
+
+      {s.isDesktop && (
+        <div style={{ marginBottom: 38, fontFamily: FONT.body, fontStyle: "italic", fontSize: 13 }}>
+          {s.argusAvailable === false && (
+            <span style={{ color: C.crimson }}>
+              `argus` was not found on PATH — install it with <code style={{ fontStyle: "normal" }}>pip install argus-sec</code> to run real audits.
+            </span>
+          )}
+          {s.argusAvailable && (
+            <span style={{ color: C.stoneText }}>Desktop shell detected — this will invoke the real Argus engine, not the demo data.</span>
+          )}
+          {s.auditError && (
+            <div style={{ color: C.crimson, marginTop: 6 }}>{s.auditError}</div>
+          )}
+        </div>
+      )}
 
       <Label>AUDIT MODE</Label>
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 38 }}>
@@ -117,14 +141,22 @@ export function NewScan() {
 
       <button
         className="btn-solid"
-        onClick={() => s.setScreen("live")}
+        disabled={s.auditRunning}
+        onClick={() => {
+          if (s.isDesktop && s.target.trim()) {
+            s.runRealAudit();
+          } else {
+            s.setScreen("live");
+          }
+        }}
         style={{
           width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 14,
           fontFamily: FONT.display, fontSize: 15, letterSpacing: "0.24em", fontWeight: 600,
-          color: C.obsidian, background: C.goldenrod, border: "none", padding: 18, cursor: "pointer",
+          color: C.obsidian, background: C.goldenrod, border: "none", padding: 18,
+          cursor: s.auditRunning ? "wait" : "pointer", opacity: s.auditRunning ? 0.6 : 1,
         }}
       >
-        LAUNCH AUDIT <span style={{ fontSize: 15 }}>◆</span>
+        {s.auditRunning ? "RUNNING…" : "LAUNCH AUDIT"} <span style={{ fontSize: 15 }}>◆</span>
       </button>
     </section>
   );
