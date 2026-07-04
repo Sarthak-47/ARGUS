@@ -13,7 +13,7 @@ import asyncio
 import re
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
-from argus.agents.base import AgentReport, AttackContext, BaseAgent, Endpoint
+from argus.agents.base import AgentReport, AttackContext, BaseAgent, Endpoint, build_http_poc
 from argus.models import Finding, Severity
 
 _URL_PARAM_HINT = re.compile(
@@ -49,18 +49,23 @@ class SSRFProber(BaseAgent):
 
         confirmed: set[str] = set()
         # Phase A: blind SSRF via callback
-        pending: list[tuple[Endpoint, str, str]] = []  # (ep, param, token)
+        pending: list[tuple[Endpoint, str, str, str]] = []  # (ep, param, token, probe_url)
+        token_responses: dict[str, object] = {}
         if ctx.callback is not None:
             for ep, param in targets:
                 token, cb_url = ctx.callback.new_token()
+                probe_url = _with_param(ep.url, param, cb_url)
                 ctx.emit(self.name, f"probing {param} on {self._short(ep.url)} for internal reach …")
-                await self.get(ctx, _with_param(ep.url, param, cb_url))
-                pending.append((ep, param, token))
+                initial_resp = await self.get(ctx, probe_url)
+                pending.append((ep, param, token, probe_url))
+                if initial_resp is not None:
+                    token_responses[token] = initial_resp
             await asyncio.sleep(1.5)  # give the target time to call back
-            for ep, param, token in pending:
+            for ep, param, token, probe_url in pending:
                 if ctx.callback.was_hit(token):
                     sig = f"{ep.url}::{param}"
                     confirmed.add(sig)
+                    initial_resp = token_responses.get(token)
                     ctx.report(Finding(
                         title="Server-Side Request Forgery (blind)",
                         severity=Severity.HIGH,
@@ -76,6 +81,7 @@ class SSRFProber(BaseAgent):
                         cwe="CWE-918",
                         cvss=8.6,
                         confidence="high",
+                        poc=build_http_poc(ep.method, probe_url, initial_resp) if initial_resp is not None else {},
                     ))
 
         # Phase B: cloud-metadata reflection
@@ -100,6 +106,7 @@ class SSRFProber(BaseAgent):
                     cwe="CWE-918",
                     cvss=9.1,
                     confidence="high",
+                    poc=build_http_poc(ep.method, _with_param(ep.url, param, _METADATA_URL), resp),
                 ))
 
         report.requests_sent = ctx.requests_sent

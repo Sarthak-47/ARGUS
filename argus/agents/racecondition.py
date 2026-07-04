@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 from urllib.parse import urlparse
 
-from argus.agents.base import AgentReport, AttackContext, BaseAgent, Endpoint
+from argus.agents.base import AgentReport, AttackContext, BaseAgent, Endpoint, build_http_poc
 from argus.models import Finding, Severity
 
 _BURST = 20
@@ -62,6 +62,10 @@ class RaceCondition(BaseAgent):
                         "(e.g. SELECT ... FOR UPDATE) on sensitive actions.",
                     cwe="CWE-362",
                     confidence="medium",
+                    poc=build_http_poc(
+                        ep.method, ep.url, next(r for r in results if r is not None),
+                        body=str(data),
+                    ),
                 ))
 
         report.requests_sent = ctx.requests_sent

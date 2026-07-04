@@ -14,7 +14,7 @@ import os
 import re
 from urllib.parse import urlparse
 
-from argus.agents.base import AgentReport, AttackContext, BaseAgent
+from argus.agents.base import AgentReport, AttackContext, BaseAgent, build_http_poc
 from argus.models import Finding, Severity
 
 _WS_URL = re.compile(r"""['"(](wss?://[^'")\s]+)['")\s]""", re.IGNORECASE)
@@ -87,4 +87,5 @@ class WebSocketAgent(BaseAgent):
                 fix="Authenticate the upgrade request and validate the Origin header against an allow-list.",
                 cwe="CWE-1385",
                 confidence="medium",
+                poc=build_http_poc("GET", http_url, resp),
             ))

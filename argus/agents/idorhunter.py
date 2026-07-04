@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
-from argus.agents.base import AgentReport, AttackContext, BaseAgent
+from argus.agents.base import AgentReport, AttackContext, BaseAgent, build_http_poc
 from argus.models import Finding, Severity
 
 _INT_SEG = re.compile(r"/(\d{1,12})(?=/|$)")
@@ -79,18 +79,22 @@ class IDORHunter(BaseAgent):
         n = int(original)
         bodies = {(base.text or "")[:300]}
         hits = 0
+        last_resp = None
+        last_url = url
         for cand in (n - 1, n + 1, n + 2):
             if cand < 0:
                 continue
-            resp = await self.get(ctx, _replace_path_int(url, original, str(cand)))
+            cand_url = _replace_path_int(url, original, str(cand))
+            resp = await self.get(ctx, cand_url)
             if resp is not None and resp.status_code == base.status_code and resp.status_code < 400:
                 snippet = (resp.text or "")[:300]
                 if snippet not in bodies:
                     bodies.add(snippet)
                     hits += 1
+                    last_resp, last_url = resp, cand_url
         if hits >= 2:
             flagged.add(url)
-            self._report(ctx, f"GET {url}", original, "path segment")
+            self._report(ctx, f"GET {url}", original, "path segment", last_url, last_resp)
 
     async def _probe_param(self, ctx: AttackContext, url: str, param: str, flagged: set) -> None:
         base = await self.get(ctx, _with_param(url, param, "1"))
@@ -98,19 +102,24 @@ class IDORHunter(BaseAgent):
             return
         bodies = {(base.text or "")[:300]}
         hits = 0
+        last_resp = None
+        last_url = url
         for cand in ("2", "3", "1000"):
-            resp = await self.get(ctx, _with_param(url, param, cand))
+            cand_url = _with_param(url, param, cand)
+            resp = await self.get(ctx, cand_url)
             if resp is not None and resp.status_code < 400:
                 snippet = (resp.text or "")[:300]
                 if snippet not in bodies:
                     bodies.add(snippet)
                     hits += 1
+                    last_resp, last_url = resp, cand_url
         if hits >= 2:
             sig = f"{url}::{param}"
             flagged.add(sig)
-            self._report(ctx, f"GET {url}", param, f"'{param}' parameter")
+            self._report(ctx, f"GET {url}", param, f"'{param}' parameter", last_url, last_resp)
 
-    def _report(self, ctx: AttackContext, endpoint: str, key: str, where: str) -> None:
+    def _report(self, ctx: AttackContext, endpoint: str, key: str, where: str,
+                poc_url: str | None = None, resp=None) -> None:
         ctx.report(Finding(
             title="Insecure Direct Object Reference (IDOR)",
             severity=Severity.HIGH,
@@ -125,6 +134,7 @@ class IDORHunter(BaseAgent):
             cwe="CWE-639",
             cvss=8.1,
             confidence="medium",
+            poc=build_http_poc("GET", poc_url, resp) if resp is not None else {},
         ))
 
     @staticmethod

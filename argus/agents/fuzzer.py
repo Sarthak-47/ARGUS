@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
-from argus.agents.base import AgentReport, AttackContext, BaseAgent, Endpoint
+from argus.agents.base import AgentReport, AttackContext, BaseAgent, Endpoint, build_http_poc
 from argus.models import Finding, Severity
 
 _PAYLOADS = [
@@ -86,6 +86,7 @@ class Fuzzer(BaseAgent):
                         fix="Validate and constrain input types/length; return generic errors; never leak stack traces.",
                         cwe="CWE-20",
                         confidence="medium" if leaked else "low",
+                        poc=build_http_poc(ep.method, _with_param(ep.url, param, payload), resp),
                     ))
                     break
 

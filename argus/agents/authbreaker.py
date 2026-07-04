@@ -17,7 +17,7 @@ import hmac
 import json
 import re
 
-from argus.agents.base import AgentReport, AttackContext, BaseAgent
+from argus.agents.base import AgentReport, AttackContext, BaseAgent, build_http_poc
 from argus.models import Finding, Severity
 
 _JWT_RE = re.compile(r"\beyJ[A-Za-z0-9_\-]{6,}\.[A-Za-z0-9_\-]{6,}\.([A-Za-z0-9_\-]{0,})\b")
@@ -57,7 +57,7 @@ class AuthBreaker(BaseAgent):
         # also scan any JWT-looking strings the recon stage saw
         for token in tokens:
             ctx.emit(self.name, f"analysing JWT ({token[:18]}…)")
-            self._analyse_jwt(ctx, token)
+            self._analyse_jwt(ctx, token, resp)
 
         if not tokens:
             ctx.emit(self.name, "no JWT found on the public surface")
@@ -78,7 +78,7 @@ class AuthBreaker(BaseAgent):
         tokens |= {m.group(0) for m in _JWT_RE.finditer(resp.text or "")}
         return tokens
 
-    def _analyse_jwt(self, ctx: AttackContext, token: str) -> None:
+    def _analyse_jwt(self, ctx: AttackContext, token: str, resp=None) -> None:
         parts = token.split(".")
         if len(parts) != 3:
             return
@@ -104,6 +104,7 @@ class AuthBreaker(BaseAgent):
                 exploit="Forge an admin token by setting alg:none and arbitrary claims.",
                 fix="Reject 'none'; pin the algorithm to a strong signed scheme (e.g. RS256/HS256).",
                 cwe="CWE-347", cvss=9.8, confidence="high",
+                poc=build_http_poc("GET", ctx.base_url + "/", resp) if resp is not None else {},
             ))
             return
 
@@ -122,6 +123,7 @@ class AuthBreaker(BaseAgent):
                     exploit="Sign a token with elevated claims (e.g. role=admin) using the cracked secret.",
                     fix="Rotate to a long, random secret (>=256 bits) stored securely.",
                     cwe="CWE-326", cvss=9.8, confidence="high",
+                    poc=build_http_poc("GET", ctx.base_url + "/", resp) if resp is not None else {},
                 ))
 
         if "exp" not in payload:
@@ -136,6 +138,7 @@ class AuthBreaker(BaseAgent):
                 exploit="A stolen token can be replayed indefinitely.",
                 fix="Add a short 'exp' and validate it server-side.",
                 cwe="CWE-613", confidence="high",
+                poc=build_http_poc("GET", ctx.base_url + "/", resp) if resp is not None else {},
             ))
 
     def _crack_hs(self, token: str) -> str | None:
@@ -184,6 +187,7 @@ class AuthBreaker(BaseAgent):
                     exploit="Cookie theft via XSS (no HttpOnly) or interception (no Secure).",
                     fix="Set HttpOnly, Secure, and SameSite=Lax/Strict on session cookies.",
                     cwe="CWE-1004", confidence="high",
+                    poc=build_http_poc("GET", ctx.base_url + "/", resp),
                 ))
 
 

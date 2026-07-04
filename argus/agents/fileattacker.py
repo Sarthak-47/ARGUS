@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
-from argus.agents.base import AgentReport, AttackContext, BaseAgent, Endpoint
+from argus.agents.base import AgentReport, AttackContext, BaseAgent, Endpoint, build_http_poc
 from argus.models import Finding, Severity
 
 _FILE_PARAM = re.compile(r"(?i)\b(file|path|filename|doc|document|download|attachment|template|page|name|load|read|dir)\b")
@@ -68,6 +68,7 @@ class FileAttacker(BaseAgent):
                         cwe="CWE-22",
                         cvss=7.5,
                         confidence="high",
+                        poc=build_http_poc(ep.method, _with_param(ep.url, param, payload), resp),
                     ))
                     break
 

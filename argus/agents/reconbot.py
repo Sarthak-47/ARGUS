@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 from urllib.parse import urljoin, urlparse, parse_qs
 
-from argus.agents.base import AgentReport, AttackContext, BaseAgent, Endpoint, gather_limited
+from argus.agents.base import AgentReport, AttackContext, BaseAgent, Endpoint, build_http_poc, gather_limited
 from argus.models import Finding, Severity
 
 _LINK_RE = re.compile(r"""(?:href|src)\s*=\s*['"]([^'"#]+)['"]""", re.IGNORECASE)
@@ -116,6 +116,7 @@ class ReconBot(BaseAgent):
                             + ", weakening defence-in-depth against XSS/clickjacking/MITM.",
                 fix="Set the missing headers (CSP, X-Frame-Options, HSTS, X-Content-Type-Options).",
                 cwe="CWE-693",
+                poc=build_http_poc("GET", ctx.base_url + "/", resp),
             ))
 
     def _extract(self, ctx: AttackContext, base: str, html: str) -> list[str]:
@@ -176,6 +177,7 @@ class ReconBot(BaseAgent):
                 description=f"{label} is reachable without authentication.",
                 fix="Restrict or remove this resource from the public surface.",
                 cwe="CWE-200",
+                poc=build_http_poc("GET", base + path, resp),
             ))
 
         await gather_limited(

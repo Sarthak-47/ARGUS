@@ -8,7 +8,7 @@ tests the dangerous ``Origin: null`` case, and probes access-control bypass head
 
 from __future__ import annotations
 
-from argus.agents.base import AgentReport, AttackContext, BaseAgent
+from argus.agents.base import AgentReport, AttackContext, BaseAgent, build_http_poc
 from argus.models import Finding, Severity
 
 _EVIL_ORIGIN = "https://evil.argus-test.example"
@@ -61,6 +61,7 @@ class HeaderPoker(BaseAgent):
                     "Origin with Allow-Credentials: true.",
                 cwe="CWE-942",
                 confidence="high",
+                poc=build_http_poc("GET", url, resp),
             ))
 
     async def _forwarded_bypass(self, ctx: AttackContext) -> None:
@@ -84,5 +85,6 @@ class HeaderPoker(BaseAgent):
                         fix="Do not trust client-supplied forwarding/override headers for access control.",
                         cwe="CWE-290",
                         confidence="high",
+                        poc=build_http_poc("GET", ep.url, resp),
                     ))
                     break

@@ -8,7 +8,9 @@ batching abuse are deeper follow-ups.
 
 from __future__ import annotations
 
-from argus.agents.base import AgentReport, AttackContext, BaseAgent
+import json as _json
+
+from argus.agents.base import AgentReport, AttackContext, BaseAgent, build_http_poc
 from argus.models import Finding, Severity
 
 _INTROSPECTION = {"query": "{__schema{queryType{name} types{name kind}}}"}
@@ -46,6 +48,7 @@ class GraphQLAgent(BaseAgent):
                     fix="Disable introspection in production; restrict it to trusted environments.",
                     cwe="CWE-200",
                     confidence="high",
+                    poc=build_http_poc("POST", endpoint, resp, body=_json.dumps(_INTROSPECTION)),
                 ))
 
         report.requests_sent = ctx.requests_sent

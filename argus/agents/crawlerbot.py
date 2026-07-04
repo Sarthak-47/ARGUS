@@ -8,7 +8,7 @@ differently from "not found" (defeats catch-all 200 handlers).
 
 from __future__ import annotations
 
-from argus.agents.base import AgentReport, AttackContext, BaseAgent, Endpoint, gather_limited
+from argus.agents.base import AgentReport, AttackContext, BaseAgent, Endpoint, build_http_poc, gather_limited
 from argus.models import Finding, Severity
 
 # (path, label, severity) — a compact, high-value slice of a SecLists-style list.
@@ -82,6 +82,7 @@ class CrawlerBot(BaseAgent):
                     fix="Remove the file from the web root or require authentication / block the path.",
                     cwe="CWE-200",
                     confidence="medium",
+                    poc=build_http_poc("GET", base + path, resp),
                 ))
 
         await gather_limited([probe(p, label, sev) for p, label, sev in _PATHS], limit=ctx.semaphore._value or 8)
@@ -120,6 +121,7 @@ class CrawlerBot(BaseAgent):
                 fix="Remove backup/temp files from the web root; add them to deploy ignore lists.",
                 cwe="CWE-530",
                 confidence="medium",
+                poc=build_http_poc("GET", target, resp),
             ))
 
         coros = [probe(u, s) for u in candidates for s in _BACKUP_SUFFIXES]

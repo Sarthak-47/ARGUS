@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 
-from argus.agents.base import AgentReport, AttackContext, BaseAgent
+from argus.agents.base import AgentReport, AttackContext, BaseAgent, build_http_poc
 from argus.models import Finding, Severity
 
 _TOKEN_HINT = re.compile(r"(?i)csrf|xsrf|authenticity_token|__requestverificationtoken|_token")
@@ -29,7 +29,7 @@ class CSRFHunter(BaseAgent):
         root = await self.get(ctx, base + "/")
         if root is not None:
             self._clickjacking(ctx, root)
-            self._form_tokens(ctx, base, root.text or "")
+            self._form_tokens(ctx, base, root.text or "", root)
 
         report.requests_sent = ctx.requests_sent
         report.findings = len([f for f in ctx.findings if f.detector.startswith("csrfhunter")])
@@ -56,9 +56,10 @@ class CSRFHunter(BaseAgent):
                 fix="Send X-Frame-Options: DENY (or SAMEORIGIN) and/or CSP frame-ancestors 'none'.",
                 cwe="CWE-1021",
                 confidence="high",
+                poc=build_http_poc("GET", ctx.base_url + "/", resp),
             ))
 
-    def _form_tokens(self, ctx: AttackContext, base: str, html: str) -> None:
+    def _form_tokens(self, ctx: AttackContext, base: str, html: str, resp=None) -> None:
         for attrs, body in _FORM_RE.findall(html):
             method_m = re.search(r"""method\s*=\s*['"]([^'"]+)['"]""", attrs, re.IGNORECASE)
             method = (method_m.group(1).upper() if method_m else "GET")
@@ -85,4 +86,5 @@ class CSRFHunter(BaseAgent):
                     fix="Include and validate a per-session anti-CSRF token; use SameSite cookies.",
                     cwe="CWE-352",
                     confidence="medium",
+                    poc=build_http_poc("GET", base, resp) if resp is not None else {},
                 ))
