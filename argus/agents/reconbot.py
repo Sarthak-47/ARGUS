@@ -15,8 +15,11 @@ from urllib.parse import urljoin, urlparse, parse_qs
 from argus.agents.base import AgentReport, AttackContext, BaseAgent, Endpoint, gather_limited
 from argus.models import Finding, Severity
 
-_LINK_RE = re.compile(r"""(?:href|src|action)\s*=\s*['"]([^'"#]+)['"]""", re.IGNORECASE)
-_FORM_RE = re.compile(r"<form\b[^>]*>(.*?)</form>", re.IGNORECASE | re.DOTALL)
+_LINK_RE = re.compile(r"""(?:href|src)\s*=\s*['"]([^'"#]+)['"]""", re.IGNORECASE)
+# Two groups: (1) the opening <form ...> tag's attributes, (2) the inner content
+# (for input discovery). A form's action/method live in the opening tag, not the
+# inner content, so they must be searched for in group(1), not group(2).
+_FORM_RE = re.compile(r"<form\b([^>]*)>(.*?)</form>", re.IGNORECASE | re.DOTALL)
 _FORM_ACTION_RE = re.compile(r"""action\s*=\s*['"]([^'"]*)['"]""", re.IGNORECASE)
 _FORM_METHOD_RE = re.compile(r"""method\s*=\s*['"]([^'"]*)['"]""", re.IGNORECASE)
 _INPUT_NAME_RE = re.compile(r"""<(?:input|textarea|select)\b[^>]*\bname\s*=\s*['"]([^'"]+)['"]""", re.IGNORECASE)
@@ -127,12 +130,14 @@ class ReconBot(BaseAgent):
             clean = absolute.split("?")[0]
             ctx.add_endpoint(Endpoint(url=clean, method="GET", params=params, source="link"))
 
-        for form_html in _FORM_RE.findall(html):
-            action = (_FORM_ACTION_RE.search(form_html) or [None, ""])[1] if _FORM_ACTION_RE.search(form_html) else ""
+        for form_match in _FORM_RE.finditer(html):
+            attrs, form_html = form_match.group(1), form_match.group(2)
+            action_m = _FORM_ACTION_RE.search(attrs)
+            action = action_m.group(1) if action_m else ""
             method = "GET"
-            m = _FORM_METHOD_RE.search(form_html)
-            if m:
-                method = m.group(1).upper() or "GET"
+            method_m = _FORM_METHOD_RE.search(attrs)
+            if method_m:
+                method = method_m.group(1).upper() or "GET"
             names = _INPUT_NAME_RE.findall(form_html)
             target = urljoin(base + "/", action) if action else base + "/"
             ctx.add_endpoint(Endpoint(url=target.split("?")[0], method=method,
