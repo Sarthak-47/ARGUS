@@ -60,7 +60,40 @@ jobs:
           projectPath: gui
           tagName: ${{ github.ref_name }}
           releaseName: "Argus Desktop ${{ github.ref_name }}"
-          releaseBody: "Automated build of the Argus desktop app. See CHANGELOG / commit history for details."
+          releaseBody: |
+            **Argus** is an AI-powered security audit tool — point it at a repo, it reads the
+            code, spins up the app, and attacks it.
+
+            This release is the desktop app: five screens (Dashboard, New Scan, Live Attack,
+            Reports, Settings) that can run the real Argus engine against a target.
+
+            ## Install
+
+            | Platform | Download |
+            |---|---|
+            | Windows | the `.exe` installer (or `.msi`) |
+            | macOS (Intel or Apple Silicon) | the `universal.dmg` |
+            | Debian / Ubuntu | the `.deb` |
+            | Fedora / RHEL / openSUSE | the `.rpm` |
+            | Any Linux, no install | the `.AppImage` (`chmod +x` and run) |
+
+            The `Source code` assets are just the repo snapshot at this tag, not something to
+            install.
+
+            ## Before you run a real scan
+
+            The desktop app drives the `argus` CLI. Install the engine first — `pip install
+            argus-sec`, or if that package isn't published yet, build from source: clone this
+            repo, then `pip install -e .`. Without it, the app still opens, but falls back to
+            bundled demo data.
+
+            ## Known limitations
+
+            - **Unsigned build** — Windows SmartScreen / macOS Gatekeeper will warn on first
+              launch. Expected for now; code signing is on the roadmap.
+
+            Full docs: [README](https://github.com/Sarthak-47/ARGUS#readme) ·
+            [Security policy](https://github.com/Sarthak-47/ARGUS/blob/main/SECURITY.md)
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.platform == 'macos-latest' && '--target universal-apple-darwin' || '' }}
