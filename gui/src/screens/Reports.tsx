@@ -119,6 +119,14 @@ export function Reports() {
                 <span>Found by <span style={{ fontStyle: "normal", color: C.bronze, fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.06em" }}>{sel.agent}</span></span>
                 <span>CVSS <span style={{ fontStyle: "normal", color: sevColor(sel.severity), fontFamily: FONT.code }}>{sel.cvss}</span></span>
               </div>
+              {sel.file && sel.line != null && (
+                <button
+                  onClick={() => s.openCodeView(sel.file!, sel.line!)}
+                  style={{ marginTop: 16, fontFamily: FONT.display, fontSize: 10, letterSpacing: "0.16em", color: C.bronze, background: "transparent", border: `1px solid ${C.bronze}`, padding: "9px 16px", cursor: "pointer" }}
+                >
+                  VIEW IN CODE
+                </button>
+              )}
             </div>
             <div style={{ overflowY: "auto", flex: 1, minHeight: 0, padding: "4px 0" }}>
               <Section title="WHAT IS IT"><div style={{ fontFamily: FONT.body, fontSize: 16, lineHeight: 1.55, color: C.parchment }}>{sel.whatIs}</div></Section>

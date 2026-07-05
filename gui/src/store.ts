@@ -5,7 +5,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { AGENTS, TIMELINE, type AgentState, type FeedLine } from "./data";
 import { mapReport, type LoadedReport } from "./adapter";
 
-export type Screen = "dashboard" | "scan" | "live" | "report" | "settings";
+export type Screen = "dashboard" | "scan" | "live" | "report" | "settings" | "code";
 
 function freshAgents(): Record<string, AgentState> {
   const o: Record<string, AgentState> = {};
@@ -39,6 +39,10 @@ interface State {
   filter: string;
   selectedId: number | null;
   reportRisk: number;
+  // code view (drill-down from a static finding)
+  codeSnippet: { startLine: number; lines: string[] } | null;
+  codeError: string | null;
+  codeLoading: boolean;
   // settings
   provider: string;
   // real engine data (null => use bundled demo data)
@@ -63,6 +67,7 @@ interface State {
   setFilter: (f: string) => void;
   select: (id: number | null) => void;
   setProvider: (p: string) => void;
+  openCodeView: (file: string, line: number) => Promise<void>;
   startAttack: () => void;
   resetAttack: () => void;
   countReport: () => void;
@@ -91,6 +96,9 @@ export const useStore = create<State>((set, get) => ({
   filter: "All",
   selectedId: null,
   reportRisk: 0,
+  codeSnippet: null,
+  codeError: null,
+  codeLoading: false,
   provider: "Groq",
   report: null,
   target: "",
@@ -155,6 +163,29 @@ export const useStore = create<State>((set, get) => ({
     set({ screen: s, selectedId: null });
     if (s === "live") get().startAttack();
     if (s === "report") get().countReport();
+  },
+
+  openCodeView: async (file, line) => {
+    set({ screen: "code", codeSnippet: null, codeError: null, codeLoading: true });
+    const { isDesktop, report } = get();
+    const root = report?.target;
+    if (!isDesktop || !root || /^https?:\/\//i.test(root)) {
+      set({
+        codeLoading: false,
+        codeError: !isDesktop
+          ? "Reading source files only works in the desktop app."
+          : "This finding's scan target wasn't a local path, so there's no file to read.",
+      });
+      return;
+    }
+    try {
+      const [startLine, lines] = await invoke<[number, string[]]>("read_source_snippet", {
+        root, file, line, context: 8,
+      });
+      set({ codeSnippet: { startLine, lines }, codeLoading: false });
+    } catch (err) {
+      set({ codeError: String(err), codeLoading: false });
+    }
   },
 
   toggleAgent: (n) =>

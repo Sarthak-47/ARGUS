@@ -53,6 +53,8 @@ export interface Finding {
   response: string;
   repro: string;
   fix: string;
+  file?: string | null;
+  line?: number | null;
 }
 
 const xss =

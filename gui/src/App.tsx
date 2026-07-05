@@ -8,6 +8,7 @@ import { NewScan } from "./screens/NewScan";
 import { LiveAttack } from "./screens/LiveAttack";
 import { Reports } from "./screens/Reports";
 import { Settings } from "./screens/Settings";
+import { CodeView } from "./screens/CodeView";
 
 export default function App() {
   const screen = useStore((s) => s.screen);
@@ -27,6 +28,7 @@ export default function App() {
         {screen === "live" && <LiveAttack />}
         {screen === "report" && <Reports />}
         {screen === "settings" && <Settings />}
+        {screen === "code" && <CodeView />}
       </main>
     </div>
   );

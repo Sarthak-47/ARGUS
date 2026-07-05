@@ -90,6 +90,8 @@ export function mapReport(json: EngineReport): LoadedReport {
     response: f.poc?.response || (f.confirmed ? "Exploit confirmed by Argus." : ""),
     repro: f.poc?.curl || f.exploit || "",
     fix: f.fix || "",
+    file: f.file,
+    line: f.line,
   }));
 
   return {
