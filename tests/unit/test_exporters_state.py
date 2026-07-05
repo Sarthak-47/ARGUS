@@ -84,6 +84,18 @@ def test_export_writes_each_format(tmp_path):
         assert path.exists() and path.name == name
 
 
+def test_export_pdf_falls_back_to_html_without_weasyprint(tmp_path):
+    # weasyprint isn't a hard dependency — this dev environment doesn't have
+    # it installed, which is exactly the case the fallback exists for.
+    path = export(_sample(), "pdf", str(tmp_path))
+    assert path.exists()
+    # Whichever branch ran, the caller (argus/pipeline.py's _export) detects
+    # a fallback purely by suffix mismatch — assert that contract holds.
+    if path.suffix != ".pdf":
+        assert path.name == "index.html"
+        assert "ARGUS" in path.read_text(encoding="utf-8")
+
+
 def test_state_save_load_roundtrip():
     r = _sample()
     save_result(r)
