@@ -46,10 +46,30 @@ def _looks_like_url(target: str) -> bool:
 
 def _clone(url: str) -> Path:
     """Shallow-clone a git URL into a temp directory."""
-    from git import Repo  # imported here so a missing git binary fails lazily
+    import shutil
+
+    from git import GitCommandError, Repo  # imported here so a missing git binary fails lazily
 
     tmp = Path(tempfile.mkdtemp(prefix="argus-"))
-    Repo.clone_from(url, tmp, multi_options=["--depth", "1"])
+    try:
+        Repo.clone_from(url, tmp, multi_options=["--depth", "1"])
+    except GitCommandError as exc:
+        shutil.rmtree(tmp, ignore_errors=True)
+        # git's stderr is the useful part ("repository not found", auth
+        # failure, etc.) — the raw exception also dumps the full command
+        # invocation, which is noise for a CLI user.
+        reason = (exc.stderr or str(exc)).strip()
+        lines = [ln.strip() for ln in reason.splitlines() if ln.strip()]
+        friendly = (
+            next((ln for ln in lines if ln.lower().startswith("fatal:")), None)
+            or next((ln for ln in lines if ln.lower().startswith("remote:")), None)
+            or next((ln for ln in lines if "stderr:" not in ln and "cloning into" not in ln.lower()), None)
+            or (lines[-1] if lines else str(exc))
+        )
+        raise RuntimeError(f"Could not clone {url}: {friendly}") from exc
+    except Exception:
+        shutil.rmtree(tmp, ignore_errors=True)
+        raise
     return tmp
 
 
