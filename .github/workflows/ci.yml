@@ -86,3 +86,17 @@ jobs:
       - name: cargo check (fast compile-error catch, no full build)
         working-directory: gui/src-tauri
         run: cargo check
+
+  docker:
+    name: Docker image (build + smoke test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t argus .
+
+      - name: Smoke test — CLI runs and lists commands
+        run: |
+          docker run --rm argus --version
+          docker run --rm argus --help
