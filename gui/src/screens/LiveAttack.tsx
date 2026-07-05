@@ -13,6 +13,34 @@ export function LiveAttack() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [s.feed.length]);
 
+  // A real desktop audit has no per-agent telemetry to show (the CLI runs as
+  // an opaque subprocess) — show an honest running state instead of faking
+  // the demo's simulated feed.
+  if (s.auditRunning) {
+    const mins = Math.floor(s.auditElapsedSec / 60);
+    const secs = s.auditElapsedSec % 60;
+    const elapsed = `${mins}:${secs.toString().padStart(2, "0")}`;
+    return (
+      <section style={{ padding: "28px 40px 42px 40px", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 26 }}>
+        <ArgusEye size={64} draw />
+        <div style={{ fontFamily: FONT.display, fontSize: 13, letterSpacing: "0.22em", color: C.goldPale }}>
+          ARGUS IS RUNNING
+        </div>
+        <div style={{ fontFamily: FONT.code, fontSize: 14, color: C.stoneText, textAlign: "center" }}>
+          {s.phase2 ? "Phase 1 + Phase 2" : "Phase 1"} against <span style={{ color: C.parchment }}>{s.target}</span>
+        </div>
+        <div style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 13, color: C.stoneText, maxWidth: 420, textAlign: "center" }}>
+          {s.phase2
+            ? "Active attack agents can take a while against a real target — this isn't a simulation, so there's no progress bar to show, just the clock."
+            : "Reading and mapping the codebase — this is usually quick."}
+        </div>
+        <div style={{ fontFamily: FONT.display, fontSize: 34, fontWeight: 700, color: C.goldenrod, letterSpacing: "0.04em" }}>
+          {elapsed}
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section style={{ padding: "28px 40px 42px 40px", height: "100%", display: "flex", flexDirection: "column", minHeight: 0 }}>
       {/* header */}

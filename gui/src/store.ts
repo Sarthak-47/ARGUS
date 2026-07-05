@@ -47,6 +47,7 @@ interface State {
   target: string;
   isDesktop: boolean;
   auditRunning: boolean;
+  auditElapsedSec: number;
   auditError: string | null;
   argusAvailable: boolean | null;
 
@@ -69,6 +70,7 @@ interface State {
 
 let attackTimer: ReturnType<typeof setInterval> | null = null;
 let reportTimer: ReturnType<typeof setInterval> | null = null;
+let auditTimer: ReturnType<typeof setInterval> | null = null;
 const reduceMotion =
   typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -94,6 +96,7 @@ export const useStore = create<State>((set, get) => ({
   target: "",
   isDesktop: isTauri(),
   auditRunning: false,
+  auditElapsedSec: 0,
   auditError: null,
   argusAvailable: null,
 
@@ -115,7 +118,9 @@ export const useStore = create<State>((set, get) => ({
       set({ auditError: "Enter a target path or URL first." });
       return;
     }
-    set({ auditRunning: true, auditError: null });
+    set({ auditRunning: true, auditError: null, auditElapsedSec: 0, screen: "live" });
+    if (auditTimer) clearInterval(auditTimer);
+    auditTimer = setInterval(() => set((s) => ({ auditElapsedSec: s.auditElapsedSec + 1 })), 1000);
     try {
       const mode = phase2 ? "audit" : "scan";
       const agents = phase1 && phase2
@@ -123,10 +128,12 @@ export const useStore = create<State>((set, get) => ({
         : undefined;
       const json = await invoke<string>("run_audit", { target: target.trim(), mode, agents });
       const report = mapReport(JSON.parse(json));
+      if (auditTimer) { clearInterval(auditTimer); auditTimer = null; }
       set({ report, auditRunning: false, screen: "report" });
       get().countReport();
     } catch (err) {
-      set({ auditRunning: false, auditError: String(err) });
+      if (auditTimer) { clearInterval(auditTimer); auditTimer = null; }
+      set({ auditRunning: false, auditError: String(err), screen: "scan" });
     }
   },
 
