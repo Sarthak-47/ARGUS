@@ -19,7 +19,9 @@ export function LiveAttack() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flex: "0 0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <ArgusEye size={38} rings={s.activated} />
-          <span style={{ fontFamily: FONT.code, fontSize: 13, color: C.stoneText }}>github.com/user/ecommerce-app</span>
+          <span style={{ fontFamily: FONT.code, fontSize: 13, color: C.stoneText }}>
+            {s.report?.target || s.target || "github.com/user/ecommerce-app"}
+          </span>
           <span style={{
             fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.22em", color: C.crimson,
             border: `1px solid ${C.crimson}`, padding: "5px 12px",
