@@ -42,6 +42,11 @@ jobs:
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          # Build a universal binary on macOS so one .dmg covers both Intel
+          # and Apple Silicon — matrix.platform is windows/ubuntu on the
+          # other legs, where this is a no-op.
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Install frontend dependencies
         working-directory: gui
@@ -58,3 +63,4 @@ jobs:
           releaseBody: "Automated build of the Argus desktop app. See CHANGELOG / commit history for details."
           releaseDraft: true
           prerelease: false
+          args: ${{ matrix.platform == 'macos-latest' && '--target universal-apple-darwin' || '' }}
