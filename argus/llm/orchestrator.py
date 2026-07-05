@@ -122,7 +122,14 @@ async def run_attack_async(
 
             # 1) Recon always first
             recon = ReconBot()
-            reports.append(await recon.run(ctx))
+            recon_report = await recon.run(ctx)
+            reports.append(recon_report)
+
+            if recon_report.status == "error":
+                # Recon couldn't even reach the target — every other agent would
+                # just re-discover the same dead connection. Stop here instead of
+                # burning a timeout per agent against a host we know is down.
+                return ctx.findings, reports
 
             # 2) Ordered post-recon agents
             order = _select_order(requested_agents, prior)
