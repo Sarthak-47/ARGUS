@@ -180,6 +180,11 @@ def _export(result: ScanResult, fmt: str, output: str | None) -> Path:
         raise typer.Exit(code=1)
     output_dir = output or settings.output_dir
     path = export(result, fmt, output_dir)
+    if fmt == "pdf" and path.suffix != ".pdf":
+        out.warn(
+            "PDF generation needs weasyprint (pip install weasyprint) — "
+            "wrote an HTML report instead."
+        )
     out.success(f"Report written → [wheat1]{path}[/]")
     return path
 
