@@ -112,6 +112,26 @@ class Finding:
         loc = (self.file or self.endpoint or "").lower()
         return (self.category, loc, self.line, self.title.strip().lower())
 
+    @property
+    def priority_score(self) -> float:
+        """Tie-break signal within a severity band: 0-45, higher = fix first.
+
+        Scoped down from Snyk's Risk Score (EPSS + CVSS + exploit maturity +
+        reachability) since Argus doesn't consume an external EPSS feed —
+        blends what's already on every Finding instead: a *confirmed* exploit
+        (an attack agent actually proved it, not just pattern-matched it)
+        outweighs a merely-plausible one, ``confidence`` reflects how sure
+        the detector itself is, and CVSS (when present) nudges further.
+        Deliberately never crosses severity bands — a HIGH finding with every
+        bonus maxed still can't outrank a CRITICAL, so "worst first" stays
+        exactly as legible as it's always been; this only reorders findings
+        that already share a severity.
+        """
+        confidence_bonus = _CONFIDENCE_RANK.get(self.confidence, 0) * 5   # 0-10
+        confirmed_bonus = 15.0 if self.confirmed else 0.0
+        cvss_bonus = (self.cvss or 0) * 2                                  # 0-20 (cvss caps at 10)
+        return confidence_bonus + confirmed_bonus + cvss_bonus
+
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
         d["severity"] = self.severity.value
@@ -225,7 +245,10 @@ class ScanResult:
         return "#8B0000" if s >= 70 else "#8B4513" if s >= 45 else "#B8860B"
 
     def sorted_findings(self) -> list[Finding]:
-        return sorted(self.findings, key=lambda f: (-f.severity.rank, f.title))
+        """Worst severity first, then by priority_score within a severity band
+        (confirmed/high-confidence/high-CVSS findings surface before merely
+        plausible ones at the same severity), title as the final tie-break."""
+        return sorted(self.findings, key=lambda f: (-f.severity.rank, -f.priority_score, f.title))
 
     def to_dict(self) -> dict[str, Any]:
         return {

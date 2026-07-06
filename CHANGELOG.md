@@ -54,6 +54,10 @@ All notable changes to Argus are documented here. Format loosely follows
 - **SBOM export** (UPGRADE.md #6): `argus scan/report --format sbom` produces a real CycloneDX
   1.5 JSON SBOM with correct `purl`s, built from a new full package-inventory parser
   (`argus/sbom.py`) over `package.json`/`requirements.txt`.
+- **Risk-based prioritization** (UPGRADE.md #8): findings now carry a `priority_score` (confidence
+  + confirmed + CVSS) used as the sort tie-break within a severity band, so a confirmed,
+  high-confidence, high-CVSS finding surfaces before a merely-plausible one at the same
+  severity — without ever letting a lower severity outrank a higher one.
 
 ### Fixed
 - `argus report --format pdf` now warns explicitly when `weasyprint` isn't installed and it

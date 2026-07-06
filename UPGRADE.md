@@ -150,7 +150,7 @@ enterprise ticketing queue.
   now masks it the same way. GUI Settings-screen field for this is not yet
   wired (CLI-only for now, consistent with the "low-medium effort" scope).
 
-### 8. Risk-based prioritization score
+### 8. Risk-based prioritization score — ✅ Done
 Blend severity with exploit likelihood signals (e.g. known-CVE + exploit
 maturity for dependency findings, "confirmed" flag weight for Phase-2
 findings, confidence level) into a single sortable priority score, instead of
@@ -161,6 +161,14 @@ sorting purely by CVSS/severity bucket.
 - **Effort:** Medium-high. Start with a simple weighted formula using data
   already on `Finding` (severity, confidence, confirmed, cvss); revisit a
   real EPSS feed later if it proves valuable.
+- **Shipped as:** a new `Finding.priority_score` property (confidence +
+  confirmed + CVSS, 0-45) used by `sorted_findings()` as the tie-break
+  *within* a severity band — deliberately scoped so it can never make a
+  lower-severity finding outrank a higher-severity one (a maxed-out HIGH
+  still can't beat a bare CRITICAL), so every existing "worst first" report/
+  CLI table gets smarter automatically without the top-level severity
+  grouping ever looking surprising. A full EPSS-based score that crosses
+  severity bands is a bigger, riskier change deferred for now.
 
 ---
 
