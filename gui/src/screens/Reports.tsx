@@ -6,7 +6,7 @@ import { GreekKeyDivider } from "../components/Decor";
 export function Reports() {
   const s = useStore();
   const live = s.report;
-  const allFindings = live ? live.findings : FINDINGS;
+  const allFindings = (live ? live.findings : FINDINGS).filter((f) => !s.suppressedIds.has(f.id));
   const target = live ? live.target : "github.com/user/ecommerce-app";
 
   const counts = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 } as Record<string, number>;
@@ -131,13 +131,28 @@ export function Reports() {
                 <span>Found by <span style={{ fontStyle: "normal", color: C.bronze, fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.06em" }}>{sel.agent}</span></span>
                 <span>CVSS <span style={{ fontStyle: "normal", color: sevColor(sel.severity), fontFamily: FONT.code }}>{sel.cvss}</span></span>
               </div>
-              {sel.file && sel.line != null && (
-                <button
-                  onClick={() => s.openCodeView(sel.file!, sel.line!)}
-                  style={{ marginTop: 16, fontFamily: FONT.display, fontSize: 10, letterSpacing: "0.16em", color: C.bronze, background: "transparent", border: `1px solid ${C.bronze}`, padding: "9px 16px", cursor: "pointer" }}
-                >
-                  VIEW IN CODE
-                </button>
+              <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+                {sel.file && sel.line != null && (
+                  <button
+                    onClick={() => s.openCodeView(sel.file!, sel.line!)}
+                    style={{ fontFamily: FONT.display, fontSize: 10, letterSpacing: "0.16em", color: C.bronze, background: "transparent", border: `1px solid ${C.bronze}`, padding: "9px 16px", cursor: "pointer" }}
+                  >
+                    VIEW IN CODE
+                  </button>
+                )}
+                {s.isDesktop && (
+                  <button
+                    onClick={() => s.suppressFinding(sel.id, sel.name, "ignored", "dismissed from Reports")}
+                    style={{ fontFamily: FONT.display, fontSize: 10, letterSpacing: "0.16em", color: C.stoneText, background: "transparent", border: `1px solid ${C.relief}`, padding: "9px 16px", cursor: "pointer" }}
+                  >
+                    IGNORE
+                  </button>
+                )}
+              </div>
+              {s.suppressionError && (
+                <div style={{ marginTop: 10, fontFamily: FONT.body, fontStyle: "italic", fontSize: 12, color: C.crimson }}>
+                  {s.suppressionError}
+                </div>
               )}
             </div>
             <div style={{ overflowY: "auto", flex: 1, minHeight: 0, padding: "4px 0" }}>

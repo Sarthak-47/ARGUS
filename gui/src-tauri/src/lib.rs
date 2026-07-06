@@ -148,6 +148,24 @@ fn save_provider_key(name: String, key: String) -> Result<(), String> {
   Ok(())
 }
 
+/// Marks a finding ignored/reviewing/open via `argus suppress`. `search`
+/// must uniquely match one finding's title in the last scan (same rule the
+/// CLI enforces) — an ambiguous or missing match surfaces as an error the
+/// GUI shows the user rather than silently doing nothing.
+#[tauri::command]
+fn suppress_finding(search: String, status: String, reason: String) -> Result<(), String> {
+  let mut cmd = Command::new("argus");
+  cmd.args(["suppress", &search, "--status", &status]);
+  if !reason.is_empty() {
+    cmd.args(["--reason", &reason]);
+  }
+  let output = cmd.output().map_err(|e| format!("failed to launch argus: {e}"))?;
+  if !output.status.success() {
+    return Err(String::from_utf8_lossy(&output.stderr).into_owned());
+  }
+  Ok(())
+}
+
 /// Cheap presence check so the GUI can tell the user to `pip install
 /// argus-sec` instead of failing opaquely on the first real scan.
 #[tauri::command]
@@ -164,7 +182,7 @@ pub fn run() {
   tauri::Builder::default()
     .invoke_handler(tauri::generate_handler![
       run_audit, check_argus_available, read_source_snippet, read_scan_history,
-      read_scan_comparison, read_status, set_provider, save_provider_key
+      read_scan_comparison, read_status, set_provider, save_provider_key, suppress_finding
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {

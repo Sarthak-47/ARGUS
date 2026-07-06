@@ -76,7 +76,7 @@ table, instead of the table being the first thing a reader sees.
 
 ## Tier 2 — needs real engine work, still high value
 
-### 4. Finding lifecycle states + suppression rules
+### 4. Finding lifecycle states + suppression rules — ✅ Done
 Findings gain a state beyond just "present in the latest scan": Open →
 Reviewing → Ignored → Fixed. An ignored finding (with a reason) shouldn't
 resurface as new on every subsequent scan.
@@ -86,6 +86,18 @@ resurface as new on every subsequent scan.
   signature (reuse `_signature()`), plus GUI affordances to change state and
   a scan-side check against previously-suppressed signatures.
 - **Depends on:** pairs naturally with #2 once that exists.
+- **Shipped as:** new `argus/suppressions.py` keyed on `finding_signature()`
+  (from #2's `argus/compare.py`), persisted per-target in
+  `~/.argus/suppressions.json`. `argus scan` now filters ignored findings out
+  of the visible results entirely (they no longer count toward risk score)
+  and tags "reviewing" findings in metadata. New `argus suppress <search>
+  [--status ignored|reviewing|open] [--reason ...]` and `argus suppressions`
+  CLI commands; the GUI's Reports detail panel gets an IGNORE button that
+  hides the finding from the current view immediately via a new
+  `suppress_finding` Tauri command. Found and fixed a real bug during live
+  testing: un-suppressing by title search can't search the *visible* scan
+  results (an ignored finding is filtered out of them by design) — it has to
+  search the suppression records themselves, which `clear_by_title()` does.
 
 ### 5. One-click "Generate Fix PR"
 Extend `argus fix` so that instead of (or in addition to) writing a local

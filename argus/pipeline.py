@@ -132,10 +132,15 @@ def run_scan(
     fail_on: str | None = None,
 ) -> ScanResult:
     from argus.state import save_result
+    from argus.suppressions import apply_suppressions
 
     out.banner()
     out.rule(f"STATIC SCAN — {target}")
     result = _do_scan(target, deep=deep, depth=depth, no_llm=no_llm)
+    result.findings, suppressed_count = apply_suppressions(target, result.findings)
+    if suppressed_count:
+        out.info(f"{suppressed_count} finding(s) suppressed (ignored) — "
+                  f"run [wheat1]argus suppressions {target}[/] to review.")
 
     out.risk_panel(result)
     out.findings_table(result, limit=25)

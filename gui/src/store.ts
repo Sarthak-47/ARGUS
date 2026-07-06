@@ -63,6 +63,10 @@ interface State {
   auditElapsedSec: number;
   auditError: string | null;
   argusAvailable: boolean | null;
+  // ids of findings just suppressed in this session — hidden from the
+  // current view immediately, without waiting for a re-scan
+  suppressedIds: Set<number>;
+  suppressionError: string | null;
 
   setScreen: (s: Screen) => void;
   loadReport: () => Promise<void>;
@@ -71,6 +75,7 @@ interface State {
   loadStatus: () => Promise<void>;
   testConnection: () => Promise<void>;
   saveProviderKey: (provider: string, key: string) => Promise<void>;
+  suppressFinding: (id: number, title: string, status: "ignored" | "reviewing", reason?: string) => Promise<void>;
   setTarget: (t: string) => void;
   runRealAudit: () => Promise<void>;
   checkArgusAvailable: () => Promise<void>;
@@ -127,8 +132,21 @@ export const useStore = create<State>((set, get) => ({
   auditElapsedSec: 0,
   auditError: null,
   argusAvailable: null,
+  suppressedIds: new Set(),
+  suppressionError: null,
 
   setTarget: (t) => set({ target: t }),
+
+  suppressFinding: async (id, title, status, reason = "") => {
+    if (!isTauri()) return;
+    set({ suppressionError: null });
+    try {
+      await invoke("suppress_finding", { search: title, status, reason });
+      set((s) => ({ suppressedIds: new Set(s.suppressedIds).add(id), selectedId: null }));
+    } catch (err) {
+      set({ suppressionError: String(err) });
+    }
+  },
 
   checkArgusAvailable: async () => {
     if (!isTauri()) return;

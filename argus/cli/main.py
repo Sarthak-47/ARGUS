@@ -176,6 +176,34 @@ def status(
 
 
 # --------------------------------------------------------------------------- #
+# suppress / suppressions
+# --------------------------------------------------------------------------- #
+@app.command()
+def suppress(
+    search: str = typer.Argument(..., help="Substring to match against a finding's title (case-insensitive)."),
+    status: str = typer.Option("ignored", "--status", help="ignored | reviewing | open"),
+    reason: str = typer.Option("", "--reason", help="Why (shown in argus suppressions)."),
+    target: Optional[str] = typer.Option(None, "--target", help="Defaults to the last scan's target."),
+) -> None:
+    """Mark a finding from the last scan as ignored/reviewing/open — ignored findings
+    stop counting toward risk score and won't resurface as new on future scans."""
+    from argus.commands.suppress_cmd import run_suppress
+
+    run_suppress(search=search, status=status, reason=reason, target=target)
+
+
+@app.command()
+def suppressions(
+    target: Optional[str] = typer.Option(None, "--target", help="Defaults to the last scan's target."),
+    fmt: str = typer.Option("table", "--format", help="table | json"),
+) -> None:
+    """List suppressed/reviewing findings for a target."""
+    from argus.commands.suppress_cmd import run_suppressions
+
+    run_suppressions(target=target, fmt=fmt)
+
+
+# --------------------------------------------------------------------------- #
 # config
 # --------------------------------------------------------------------------- #
 @app.command()

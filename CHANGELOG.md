@@ -43,6 +43,11 @@ All notable changes to Argus are documented here. Format loosely follows
   with a "Top Risks" section (the top 5 CRITICAL/HIGH findings) right after the risk-score
   summary and before the full findings table, instead of the full table being the first thing a
   reader sees. Omitted entirely on a clean scan with nothing CRITICAL/HIGH.
+- **Finding lifecycle + suppression** (UPGRADE.md #4): findings can now be marked
+  ignored/reviewing/open, persisted per target and keyed by the same signature `argus compare`
+  uses (survives line-number shifts from unrelated edits). Ignored findings no longer resurface
+  on future scans or count toward risk score. New `argus suppress <search>` and `argus
+  suppressions` CLI commands; the desktop GUI's Reports screen gets an IGNORE button.
 
 ### Fixed
 - `argus report --format pdf` now warns explicitly when `weasyprint` isn't installed and it
