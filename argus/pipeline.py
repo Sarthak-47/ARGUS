@@ -208,7 +208,7 @@ def run_attack(
 ) -> ScanResult | None:
     from argus.llm.orchestrator import AGENT_REGISTRY, run_attack_sync
     from argus.llm.provider import get_provider
-    from argus.sandbox.docker_manager import availability_note
+    from argus.sandbox.docker_manager import Sandbox, SandboxError, availability_note, docker_available
     from argus.state import load_result, save_result
 
     if banner:
@@ -216,59 +216,76 @@ def run_attack(
     out.rule("ATTACK AGENT")
 
     base_url = url
+    sandbox: Sandbox | None = None
     if not base_url:
-        # No running URL given. Auto-sandboxing needs Docker, which we treat as optional.
-        if target:
+        if not target:
+            out.error("Provide --url of a running app (or a target repo once Docker is set up).")
+            raise typer.Exit(code=1)
+        if not docker_available():
             out.warn("Attacking a repo requires spinning it up in a sandbox.")
             out.info(availability_note())
             out.info("For now, start the app yourself and run: "
                      "[wheat1]argus attack --url http://localhost:PORT[/]")
-        else:
-            out.error("Provide --url of a running app (or a target repo once Docker is set up).")
-        raise typer.Exit(code=1)
+            raise typer.Exit(code=1)
 
-    requested = [a.strip().lower() for a in agents.split(",")] if agents else None
-    if requested:
-        unknown = [a for a in requested if a not in AGENT_REGISTRY]
-        if unknown:
-            out.warn(f"Not yet implemented (ignored): {', '.join(unknown)}")
+        out.step("Spinning up the target in a Docker sandbox…")
+        sandbox = Sandbox(Path(target).expanduser().resolve())
+        try:
+            base_url = sandbox.start()
+        except SandboxError as exc:
+            out.error(str(exc))
+            raise typer.Exit(code=1)
+        out.success(f"Sandbox reachable at [wheat1]{base_url}[/]")
 
-    # Bias agent order using the last scan's findings, if any.
-    prior = load_result()
-    prior_findings = prior.findings if prior else []
+    try:
+        requested = [a.strip().lower() for a in agents.split(",")] if agents else None
+        if requested:
+            unknown = [a for a in requested if a not in AGENT_REGISTRY]
+            if unknown:
+                out.warn(f"Not yet implemented (ignored): {', '.join(unknown)}")
 
-    # Resolve an LLM provider once, if configured — enables provider-gated agents
-    # (BusinessLogicAgent) without requiring one; raw HTTP agents ignore it entirely.
-    settings = load_settings()
-    provider = get_provider(settings)
-    if provider is not None:
-        out.info(f"LLM provider available: [yellow3]{provider.name}[/] ({provider.model}) — "
-                 "business-logic reasoning enabled.")
+        # Bias agent order using the last scan's findings, if any.
+        prior = load_result()
+        prior_findings = prior.findings if prior else []
 
-    out.step(f"Target: [wheat1]{base_url}[/]")
-    out.step("Deploying agents… (ReconBot first)")
+        # Resolve an LLM provider once, if configured — enables provider-gated agents
+        # (BusinessLogicAgent) without requiring one; raw HTTP agents ignore it entirely.
+        settings = load_settings()
+        provider = get_provider(settings)
+        if provider is not None:
+            out.info(f"LLM provider available: [yellow3]{provider.name}[/] ({provider.model}) — "
+                     "business-logic reasoning enabled.")
 
-    def feed(agent: str, text: str, sev: str) -> None:
-        if sev == "crit":
-            out.console.print(f"  [dark_orange3]\\[{agent}][/] [bold red]✓ {text}[/]")
-        else:
-            out.console.print(f"  [dark_orange3]\\[{agent}][/] [grey58]{text}[/]")
+        out.step(f"Target: [wheat1]{base_url}[/]")
+        out.step("Deploying agents… (ReconBot first)")
 
-    findings, reports = run_attack_sync(
-        base_url, requested_agents=requested, prior_findings=prior_findings,
-        provider=provider, on_event=feed,
-    )
+        def feed(agent: str, text: str, sev: str) -> None:
+            if sev == "crit":
+                out.console.print(f"  [dark_orange3]\\[{agent}][/] [bold red]✓ {text}[/]")
+            else:
+                out.console.print(f"  [dark_orange3]\\[{agent}][/] [grey58]{text}[/]")
 
-    result = ScanResult(target=base_url, phase="attack")
-    result.extend(findings)
-    result.finished_at = time.time()
+        findings, reports = run_attack_sync(
+            base_url, requested_agents=requested, prior_findings=prior_findings,
+            provider=provider, on_event=feed,
+        )
 
-    out.console.print()
-    _attack_summary(reports)
-    out.risk_panel(result)
-    out.findings_table(result)
-    save_result(result)
-    return result
+        # Report the original repo target, not the sandbox's ephemeral localhost
+        # port, when Argus spun it up itself — far more meaningful in a report.
+        result = ScanResult(target=target if sandbox else base_url, phase="attack")
+        result.extend(findings)
+        result.finished_at = time.time()
+
+        out.console.print()
+        _attack_summary(reports)
+        out.risk_panel(result)
+        out.findings_table(result)
+        save_result(result)
+        return result
+    finally:
+        if sandbox is not None:
+            out.step("Tearing down sandbox…")
+            sandbox.stop()
 
 
 def _attack_summary(reports) -> None:
@@ -286,12 +303,20 @@ def _attack_summary(reports) -> None:
 
 
 def run_audit(target: str, fix: bool = False, agents: str | None = None) -> None:
+    from argus.sandbox.docker_manager import docker_available
+
     out.banner()
     out.rule("FULL AUDIT")
     run_scan(target)
     out.console.print()
-    out.info("Phase 1 complete. For Phase 2, point Argus at the running app:")
-    out.info("[wheat1]argus attack --url http://localhost:PORT[/]")
+
+    if docker_available():
+        run_attack(target=target, agents=agents, banner=False)
+    else:
+        out.info("Phase 1 complete. Phase 2 needs Docker to sandbox the target automatically — "
+                 "point Argus at a running instance instead:")
+        out.info("[wheat1]argus attack --url http://localhost:PORT[/]")
+
     if fix:
         out.console.print()
         run_fix(target, apply=False)

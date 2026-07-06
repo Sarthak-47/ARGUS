@@ -5,9 +5,23 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+### Added
+- **Docker auto-sandbox**: `argus attack <repo>` and `argus audit <repo>` now actually spin the
+  target up in Docker and attack it, instead of only printing instructions to start it yourself.
+  Auto-generates a Dockerfile for Django (via `manage.py`) and Node (via a `package.json` `start`
+  script) when the repo doesn't ship one; uses the repo's own Dockerfile otherwise. Falls back
+  to the existing `--url` flow when Docker isn't available or the stack can't be confidently
+  determined. New optional `sandbox` extra (`pip install argus-sec[sandbox]`).
+- `argus audit` now genuinely runs Phase 2 automatically when Docker is available, instead of
+  only running Phase 1 and telling the user to run `attack --url` by hand.
+
 ### Fixed
 - `argus report --format pdf` now warns explicitly when `weasyprint` isn't installed and it
   falls back to HTML, instead of silently writing a different file.
+- `argus scan <bad-git-url>` now prints git's actual failure reason instead of dumping the raw
+  command invocation, and no longer leaks an empty temp directory on a failed clone.
+- `argus attack --url <dead-host>` now stops after ReconBot reports the target unreachable
+  instead of running all 15 other agents against a host we already know is down.
 
 ## [0.1.1] — 2026-07-05
 

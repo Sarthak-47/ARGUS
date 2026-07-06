@@ -37,6 +37,9 @@ semgrep = ["semgrep>=1.50"]
 audit = ["pip-audit>=2.7"]
 # DOM-XSS/SPA testing (DomXSSHunter). Also run `playwright install chromium` once installed.
 browser = ["playwright>=1.45"]
+# Auto-sandboxing a repo target for `argus attack`/`argus audit` (build + run it
+# in Docker). Without this, point Argus at an already-running app with --url.
+sandbox = ["docker>=7.0"]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.4"]
 
 [project.scripts]

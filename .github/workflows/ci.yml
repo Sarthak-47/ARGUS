@@ -30,7 +30,10 @@ jobs:
       - name: Install package (with dev extras)
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          # sandbox pulls in the docker Python SDK — ubuntu-latest runners have
+          # a live Docker daemon, so test_sandbox.py's live tests actually run
+          # here rather than skipping.
+          pip install -e ".[dev,sandbox]"
 
       - name: Lint (ruff)
         run: ruff check argus tests

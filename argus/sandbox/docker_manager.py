@@ -1,15 +1,31 @@
 """Optional Docker sandbox management.
 
-When Docker is available and the target is a repo (not a live URL), Argus can spin
-the app up in an isolated container to attack it. Docker is *not* required: this
-module detects availability and the pipeline falls back to ``--url`` mode when it
-is missing. Full auto-Dockerfile generation is a later milestone; for now this
-provides detection plus a thin run/stop wrapper over the Docker SDK if installed.
+When Docker is available and the target is a repo (not a live URL), Argus spins
+the app up in a container to attack it. Docker is *not* required: this module
+detects availability and the pipeline falls back to ``--url`` mode when it's
+missing.
+
+Isolation this actually provides: each sandbox run gets its own dedicated
+bridge network (not the shared default bridge, so it's cleanly torn down and
+never collides with other containers) and a memory cap. It does **not** block
+the sandboxed app's outbound network access. An earlier design used Docker's
+``internal`` network flag to try to fully lock the container away from the
+host — verified empirically (real ``docker network create --internal`` +
+``docker run -p`` test) that this also blocks the *host* from reaching the
+container's published port, which would defeat the purpose of attacking it.
+Full outbound lockdown needs host firewall rules, which is out of scope here;
+this module does not claim network isolation it hasn't actually verified.
 """
 
 from __future__ import annotations
 
 import shutil
+import socket
+import time
+import uuid
+from pathlib import Path
+
+from argus.sandbox import dockerfile_gen
 
 
 def docker_available() -> bool:
@@ -34,3 +50,131 @@ def availability_note() -> str:
     if shutil.which("docker") is None:
         return "docker not installed — use 'argus attack --url <running-app>' instead"
     return "docker installed but daemon not reachable — start Docker Desktop"
+
+
+class SandboxError(RuntimeError):
+    """Raised when the sandbox can't be built, started, or reached."""
+
+
+def _free_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def _wait_until_reachable(url: str, timeout: float) -> bool:
+    import httpx
+
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            httpx.get(url, timeout=2.0)
+            return True
+        except httpx.HTTPError:
+            time.sleep(1.0)
+    return False
+
+
+class Sandbox:
+    """Builds and runs a target repo in Docker for the duration of an attack.
+
+    Usage: ``base_url = sandbox.start()`` then always ``sandbox.stop()`` in a
+    ``finally`` block — ``start()`` can partially succeed (image built, network
+    created) before failing, and ``stop()`` tears down whatever exists.
+    """
+
+    def __init__(self, root: Path):
+        self.root = root
+        self._client = None
+        self._network = None
+        self._container = None
+        self._image_id: str | None = None
+
+    def start(self, timeout: float = 60.0) -> str:
+        try:
+            import docker
+            from docker.errors import APIError, BuildError, DockerException
+        except ImportError as exc:
+            raise SandboxError(
+                "The 'docker' Python package isn't installed — pip install 'argus-sec[sandbox]'."
+            ) from exc
+
+        dockerfile_info = dockerfile_gen.find_existing_dockerfile(self.root) or dockerfile_gen.generate_dockerfile(self.root)
+        if dockerfile_info is None:
+            raise SandboxError(
+                "Couldn't determine how to run this repo automatically (no Dockerfile, "
+                "and the stack isn't one Argus can confidently guess a start command for). "
+                "Start it yourself and use --url instead."
+            )
+        content_or_name, container_port = dockerfile_info
+        generated = content_or_name != "Dockerfile"
+
+        try:
+            self._client = docker.from_env()
+        except DockerException as exc:
+            raise SandboxError(f"Docker isn't reachable: {exc}") from exc
+
+        generated_path: Path | None = None
+        try:
+            if generated:
+                generated_path = self.root / ".argus-sandbox.Dockerfile"
+                generated_path.write_text(content_or_name, encoding="utf-8")
+                dockerfile_name = generated_path.name
+            else:
+                dockerfile_name = "Dockerfile"
+
+            tag = f"argus-sandbox:{uuid.uuid4().hex[:10]}"
+            try:
+                image, _logs = self._client.images.build(
+                    path=str(self.root), dockerfile=dockerfile_name, tag=tag,
+                    rm=True, forcerm=True,
+                )
+            except BuildError as exc:
+                raise SandboxError(f"Docker build failed: {exc}") from exc
+            except APIError as exc:
+                raise SandboxError(f"Docker build failed: {exc}") from exc
+            self._image_id = image.id
+        finally:
+            if generated_path is not None:
+                generated_path.unlink(missing_ok=True)
+
+        net_name = f"argus-net-{uuid.uuid4().hex[:10]}"
+        try:
+            self._network = self._client.networks.create(net_name, driver="bridge")
+        except APIError as exc:
+            raise SandboxError(f"Could not create sandbox network: {exc}") from exc
+
+        host_port = _free_port()
+        try:
+            self._container = self._client.containers.run(
+                tag, detach=True, network=net_name,
+                ports={f"{container_port}/tcp": host_port},
+                mem_limit="512m", security_opt=["no-new-privileges"],
+            )
+        except APIError as exc:
+            raise SandboxError(f"Could not start sandbox container: {exc}") from exc
+
+        base_url = f"http://127.0.0.1:{host_port}"
+        if not _wait_until_reachable(base_url, timeout=timeout):
+            raise SandboxError(
+                f"The sandboxed app never became reachable at {base_url} within "
+                f"{timeout:.0f}s (check the generated Dockerfile / the app's start command)."
+            )
+        return base_url
+
+    def stop(self) -> None:
+        if self._container is not None:
+            try:
+                self._container.remove(force=True)
+            except Exception:
+                pass
+        if self._network is not None:
+            try:
+                self._network.remove()
+            except Exception:
+                pass
+        if self._image_id is not None and self._client is not None:
+            try:
+                self._client.images.remove(self._image_id, force=True)
+            except Exception:
+                pass
