@@ -22,6 +22,12 @@ All notable changes to Argus are documented here. Format loosely follows
   coding assistant (Copilot/Cursor/Claude Code) as an alternative to applying the diff directly —
   since much of the code Argus scans was written with one of these in the first place, closing
   the loop through the same tool is often the more natural fix path than a raw patch.
+- **PromptInjectionAgent** (17th agent): probes AI/chat features the scanned app itself exposes
+  for prompt injection — sends a unique canary token wrapped in an instruction-override payload
+  and only reports a finding if that exact token comes back verbatim, proving untrusted input
+  reached the model without isolation from system instructions. Tries both POST (JSON body) and
+  GET (query params) regardless of the method ReconBot/CrawlerBot recorded, since chat widgets
+  are almost always driven by a JS `fetch()` POST that static HTML/form parsing can't see.
 
 ### Fixed
 - `argus report --format pdf` now warns explicitly when `weasyprint` isn't installed and it

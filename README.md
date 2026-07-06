@@ -50,14 +50,18 @@ Risk Score 98/100  [CRITICAL]
 | Phase | What it does |
 |---|---|
 | **1 · Static Analysis** | Reads the codebase without running it: built-in rules, dependency CVEs (`npm/pip audit`), secret detection (regex + Shannon entropy + git history), then an LLM layer that validates, explains and re-rates each finding for *your* code. |
-| **2 · Attack Agent** | Points a swarm of **16 specialised agents** at the running app — orchestrated in a loop, with an out-of-band callback server to confirm *blind* vulnerabilities, and every confirmed finding carries a runnable proof-of-concept (curl command + real request/response), not just a description. |
+| **2 · Attack Agent** | Points a swarm of **17 specialised agents** at the running app — orchestrated in a loop, with an out-of-band callback server to confirm *blind* vulnerabilities, and every confirmed finding carries a runnable proof-of-concept (curl command + real request/response), not just a description. |
 
 ### The attack swarm
 
 `ReconBot` · `CrawlerBot` · `Injector` (SQLi/NoSQL/command) · `AuthBreaker` (JWT/session/MFA) ·
 `IDORHunter` · `XSSHunter` · `SSRFProber` · `HeaderPoker` (CORS) · `CSRFHunter` · `FileAttacker`
 (upload/traversal) · `Fuzzer` · `RaceCondition` · `GraphQLAgent` · `WebSocketAgent` ·
-`MCPSecurityAgent` (exposed MCP servers & AI-infra leaks) · **`BusinessLogicAgent`** — reasons
+`MCPSecurityAgent` (exposed MCP servers & AI-infra leaks) · `PromptInjectionAgent` (probes the
+app's own chatbot/AI features for prompt injection — sends a unique canary token wrapped in an
+instruction-override payload and only reports a finding if that exact token comes back verbatim,
+proving untrusted input reached the model without isolation from system instructions) ·
+**`BusinessLogicAgent`** — reasons
 over the discovered endpoints with an LLM to propose coupon-stacking/negative-quantity/workflow-
 bypass abuse, then *executes* it and confirms behaviorally. This targets the gap the rest of the
 industry hasn't solved: ~70% of critical web vulnerabilities are business logic flaws, and no
@@ -152,10 +156,13 @@ Nobody else combines all six. That's the gap Argus owns.
 - ✅ **Phase 1 — Static analysis** (`argus scan`): rules, dependency audit, supply-chain manifest
   analysis (typosquats, unpinned versions, install-script abuse), secret detection, LLM reasoning,
   reports (HTML/JSON/Markdown/SARIF).
-- ✅ **Phase 2 — Attack swarm** (`argus attack`): **16 agents** (13 original + MCPSecurityAgent,
-  BusinessLogicAgent, and the opt-in DomXSSHunter), orchestration loop, callback server for blind
-  detection, deduplicated findings, and a reproducible proof-of-concept per confirmed exploit.
-- ✅ **`argus fix`**: LLM-generated patches for fixable findings — dry-run preview or `--apply`.
+- ✅ **Phase 2 — Attack swarm** (`argus attack`): **17 agents** (13 original + MCPSecurityAgent,
+  PromptInjectionAgent, BusinessLogicAgent, and the opt-in DomXSSHunter), orchestration loop,
+  Docker auto-sandboxing when no `--url` is given, callback server for blind detection,
+  deduplicated findings, and a reproducible proof-of-concept per confirmed exploit.
+- ✅ **`argus fix`**: LLM-generated patches for fixable findings — dry-run preview or `--apply`,
+  with fix-and-reverify (re-scans afterward to confirm each patch actually closed the finding)
+  and an AI-assistant regenerate-prompt alongside every diff.
 - ✅ **`argus demo`**: zero-setup showcase against a bundled vulnerable app.
 - ✅ **GUI**: five screens rendering real engine data, including captured PoCs.
 - ✅ **Desktop shell**: Tauri 2.0 wraps the GUI as a real native app (`npm run tauri build`) —

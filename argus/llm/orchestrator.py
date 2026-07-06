@@ -26,6 +26,7 @@ from argus.agents.headerpoker import HeaderPoker
 from argus.agents.idorhunter import IDORHunter
 from argus.agents.injector import Injector
 from argus.agents.mcpsecurity import MCPSecurityAgent
+from argus.agents.promptinjection import PromptInjectionAgent
 from argus.agents.racecondition import RaceCondition
 from argus.agents.reconbot import ReconBot
 from argus.agents.ssrfprober import SSRFProber
@@ -50,6 +51,7 @@ AGENT_REGISTRY = {
     "graphqlagent": GraphQLAgent,
     "websocketagent": WebSocketAgent,
     "mcpsecurity": MCPSecurityAgent,
+    "promptinjection": PromptInjectionAgent,
     "businesslogic": BusinessLogicAgent,
     "domxss": DomXSSHunter,
 }
@@ -63,7 +65,8 @@ AGENT_REGISTRY = {
 _DEFAULT_ORDER = [
     "crawlerbot", "injector", "authbreaker", "idorhunter", "xsshunter",
     "ssrfprober", "headerpoker", "csrfhunter", "fileattacker", "graphqlagent",
-    "websocketagent", "mcpsecurity", "businesslogic", "fuzzer", "racecondition",
+    "websocketagent", "mcpsecurity", "promptinjection", "businesslogic",
+    "fuzzer", "racecondition",
 ]
 
 
