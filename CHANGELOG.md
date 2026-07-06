@@ -37,12 +37,23 @@ All notable changes to Argus are documented here. Format loosely follows
   (`~/.argus/previous_scan.json`) and can diff it against the latest by finding signature. New
   `argus compare` CLI command shows what's new/fixed/unchanged since the last scan; the desktop
   GUI's Reports screen shows the same as a "SINCE LAST SCAN" panel when available.
+- New `argus status` CLI command: resolved LLM provider + model, detected GPU/VRAM and
+  recommended local model, and configured scan/report defaults, as clean JSON or a table.
 
 ### Fixed
 - `argus report --format pdf` now warns explicitly when `weasyprint` isn't installed and it
   falls back to HTML, instead of silently writing a different file.
 - `argus scan <bad-git-url>` now prints git's actual failure reason instead of dumping the raw
   command invocation, and no longer leaks an empty temp directory on a failed clone.
+- **Desktop GUI: removed hardcoded provider/GPU/scan-default data.** The Sidebar always showed a
+  fixed "GROQ / llama-3.1-70b" regardless of what was actually configured; Settings showed a fixed
+  "RTX 4070 · 12GB VRAM" and fake scan defaults that didn't correspond to any real setting, and its
+  API key field and "TEST CONNECTION" button did nothing. All of it now reflects real state via the
+  new `argus status` command (real resolved provider/model, real detected GPU via
+  `argus/llm/detector.py`, real scan/report defaults) — provider selection persists through `argus
+  config --provider`, and the key field actually saves via `argus config --key`. In the browser
+  dev build (no desktop backend to query), these now show an explicit "demo preview" / "—"
+  placeholder state instead of fabricated numbers.
 - `argus attack --url <dead-host>` now stops after ReconBot reports the target unreachable
   instead of running all 15 other agents against a host we already know is down.
 

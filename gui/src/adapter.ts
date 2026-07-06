@@ -121,6 +121,18 @@ export interface EngineComparison {
   unchanged_count: number;
 }
 
+export interface StatusInfo {
+  resolved_provider: string | null;
+  preferred_provider: string;
+  model: string | null;
+  available: boolean;
+  gpu: { vendor: string; name: string; vram_gb: number; detected: boolean };
+  recommended_model: string | null;
+  scan_defaults: { depth: string };
+  report_defaults: { output_dir: string; format: string };
+  agent_count: number;
+}
+
 export function mapReport(json: EngineReport): LoadedReport {
   const findings: Finding[] = (json.findings || []).map((f, i) => ({
     id: i + 1,

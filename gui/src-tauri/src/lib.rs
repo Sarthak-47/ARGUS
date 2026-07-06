@@ -105,6 +105,49 @@ fn read_scan_comparison() -> Result<String, String> {
   Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
+/// Returns the raw JSON object from `argus status --format json` — resolved
+/// provider/model, detected GPU, and configured scan/report defaults — for
+/// the Sidebar and Settings screens to show real state instead of
+/// placeholders that never reflect what's actually configured.
+#[tauri::command]
+fn read_status() -> Result<String, String> {
+  let output = Command::new("argus")
+    .args(["status", "--format", "json"])
+    .output()
+    .map_err(|e| format!("failed to launch argus: {e}"))?;
+  if !output.status.success() {
+    return Err(String::from_utf8_lossy(&output.stderr).into_owned());
+  }
+  Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+/// Persists the preferred provider via `argus config --provider <name>`.
+#[tauri::command]
+fn set_provider(name: String) -> Result<(), String> {
+  let output = Command::new("argus")
+    .args(["config", "--provider", &name])
+    .output()
+    .map_err(|e| format!("failed to launch argus: {e}"))?;
+  if !output.status.success() {
+    return Err(String::from_utf8_lossy(&output.stderr).into_owned());
+  }
+  Ok(())
+}
+
+/// Persists an API key for a cloud provider via `argus config --provider
+/// <name> --key <key>`.
+#[tauri::command]
+fn save_provider_key(name: String, key: String) -> Result<(), String> {
+  let output = Command::new("argus")
+    .args(["config", "--provider", &name, "--key", &key])
+    .output()
+    .map_err(|e| format!("failed to launch argus: {e}"))?;
+  if !output.status.success() {
+    return Err(String::from_utf8_lossy(&output.stderr).into_owned());
+  }
+  Ok(())
+}
+
 /// Cheap presence check so the GUI can tell the user to `pip install
 /// argus-sec` instead of failing opaquely on the first real scan.
 #[tauri::command]
@@ -121,7 +164,7 @@ pub fn run() {
   tauri::Builder::default()
     .invoke_handler(tauri::generate_handler![
       run_audit, check_argus_available, read_source_snippet, read_scan_history,
-      read_scan_comparison
+      read_scan_comparison, read_status, set_provider, save_provider_key
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {

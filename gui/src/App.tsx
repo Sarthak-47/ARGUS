@@ -14,11 +14,13 @@ export default function App() {
   const screen = useStore((s) => s.screen);
   const loadReport = useStore((s) => s.loadReport);
   const loadHistory = useStore((s) => s.loadHistory);
+  const loadStatus = useStore((s) => s.loadStatus);
 
   useEffect(() => {
     loadReport();
     loadHistory();
-  }, [loadReport, loadHistory]);
+    loadStatus();
+  }, [loadReport, loadHistory, loadStatus]);
 
   return (
     <div style={{ position: "fixed", inset: 0, display: "flex", background: C.obsidian, color: C.parchment, fontFamily: FONT.body, overflow: "hidden" }}>

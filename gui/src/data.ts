@@ -136,12 +136,15 @@ export const STATS = [
   { label: "FIXED", value: "9", color: "#CD7F32" },
 ];
 
+// `id` matches the engine's provider identifiers (argus/config/defaults.py's
+// ALL_PROVIDERS) so a selection here can round-trip through `argus config
+// --provider <id>` — the display name alone (e.g. "Local GPU") doesn't.
 export const PROVIDERS = [
-  { name: "Local GPU", speed: "12 t/s" },
-  { name: "Groq", speed: "280 t/s" },
-  { name: "Gemini", speed: "90 t/s" },
-  { name: "Claude", speed: "55 t/s" },
-  { name: "OpenRouter", speed: "varies" },
+  { id: "local", name: "Local GPU", speed: "12 t/s" },
+  { id: "groq", name: "Groq", speed: "280 t/s" },
+  { id: "gemini", name: "Gemini", speed: "90 t/s" },
+  { id: "claude", name: "Claude", speed: "55 t/s" },
+  { id: "openrouter", name: "OpenRouter", speed: "varies" },
 ];
 
 // The scripted live-attack timeline (ported verbatim from the design).

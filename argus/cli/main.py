@@ -163,6 +163,19 @@ def compare(
 
 
 # --------------------------------------------------------------------------- #
+# status
+# --------------------------------------------------------------------------- #
+@app.command()
+def status(
+    fmt: str = typer.Option("table", "--format", help="table | json"),
+) -> None:
+    """Show the resolved LLM provider, detected GPU, and configured defaults."""
+    from argus.commands.status_cmd import run_status
+
+    run_status(fmt=fmt)
+
+
+# --------------------------------------------------------------------------- #
 # config
 # --------------------------------------------------------------------------- #
 @app.command()

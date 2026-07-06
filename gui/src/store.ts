@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { AGENTS, TIMELINE, type AgentState, type FeedLine } from "./data";
-import { mapReport, mapHistory, type LoadedReport, type HistoryEntry, type EngineComparison } from "./adapter";
+import { mapReport, mapHistory, type LoadedReport, type HistoryEntry, type EngineComparison, type StatusInfo } from "./adapter";
 
 export type Screen = "dashboard" | "scan" | "live" | "report" | "settings" | "code";
 
@@ -51,6 +51,11 @@ interface State {
   history: HistoryEntry[] | null;
   // what's new/fixed since the previous scan (null => not available yet)
   comparison: EngineComparison | null;
+  // real resolved provider/model/GPU/defaults (null => desktop-only, not loaded yet)
+  status: StatusInfo | null;
+  statusLoading: boolean;
+  connectionTestResult: "ok" | "unreachable" | null;
+  savingKey: boolean;
   // real desktop-invoked scan (only possible inside the Tauri shell)
   target: string;
   isDesktop: boolean;
@@ -63,6 +68,9 @@ interface State {
   loadReport: () => Promise<void>;
   loadHistory: () => Promise<void>;
   loadComparison: () => Promise<void>;
+  loadStatus: () => Promise<void>;
+  testConnection: () => Promise<void>;
+  saveProviderKey: (provider: string, key: string) => Promise<void>;
   setTarget: (t: string) => void;
   runRealAudit: () => Promise<void>;
   checkArgusAvailable: () => Promise<void>;
@@ -105,10 +113,14 @@ export const useStore = create<State>((set, get) => ({
   codeSnippet: null,
   codeError: null,
   codeLoading: false,
-  provider: "Groq",
+  provider: "groq",
   report: null,
   history: null,
   comparison: null,
+  status: null,
+  statusLoading: false,
+  connectionTestResult: null,
+  savingKey: false,
   target: "",
   isDesktop: isTauri(),
   auditRunning: false,
@@ -195,6 +207,37 @@ export const useStore = create<State>((set, get) => ({
     }
   },
 
+  loadStatus: async () => {
+    if (!isTauri()) return;
+    set({ statusLoading: true });
+    try {
+      const json = await invoke<string>("read_status");
+      const parsed = JSON.parse(json) as StatusInfo;
+      set({
+        status: parsed, statusLoading: false,
+        provider: parsed.resolved_provider || parsed.preferred_provider,
+        connectionTestResult: parsed.resolved_provider ? (parsed.available ? "ok" : "unreachable") : null,
+      });
+    } catch {
+      set({ statusLoading: false });
+    }
+  },
+
+  testConnection: async () => {
+    await get().loadStatus();
+  },
+
+  saveProviderKey: async (provider, key) => {
+    if (!isTauri() || !key.trim()) return;
+    set({ savingKey: true });
+    try {
+      await invoke("save_provider_key", { name: provider, key: key.trim() });
+    } finally {
+      set({ savingKey: false });
+      get().loadStatus();
+    }
+  },
+
   setScreen: (s) => {
     set({ screen: s, selectedId: null });
     if (s === "live") get().startAttack();
@@ -237,7 +280,14 @@ export const useStore = create<State>((set, get) => ({
   setDepth: (d) => set({ depth: d }),
   setFilter: (f) => set({ filter: f }),
   select: (id) => set({ selectedId: id }),
-  setProvider: (p) => set({ provider: p }),
+  setProvider: (p) => {
+    set({ provider: p });
+    if (isTauri()) {
+      invoke("set_provider", { name: p.toLowerCase() })
+        .then(() => get().loadStatus())
+        .catch(() => { /* keep the local selection even if persisting failed */ });
+    }
+  },
 
   resetAttack: () => {
     if (attackTimer) clearInterval(attackTimer);
