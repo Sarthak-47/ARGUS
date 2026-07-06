@@ -8,7 +8,8 @@ import typer
 import pytest
 
 import argus.pipeline as pipeline
-from argus.pipeline import run_scan, run_attack, export_last, _export, _reverify_fixes, _signature
+from argus.pipeline import run_scan, run_attack, export_last, _export, _reverify_fixes
+from argus.compare import finding_signature
 from argus.models import Finding, ScanResult
 from argus.fix import AppliedFix
 
@@ -63,8 +64,10 @@ def test_export_pdf_without_weasyprint_warns(tmp_path, capsys):
 def test_signature_ignores_line_number():
     # A correct patch routinely shifts every line below it — the reverify
     # check must not treat that shift alone as "still vulnerable".
-    a = _signature("crypto", "app.py", "Weak hash algorithm (MD5/SHA1)")
-    b = _signature("crypto", "APP.PY", "  weak hash algorithm (md5/sha1)  ")
+    a = finding_signature(Finding(title="Weak hash algorithm (MD5/SHA1)", severity="MEDIUM",
+                                   category="crypto", file="app.py", line=5))
+    b = finding_signature(Finding(title="  weak hash algorithm (md5/sha1)  ", severity="MEDIUM",
+                                   category="crypto", file="APP.PY", line=90))
     assert a == b
 
 

@@ -33,6 +33,10 @@ All notable changes to Argus are documented here. Format loosely follows
   it as a table or JSON. The desktop GUI's Dashboard now shows a real risk-over-time trend graph
   and a real "Recent Audits" list once at least one real scan has run, instead of always showing
   the bundled demo data.
+- **Scan comparison** (UPGRADE.md #2): Argus now retains one prior full scan result
+  (`~/.argus/previous_scan.json`) and can diff it against the latest by finding signature. New
+  `argus compare` CLI command shows what's new/fixed/unchanged since the last scan; the desktop
+  GUI's Reports screen shows the same as a "SINCE LAST SCAN" panel when available.
 
 ### Fixed
 - `argus report --format pdf` now warns explicitly when `weasyprint` isn't installed and it

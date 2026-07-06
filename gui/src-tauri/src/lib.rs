@@ -91,6 +91,20 @@ fn read_scan_history(limit: usize) -> Result<String, String> {
   Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
+/// Returns the raw JSON object from `argus compare --format json` — what's
+/// new/fixed since the previous scan, for the Reports screen.
+#[tauri::command]
+fn read_scan_comparison() -> Result<String, String> {
+  let output = Command::new("argus")
+    .args(["compare", "--format", "json"])
+    .output()
+    .map_err(|e| format!("failed to launch argus: {e}"))?;
+  if !output.status.success() {
+    return Err(String::from_utf8_lossy(&output.stderr).into_owned());
+  }
+  Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
 /// Cheap presence check so the GUI can tell the user to `pip install
 /// argus-sec` instead of failing opaquely on the first real scan.
 #[tauri::command]
@@ -106,7 +120,8 @@ fn check_argus_available() -> bool {
 pub fn run() {
   tauri::Builder::default()
     .invoke_handler(tauri::generate_handler![
-      run_audit, check_argus_available, read_source_snippet, read_scan_history
+      run_audit, check_argus_available, read_source_snippet, read_scan_history,
+      read_scan_comparison
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {

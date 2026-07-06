@@ -104,6 +104,23 @@ export function mapHistory(json: EngineHistoryEntry[]): HistoryEntry[] {
   }));
 }
 
+export interface ComparisonFinding {
+  title: string;
+  severity: string;
+  category: string;
+  file: string | null;
+  line: number | null;
+  endpoint: string | null;
+}
+
+export interface EngineComparison {
+  old_target: string | null;
+  new_target: string;
+  new_findings: ComparisonFinding[];
+  fixed_findings: ComparisonFinding[];
+  unchanged_count: number;
+}
+
 export function mapReport(json: EngineReport): LoadedReport {
   const findings: Finding[] = (json.findings || []).map((f, i) => ({
     id: i + 1,

@@ -394,13 +394,6 @@ def run_fix(target: str, *, apply: bool = False) -> None:
             shutil.rmtree(ingested.root, ignore_errors=True)
 
 
-def _signature(category: str, file: str | None, title: str) -> tuple:
-    # Deliberately excludes line number: a correct patch routinely shifts every
-    # line below it, so keying on line would make a genuinely-fixed finding
-    # look "still detected" just because the file got one line longer.
-    return (category, (file or "").lower(), " ".join(title.lower().split()))
-
-
 def _reverify_fixes(target: str, original_findings: list[Finding], written) -> None:
     """Re-scan the patched files and check whether each fix actually closed its
     finding — matching content exactly and not breaking syntax (both already
@@ -408,10 +401,12 @@ def _reverify_fixes(target: str, original_findings: list[Finding], written) -> N
     """
     from rich.table import Table
 
+    from argus.compare import finding_signature
+
     by_id = {f.id: f for f in original_findings}
     out.step("Re-scanning to confirm each fix actually closed its finding…")
     fresh = _do_scan(target, deep=False, depth=None, no_llm=True)
-    fresh_signatures = {_signature(f.category, f.file, f.title) for f in fresh.findings}
+    fresh_signatures = {finding_signature(f) for f in fresh.findings}
 
     table = Table(show_header=True, header_style="bold yellow3", border_style="grey30")
     table.add_column("FILE", style="wheat1")
@@ -421,7 +416,7 @@ def _reverify_fixes(target: str, original_findings: list[Finding], written) -> N
         original = by_id.get(fx.finding_id)
         if original is None:
             continue
-        closed = _signature(original.category, original.file, original.title) not in fresh_signatures
+        closed = finding_signature(original) not in fresh_signatures
         status = "[bold green3]✓ confirmed closed[/]" if closed else "[bold red]⚠ still detected[/]"
         table.add_row(fx.file, original.title, status)
     out.console.print()

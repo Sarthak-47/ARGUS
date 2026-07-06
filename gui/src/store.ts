@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { AGENTS, TIMELINE, type AgentState, type FeedLine } from "./data";
-import { mapReport, mapHistory, type LoadedReport, type HistoryEntry } from "./adapter";
+import { mapReport, mapHistory, type LoadedReport, type HistoryEntry, type EngineComparison } from "./adapter";
 
 export type Screen = "dashboard" | "scan" | "live" | "report" | "settings" | "code";
 
@@ -49,6 +49,8 @@ interface State {
   report: LoadedReport | null;
   // real scan history (null => use bundled demo Recent Audits/stats)
   history: HistoryEntry[] | null;
+  // what's new/fixed since the previous scan (null => not available yet)
+  comparison: EngineComparison | null;
   // real desktop-invoked scan (only possible inside the Tauri shell)
   target: string;
   isDesktop: boolean;
@@ -60,6 +62,7 @@ interface State {
   setScreen: (s: Screen) => void;
   loadReport: () => Promise<void>;
   loadHistory: () => Promise<void>;
+  loadComparison: () => Promise<void>;
   setTarget: (t: string) => void;
   runRealAudit: () => Promise<void>;
   checkArgusAvailable: () => Promise<void>;
@@ -105,6 +108,7 @@ export const useStore = create<State>((set, get) => ({
   provider: "Groq",
   report: null,
   history: null,
+  comparison: null,
   target: "",
   isDesktop: isTauri(),
   auditRunning: false,
@@ -144,6 +148,7 @@ export const useStore = create<State>((set, get) => ({
       set({ report, auditRunning: false, screen: "report" });
       get().countReport();
       get().loadHistory();
+      get().loadComparison();
     } catch (err) {
       if (auditTimer) { clearInterval(auditTimer); auditTimer = null; }
       set({ auditRunning: false, auditError: String(err), screen: "scan" });
@@ -177,10 +182,23 @@ export const useStore = create<State>((set, get) => ({
     }
   },
 
+  loadComparison: async () => {
+    if (!isTauri()) return;
+    try {
+      const json = await invoke<string>("read_scan_comparison");
+      const parsed = JSON.parse(json) as EngineComparison;
+      if (parsed && Array.isArray(parsed.new_findings)) {
+        set({ comparison: parsed });
+      }
+    } catch {
+      /* no comparison available yet — the Reports screen just won't show it */
+    }
+  },
+
   setScreen: (s) => {
     set({ screen: s, selectedId: null });
     if (s === "live") get().startAttack();
-    if (s === "report") get().countReport();
+    if (s === "report") { get().countReport(); get().loadComparison(); }
   },
 
   openCodeView: async (file, line) => {

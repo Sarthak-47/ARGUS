@@ -57,6 +57,18 @@ export function Reports() {
           </div>
         </div>
 
+        {s.comparison && (s.comparison.new_findings.length > 0 || s.comparison.fixed_findings.length > 0) && (
+          <div style={{ border: `1px solid ${C.relief}`, background: C.stoneDark, padding: "20px 24px", marginBottom: 24, display: "flex", gap: 40 }}>
+            <div style={{ fontFamily: FONT.display, fontSize: 10, letterSpacing: "0.22em", color: C.stoneText, flex: "0 0 auto" }}>
+              SINCE LAST SCAN
+            </div>
+            <div style={{ display: "flex", gap: 40, flex: 1 }}>
+              <ChangeList label="NEW" color={C.crimson} items={s.comparison.new_findings.map((f) => f.title)} />
+              <ChangeList label="FIXED" color="#4caf6d" items={s.comparison.fixed_findings.map((f) => f.title)} />
+            </div>
+          </div>
+        )}
+
         <GreekKeyDivider />
 
         {/* filter tabs */}
@@ -158,6 +170,34 @@ function Section({ title, children, last }: { title: string; children: React.Rea
 
 function SubCap({ children, color }: { children: React.ReactNode; color: string }) {
   return <div style={{ fontFamily: FONT.display, fontSize: 9, letterSpacing: "0.18em", color, marginBottom: 6 }}>{children}</div>;
+}
+
+function ChangeList({ label, color, items }: { label: string; color: string; items: string[] }) {
+  if (items.length === 0) {
+    return (
+      <div style={{ flex: 1, fontFamily: FONT.body, fontStyle: "italic", fontSize: 13, color: C.stoneText }}>
+        <span style={{ fontFamily: FONT.display, fontSize: 10, letterSpacing: "0.14em", color: C.stoneText, marginRight: 8 }}>{label}</span>
+        none
+      </div>
+    );
+  }
+  const shown = items.slice(0, 3);
+  const extra = items.length - shown.length;
+  return (
+    <div style={{ flex: 1 }}>
+      <span style={{ fontFamily: FONT.display, fontSize: 10, letterSpacing: "0.14em", color }}>{label} ({items.length})</span>
+      <ul style={{ margin: "6px 0 0", padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 4 }}>
+        {shown.map((title, i) => (
+          <li key={i} style={{ fontFamily: FONT.body, fontSize: 13, color: C.parchment, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {title}
+          </li>
+        ))}
+        {extra > 0 && (
+          <li style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 12, color: C.stoneText }}>+{extra} more</li>
+        )}
+      </ul>
+    </div>
+  );
 }
 
 function Pre({ children }: { children: React.ReactNode }) {

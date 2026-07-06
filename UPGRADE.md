@@ -32,7 +32,7 @@ history on the Dashboard, instead of only ever showing the latest scan.
   graph and real "Recent Audits" list in the desktop GUI. Falls back to the
   bundled demo data until at least one real scan has run.
 
-### 2. Scan-to-scan comparison view
+### 2. Scan-to-scan comparison view — ✅ Done
 "What's new since last scan / what got fixed" — a diff between two
 `ScanResult`s by finding signature (category + file/endpoint + normalized
 title), not just two independent findings tables side by side.
@@ -42,6 +42,18 @@ title), not just two independent findings tables side by side.
   for fix-and-reverify in `argus/pipeline.py::_signature`) and can be reused
   directly.
 - **GUI-only:** Yes (once scan history exists per #1).
+- **Shipped as:** turned out to need one small piece of engine work, not pure
+  GUI — `argus/state.py` now retains one prior full scan
+  (`~/.argus/previous_scan.json`), since the history file from #1 only stores
+  summary stats, not full findings. The signature-matching logic moved into a
+  new shared `argus/compare.py` (`finding_signature`/`diff_results`), reused
+  by both this and fix-and-reverify. New `argus compare` CLI command; the
+  Reports screen shows a "SINCE LAST SCAN" panel with new/fixed finding
+  titles when a comparison is available. Known scope limit: only compares the
+  two most recent scans (not arbitrary historical pairs), and multiple
+  findings sharing the same category+file+title collapse to one signature
+  (matches the existing fix-and-reverify tradeoff — a fix to *one* of several
+  identical-looking findings won't show as a partial fix).
 
 ### 3. Executive-summary-first report structure
 Reorder the HTML/PDF report to lead with a one-screen summary (risk score,

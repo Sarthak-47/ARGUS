@@ -2,6 +2,9 @@
 plus a lightweight append-only history of every scan for trend/comparison views.
 
 The full result is stored as JSON under the config dir (``~/.argus/last_scan.json``).
+Before each new save, the previous full result is preserved as
+``~/.argus/previous_scan.json`` — one prior snapshot, enough for `argus compare`
+to show what's new/fixed since the last run without an unbounded archive.
 History is a separate, much smaller JSON-Lines file (``~/.argus/scan_history.jsonl``)
 — one line per scan with just enough to plot a trend (timestamp, target, phase,
 risk score/band, severity counts), capped at a bounded number of entries so it
@@ -11,6 +14,7 @@ never grows without limit on a machine that scans the same repo daily for years.
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 from argus.config.settings import config_dir
@@ -21,6 +25,10 @@ _HISTORY_LIMIT = 200
 
 def last_scan_path() -> Path:
     return config_dir() / "last_scan.json"
+
+
+def previous_scan_path() -> Path:
+    return config_dir() / "previous_scan.json"
 
 
 def history_path() -> Path:
@@ -85,20 +93,17 @@ def load_history(target: str | None = None, limit: int = 50) -> list[dict]:
 def save_result(result: ScanResult) -> Path:
     path = last_scan_path()
     path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        try:
+            shutil.copyfile(path, previous_scan_path())
+        except OSError:
+            pass  # best-effort — `argus compare` degrades to "no prior scan", not a crash
     path.write_text(json.dumps(result.to_dict(), indent=2), encoding="utf-8")
     append_history(result)
     return path
 
 
-def load_result() -> ScanResult | None:
-    path = last_scan_path()
-    if not path.exists():
-        return None
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return None
-
+def _deserialize(data: dict) -> ScanResult:
     result = ScanResult(target=data.get("target", "unknown"), phase=data.get("phase", "scan"))
     result.started_at = data.get("started_at", result.started_at)
     result.finished_at = data.get("finished_at")
@@ -145,3 +150,23 @@ def load_result() -> ScanResult | None:
         )
         result.add(f)
     return result
+
+
+def _load(path: Path) -> ScanResult | None:
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+    return _deserialize(data)
+
+
+def load_result() -> ScanResult | None:
+    return _load(last_scan_path())
+
+
+def load_previous_result() -> ScanResult | None:
+    """The scan before the most recent one, for `argus compare`. ``None`` if
+    fewer than two scans have run yet."""
+    return _load(previous_scan_path())

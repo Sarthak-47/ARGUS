@@ -150,6 +150,19 @@ def history(
 
 
 # --------------------------------------------------------------------------- #
+# compare
+# --------------------------------------------------------------------------- #
+@app.command()
+def compare(
+    fmt: str = typer.Option("table", "--format", help="table | json"),
+) -> None:
+    """Show what's new/fixed since the previous scan."""
+    from argus.commands.compare_cmd import run_compare
+
+    run_compare(fmt=fmt)
+
+
+# --------------------------------------------------------------------------- #
 # config
 # --------------------------------------------------------------------------- #
 @app.command()
