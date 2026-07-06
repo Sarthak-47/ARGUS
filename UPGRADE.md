@@ -19,7 +19,7 @@ These need no new engine capability — Argus already produces the underlying
 data (a `ScanResult` per run, persisted via `argus/state.py`); these are
 purely about presenting it better.
 
-### 1. Scan-over-time risk trend graph
+### 1. Scan-over-time risk trend graph — ✅ Done
 Show risk score (and finding counts by severity) plotted across a repo's scan
 history on the Dashboard, instead of only ever showing the latest scan.
 - **Inspired by:** GitHub Advanced Security's per-repo risk trend, Wiz's
@@ -27,6 +27,10 @@ history on the Dashboard, instead of only ever showing the latest scan.
 - **Effort:** Low. Needs scan history to be retained (currently only the most
   recent result is persisted per target) and a simple line/area chart.
 - **GUI-only:** Yes.
+- **Shipped as:** `argus/state.py` history persistence (`~/.argus/scan_history.jsonl`,
+  capped at 200 entries) + `argus history` CLI command + a Dashboard trend
+  graph and real "Recent Audits" list in the desktop GUI. Falls back to the
+  bundled demo data until at least one real scan has run.
 
 ### 2. Scan-to-scan comparison view
 "What's new since last scan / what got fixed" — a diff between two

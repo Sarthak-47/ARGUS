@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { AGENTS, TIMELINE, type AgentState, type FeedLine } from "./data";
-import { mapReport, type LoadedReport } from "./adapter";
+import { mapReport, mapHistory, type LoadedReport, type HistoryEntry } from "./adapter";
 
 export type Screen = "dashboard" | "scan" | "live" | "report" | "settings" | "code";
 
@@ -47,6 +47,8 @@ interface State {
   provider: string;
   // real engine data (null => use bundled demo data)
   report: LoadedReport | null;
+  // real scan history (null => use bundled demo Recent Audits/stats)
+  history: HistoryEntry[] | null;
   // real desktop-invoked scan (only possible inside the Tauri shell)
   target: string;
   isDesktop: boolean;
@@ -57,6 +59,7 @@ interface State {
 
   setScreen: (s: Screen) => void;
   loadReport: () => Promise<void>;
+  loadHistory: () => Promise<void>;
   setTarget: (t: string) => void;
   runRealAudit: () => Promise<void>;
   checkArgusAvailable: () => Promise<void>;
@@ -101,6 +104,7 @@ export const useStore = create<State>((set, get) => ({
   codeLoading: false,
   provider: "Groq",
   report: null,
+  history: null,
   target: "",
   isDesktop: isTauri(),
   auditRunning: false,
@@ -139,6 +143,7 @@ export const useStore = create<State>((set, get) => ({
       if (auditTimer) { clearInterval(auditTimer); auditTimer = null; }
       set({ report, auditRunning: false, screen: "report" });
       get().countReport();
+      get().loadHistory();
     } catch (err) {
       if (auditTimer) { clearInterval(auditTimer); auditTimer = null; }
       set({ auditRunning: false, auditError: String(err), screen: "scan" });
@@ -156,6 +161,19 @@ export const useStore = create<State>((set, get) => ({
       }
     } catch {
       /* no report available — keep demo data */
+    }
+  },
+
+  loadHistory: async () => {
+    if (!isTauri()) return;
+    try {
+      const json = await invoke<string>("read_scan_history", { limit: 50 });
+      const parsed = JSON.parse(json);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        set({ history: mapHistory(parsed) });
+      }
+    } catch {
+      /* no history yet, or not running in the desktop shell — keep demo data */
     }
   },
 

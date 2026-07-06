@@ -77,6 +77,20 @@ fn read_source_snippet(
   Ok((start + 1, snippet))
 }
 
+/// Returns the raw JSON array from `argus history --format json` for the
+/// Dashboard's trend graph and "Recent Audits" list.
+#[tauri::command]
+fn read_scan_history(limit: usize) -> Result<String, String> {
+  let output = Command::new("argus")
+    .args(["history", "--format", "json", "--limit", &limit.to_string()])
+    .output()
+    .map_err(|e| format!("failed to launch argus: {e}"))?;
+  if !output.status.success() {
+    return Err(String::from_utf8_lossy(&output.stderr).into_owned());
+  }
+  Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
 /// Cheap presence check so the GUI can tell the user to `pip install
 /// argus-sec` instead of failing opaquely on the first real scan.
 #[tauri::command]
@@ -91,7 +105,9 @@ fn check_argus_available() -> bool {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
-    .invoke_handler(tauri::generate_handler![run_audit, check_argus_available, read_source_snippet])
+    .invoke_handler(tauri::generate_handler![
+      run_audit, check_argus_available, read_source_snippet, read_scan_history
+    ])
     .setup(|app| {
       if cfg!(debug_assertions) {
         app.handle().plugin(

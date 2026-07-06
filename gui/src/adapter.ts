@@ -75,6 +75,35 @@ function coerceSeverity(s: string): Severity {
   return (["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"].includes(up) ? up : "INFO") as Severity;
 }
 
+export interface EngineHistoryEntry {
+  target: string;
+  phase: string;
+  finished_at: number | null;
+  risk_score: number;
+  risk_band: string;
+  counts: Record<string, number>;
+}
+
+export interface HistoryEntry {
+  target: string;
+  phase: string;
+  finishedAt: number | null;
+  riskScore: number;
+  band: string;
+  counts: Record<string, number>;
+}
+
+export function mapHistory(json: EngineHistoryEntry[]): HistoryEntry[] {
+  return (json || []).map((e) => ({
+    target: e.target,
+    phase: e.phase,
+    finishedAt: e.finished_at,
+    riskScore: e.risk_score,
+    band: e.risk_band,
+    counts: e.counts || {},
+  }));
+}
+
 export function mapReport(json: EngineReport): LoadedReport {
   const findings: Finding[] = (json.findings || []).map((f, i) => ({
     id: i + 1,

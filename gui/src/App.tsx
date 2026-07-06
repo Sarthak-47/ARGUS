@@ -13,10 +13,12 @@ import { CodeView } from "./screens/CodeView";
 export default function App() {
   const screen = useStore((s) => s.screen);
   const loadReport = useStore((s) => s.loadReport);
+  const loadHistory = useStore((s) => s.loadHistory);
 
   useEffect(() => {
     loadReport();
-  }, [loadReport]);
+    loadHistory();
+  }, [loadReport, loadHistory]);
 
   return (
     <div style={{ position: "fixed", inset: 0, display: "flex", background: C.obsidian, color: C.parchment, fontFamily: FONT.body, overflow: "hidden" }}>

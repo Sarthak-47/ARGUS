@@ -28,6 +28,11 @@ All notable changes to Argus are documented here. Format loosely follows
   reached the model without isolation from system instructions. Tries both POST (JSON body) and
   GET (query params) regardless of the method ReconBot/CrawlerBot recorded, since chat widgets
   are almost always driven by a JS `fetch()` POST that static HTML/form parsing can't see.
+- **Scan history + risk trend graph** (UPGRADE.md #1): every scan now appends a small record to
+  `~/.argus/scan_history.jsonl` (capped at 200 entries). New `argus history` CLI command renders
+  it as a table or JSON. The desktop GUI's Dashboard now shows a real risk-over-time trend graph
+  and a real "Recent Audits" list once at least one real scan has run, instead of always showing
+  the bundled demo data.
 
 ### Fixed
 - `argus report --format pdf` now warns explicitly when `weasyprint` isn't installed and it
