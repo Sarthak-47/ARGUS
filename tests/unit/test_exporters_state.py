@@ -6,7 +6,7 @@ import json
 
 from argus.models import Finding, ScanResult, Severity
 from argus.report.exporters import to_html, to_json, to_markdown, to_sarif, export
-from argus.state import save_result, load_result
+from argus.state import save_result, load_result, load_history, history_path
 
 
 def _sample() -> ScanResult:
@@ -129,3 +129,58 @@ def test_state_save_load_roundtrip_preserves_metadata():
 
 def test_load_result_none_when_absent():
     assert load_result() is None
+
+
+def test_save_result_appends_to_history():
+    save_result(_sample())
+    entries = load_history()
+    assert len(entries) == 1
+    assert entries[0]["target"] == "github.com/user/app"
+    assert entries[0]["risk_score"] == 48
+    assert entries[0]["counts"]["CRITICAL"] == 1
+
+
+def test_history_filters_by_target():
+    save_result(ScanResult(target="repo-a", phase="scan"))
+    save_result(ScanResult(target="repo-b", phase="scan"))
+    save_result(ScanResult(target="repo-a", phase="attack"))
+
+    only_a = load_history(target="repo-a")
+    assert len(only_a) == 2
+    assert all(e["target"] == "repo-a" for e in only_a)
+
+
+def test_history_respects_limit_and_recency_order():
+    for i in range(5):
+        save_result(ScanResult(target=f"repo-{i}", phase="scan"))
+
+    entries = load_history(limit=2)
+    assert len(entries) == 2
+    # most recent two, oldest-first within that window
+    assert entries[0]["target"] == "repo-3"
+    assert entries[1]["target"] == "repo-4"
+
+
+def test_history_is_capped_at_history_limit(monkeypatch):
+    monkeypatch.setattr("argus.state._HISTORY_LIMIT", 3)
+    for i in range(10):
+        save_result(ScanResult(target=f"repo-{i}", phase="scan"))
+
+    all_entries = load_history(limit=1000)
+    assert len(all_entries) == 3
+    assert [e["target"] for e in all_entries] == ["repo-7", "repo-8", "repo-9"]
+
+
+def test_load_history_empty_when_absent():
+    assert load_history() == []
+
+
+def test_history_survives_corrupt_line(tmp_path):
+    save_result(ScanResult(target="repo-a", phase="scan"))
+    path = history_path()
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write("not valid json\n")
+    save_result(ScanResult(target="repo-b", phase="scan"))
+
+    entries = load_history()
+    assert [e["target"] for e in entries] == ["repo-a", "repo-b"]

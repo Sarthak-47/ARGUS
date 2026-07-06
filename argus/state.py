@@ -1,7 +1,11 @@
-"""Persist the most recent ScanResult so ``argus report`` can export it later.
+"""Persist the most recent ScanResult so ``argus report`` can export it later,
+plus a lightweight append-only history of every scan for trend/comparison views.
 
-Stored as JSON under the config dir (``~/.argus/last_scan.json``). We persist the
-serialised dict and rebuild lightweight objects on load — enough for the exporters.
+The full result is stored as JSON under the config dir (``~/.argus/last_scan.json``).
+History is a separate, much smaller JSON-Lines file (``~/.argus/scan_history.jsonl``)
+— one line per scan with just enough to plot a trend (timestamp, target, phase,
+risk score/band, severity counts), capped at a bounded number of entries so it
+never grows without limit on a machine that scans the same repo daily for years.
 """
 
 from __future__ import annotations
@@ -12,15 +16,77 @@ from pathlib import Path
 from argus.config.settings import config_dir
 from argus.models import CodebaseMap, Finding, ScanResult, Severity
 
+_HISTORY_LIMIT = 200
+
 
 def last_scan_path() -> Path:
     return config_dir() / "last_scan.json"
+
+
+def history_path() -> Path:
+    return config_dir() / "scan_history.jsonl"
+
+
+def _history_entry(result: ScanResult) -> dict:
+    return {
+        "target": result.target,
+        "phase": result.phase,
+        "finished_at": result.finished_at,
+        "risk_score": result.risk_score,
+        "risk_band": result.risk_band,
+        "counts": result.counts(),
+    }
+
+
+def append_history(result: ScanResult) -> None:
+    """Append one line for this scan, trimming to the most recent entries.
+
+    Best-effort: a history write failing must never break the scan it's
+    recording — this is a nice-to-have trend view, not the source of truth
+    (``last_scan.json`` is).
+    """
+    try:
+        path = history_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        lines = []
+        if path.exists():
+            lines = [ln for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        lines.append(json.dumps(_history_entry(result)))
+        lines = lines[-_HISTORY_LIMIT:]
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    except OSError:
+        pass
+
+
+def load_history(target: str | None = None, limit: int = 50) -> list[dict]:
+    """Return up to ``limit`` most recent history entries, oldest first.
+
+    Filters to ``target`` (exact match) when given, otherwise returns every
+    target's history interleaved by recency.
+    """
+    path = history_path()
+    if not path.exists():
+        return []
+    entries: list[dict] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if target is not None and entry.get("target") != target:
+            continue
+        entries.append(entry)
+    return entries[-limit:]
 
 
 def save_result(result: ScanResult) -> Path:
     path = last_scan_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(result.to_dict(), indent=2), encoding="utf-8")
+    append_history(result)
     return path
 
 

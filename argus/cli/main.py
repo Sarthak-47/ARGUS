@@ -135,6 +135,21 @@ def report(
 
 
 # --------------------------------------------------------------------------- #
+# history
+# --------------------------------------------------------------------------- #
+@app.command()
+def history(
+    target: Optional[str] = typer.Option(None, "--target", help="Only show history for this exact target."),
+    limit: int = typer.Option(50, "--limit", help="Max entries to show, most recent first."),
+    fmt: str = typer.Option("table", "--format", help="table | json"),
+) -> None:
+    """Show risk score/finding trend across past scans."""
+    from argus.commands.history_cmd import run_history
+
+    run_history(target=target, limit=limit, fmt=fmt)
+
+
+# --------------------------------------------------------------------------- #
 # config
 # --------------------------------------------------------------------------- #
 @app.command()

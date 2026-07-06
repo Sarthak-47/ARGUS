@@ -23,7 +23,7 @@ def test_version_flag():
 def test_help_lists_all_commands():
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
-    for cmd in ("scan", "attack", "audit", "fix", "demo", "report", "config", "setup"):
+    for cmd in ("scan", "attack", "audit", "fix", "demo", "report", "history", "config", "setup"):
         assert cmd in result.stdout
 
 
@@ -45,3 +45,15 @@ def test_config_show_does_not_crash():
 def test_attack_without_target_or_url_exits_nonzero():
     result = runner.invoke(app, ["attack"])
     assert result.exit_code != 0
+
+
+def test_history_does_not_crash_when_empty():
+    result = runner.invoke(app, ["history"])
+    assert result.exit_code == 0
+    assert "no scan history" in result.stdout.lower()
+
+
+def test_history_json_format_is_valid_when_empty():
+    result = runner.invoke(app, ["history", "--format", "json"])
+    assert result.exit_code == 0
+    assert result.stdout.strip() == "[]"
