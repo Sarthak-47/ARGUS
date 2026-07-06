@@ -48,6 +48,9 @@ All notable changes to Argus are documented here. Format loosely follows
   uses (survives line-number shifts from unrelated edits). Ignored findings no longer resurface
   on future scans or count toward risk score. New `argus suppress <search>` and `argus
   suppressions` CLI commands; the desktop GUI's Reports screen gets an IGNORE button.
+- **Slack/Discord webhook notifications** (UPGRADE.md #7): `argus config --notify-webhook <url>`
+  posts a scan summary (target, risk score/band, critical/high counts) to Slack or Discord when
+  a scan completes — one URL, no OAuth, no ticketing system to stand up.
 
 ### Fixed
 - `argus report --format pdf` now warns explicitly when `weasyprint` isn't installed and it
@@ -63,6 +66,10 @@ All notable changes to Argus are documented here. Format loosely follows
   config --provider`, and the key field actually saves via `argus config --key`. In the browser
   dev build (no desktop backend to query), these now show an explicit "demo preview" / "—"
   placeholder state instead of fabricated numbers.
+- **`argus config --show` was leaking the full webhook URL unredacted.** Slack/Discord webhook
+  URLs embed a bearer-equivalent token in the path — `Settings.redacted()` only masked
+  `cloud.*_key` fields, so a configured notification webhook printed in full. Now masked the same
+  way as an API key.
 - `argus attack --url <dead-host>` now stops after ReconBot reports the target unreachable
   instead of running all 15 other agents against a host we already know is down.
 

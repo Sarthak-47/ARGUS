@@ -148,6 +148,7 @@ def run_scan(
         out.info(f"…and {len(result.findings) - 25} more. Export a report to see all.")
 
     save_result(result)
+    _maybe_notify(result)
 
     if export_format:
         _export(result, export_format, None)
@@ -157,6 +158,18 @@ def run_scan(
 
     _maybe_fail(result, fail_on)
     return result
+
+
+def _maybe_notify(result: ScanResult) -> None:
+    """Best-effort webhook notification — never let a notification failure
+    surface as a scan failure; just note it and move on."""
+    from argus.notify import notify_scan_complete
+
+    settings = load_settings()
+    if not settings.webhook_url:
+        return
+    if not notify_scan_complete(settings.webhook_url, result):
+        out.warn("Webhook notification failed to send (scan itself is unaffected).")
 
 
 def _maybe_fail(result: ScanResult, fail_on: str | None) -> None:
@@ -286,6 +299,7 @@ def run_attack(
         out.risk_panel(result)
         out.findings_table(result)
         save_result(result)
+        _maybe_notify(result)
         return result
     finally:
         if sandbox is not None:

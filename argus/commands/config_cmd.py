@@ -11,10 +11,13 @@ from argus.config import load_settings, save_settings, config_path
 from argus.config.defaults import ALL_PROVIDERS, CLOUD_PROVIDERS
 
 
-def run_config(provider: str | None, key: str | None, model: str | None, show: bool) -> None:
+def run_config(
+    provider: str | None, key: str | None, model: str | None, show: bool,
+    notify_webhook: str | None = None,
+) -> None:
     settings = load_settings()
 
-    if show or (provider is None and key is None and model is None):
+    if show or (provider is None and key is None and model is None and notify_webhook is None):
         out.banner()
         out.rule("CONFIGURATION")
         out.info(f"Config file: [wheat1]{config_path()}[/]")
@@ -48,6 +51,14 @@ def run_config(provider: str | None, key: str | None, model: str | None, show: b
             raise typer.Exit(code=1)
         settings.set("cloud", f"{target}_key", key)
         out.success(f"API key stored for [yellow3]{target}[/]")
+        changed = True
+
+    if notify_webhook is not None:
+        settings.set("notify", "webhook_url", notify_webhook)
+        if notify_webhook:
+            out.success("Webhook URL saved — scan-complete notifications will be sent there.")
+        else:
+            out.success("Webhook notifications disabled.")
         changed = True
 
     if changed:

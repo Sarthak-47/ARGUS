@@ -119,7 +119,7 @@ Argus already collects during supply-chain scanning.
   hard part is normalizing package versions/licenses into the SBOM spec
   correctly.
 
-### 7. Slack / Discord webhook notifications
+### 7. Slack / Discord webhook notifications — ✅ Done
 A configurable webhook (`argus config --notify-webhook <url>`) that posts a
 short message when a scan completes or a critical finding is confirmed —
 sized for a solo dev or small team living in Slack/Discord, not an
@@ -128,6 +128,16 @@ enterprise ticketing queue.
   Linear (overkill for this audience) to a single webhook POST.
 - **Effort:** Low-medium. One HTTP POST at the end of `run_scan`/`run_attack`,
   gated by a config flag; no new UI needed beyond a Settings field.
+- **Shipped as:** new `argus/notify.py`, a single best-effort POST sending
+  both `text` (Slack) and `content` (Discord) keys in one payload — both
+  platforms ignore the key they don't use, so no URL-sniffing is needed.
+  Wired into both `run_scan` and `run_attack` right after `save_result`, gated
+  on `settings.webhook_url` being set. Found and fixed a real secret-leak gap
+  along the way: `argus config --show`'s redaction only masked
+  `cloud.*_key` fields — a Slack/Discord webhook URL embeds an equivalent
+  bearer token in its path and was printing in full. `Settings.redacted()`
+  now masks it the same way. GUI Settings-screen field for this is not yet
+  wired (CLI-only for now, consistent with the "low-medium effort" scope).
 
 ### 8. Risk-based prioritization score
 Blend severity with exploit likelihood signals (e.g. known-CVE + exploit

@@ -80,6 +80,10 @@ class Settings:
     def default_format(self) -> str:
         return self.data.get("report", {}).get("default_format", "html")
 
+    @property
+    def webhook_url(self) -> str:
+        return self.data.get("notify", {}).get("webhook_url", "") or ""
+
     def cloud_key(self, provider: str) -> str:
         return self.data.get("cloud", {}).get(f"{provider}_key", "") or ""
 
@@ -117,6 +121,13 @@ class Settings:
         for k, v in list(cloud.items()):
             if k.endswith("_key") and v:
                 cloud[k] = v[:4] + "•" * 8
+        notify = out.get("notify", {})
+        webhook = notify.get("webhook_url")
+        if webhook:
+            # Slack/Discord webhook URLs embed a bearer-equivalent token in
+            # the path itself — leaking the full URL is exactly as bad as
+            # leaking an API key, so it gets the same treatment.
+            notify["webhook_url"] = webhook[:24] + "•" * 8
         return out
 
 

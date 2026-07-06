@@ -72,6 +72,7 @@ DEFAULT_CONFIG: dict = {
     "cloud": {"groq_key": "", "gemini_key": "", "claude_key": "", "openrouter_key": ""},
     "scan": {"auto_attack": False, "sandbox": "docker", "default_depth": "standard"},
     "report": {"output_dir": "./argus-report", "default_format": "html"},
+    "notify": {"webhook_url": ""},
 }
 
 # ---- File classification heuristics used during ingestion ----

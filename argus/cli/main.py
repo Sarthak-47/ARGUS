@@ -212,11 +212,14 @@ def config(
     key: Optional[str] = typer.Option(None, "--key", help="API key for the given cloud provider."),
     model: Optional[str] = typer.Option(None, "--model", help="Local model name (for --provider local)."),
     show: bool = typer.Option(False, "--show", help="Print the current configuration."),
+    notify_webhook: Optional[str] = typer.Option(
+        None, "--notify-webhook", help="Slack/Discord webhook URL for scan-complete notifications. Pass '' to disable."
+    ),
 ) -> None:
-    """View or change configuration (provider, keys, model)."""
+    """View or change configuration (provider, keys, model, notifications)."""
     from argus.commands.config_cmd import run_config
 
-    run_config(provider=provider, key=key, model=model, show=show)
+    run_config(provider=provider, key=key, model=model, show=show, notify_webhook=notify_webhook)
 
 
 if __name__ == "__main__":  # pragma: no cover
