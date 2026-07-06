@@ -144,6 +144,41 @@ def test_generate_fixes_parses_valid_response(tmp_path):
     assert "name = ?" in fixes[0].diff
 
 
+def test_generate_fixes_parses_regenerate_prompt(tmp_path):
+    import json
+
+    (tmp_path / "app.py").write_text(_ORIGINAL, encoding="utf-8")
+    finding = Finding(title="SQLi", severity=Severity.CRITICAL, category="injection",
+                       file="app.py", line=3, evidence="concat")
+    provider = _FakeProvider(json.dumps({
+        "can_fix": True, "diff": _DIFF, "explanation": "use params",
+        "regenerate_prompt": "Rewrite q() to use parameterised queries instead of string concat.",
+    }))
+
+    fixes = generate_fixes(provider, tmp_path, [finding])
+    assert fixes[0].regenerate_prompt == "Rewrite q() to use parameterised queries instead of string concat."
+
+
+def test_generate_fixes_defaults_regenerate_prompt_to_empty_when_absent(tmp_path):
+    import json
+
+    (tmp_path / "app.py").write_text(_ORIGINAL, encoding="utf-8")
+    finding = Finding(title="SQLi", severity=Severity.CRITICAL, category="injection", file="app.py", line=3)
+    provider = _FakeProvider(json.dumps({"can_fix": True, "diff": _DIFF, "explanation": "use params"}))
+
+    fixes = generate_fixes(provider, tmp_path, [finding])
+    assert fixes[0].regenerate_prompt == ""
+
+
+def test_apply_fixes_carries_regenerate_prompt_through(tmp_path):
+    (tmp_path / "app.py").write_text(_ORIGINAL, encoding="utf-8")
+    fixes = [FixResult(finding_id="x", file="app.py", diff=_DIFF, explanation="parameterise",
+                        regenerate_prompt="Use parameterised queries.")]
+
+    applied = apply_fixes(tmp_path, fixes, apply=False)
+    assert applied[0].regenerate_prompt == "Use parameterised queries."
+
+
 def test_generate_fixes_skips_when_cannot_fix(tmp_path):
     import json
 

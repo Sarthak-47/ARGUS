@@ -33,6 +33,7 @@ class AppliedFix:
     explanation: str
     diff: str
     written: bool
+    regenerate_prompt: str = ""
 
 
 def _parse_hunks(diff_text: str) -> list[tuple[list[str], list[str]]]:
@@ -135,6 +136,10 @@ def apply_fixes(root: Path, fixes: list[FixResult], *, apply: bool = False) -> l
         out.console.print()
         out.step(f"Fix for [wheat1]{fx.file}[/]: {fx.explanation}")
         out.console.print(fx.diff)
+        if fx.regenerate_prompt:
+            out.console.print()
+            out.info("Prefer to have your AI assistant regenerate this instead of applying the diff?")
+            out.console.print(f"  [grey58]{fx.regenerate_prompt}[/]")
 
         written = False
         if apply:
@@ -144,6 +149,6 @@ def apply_fixes(root: Path, fixes: list[FixResult], *, apply: bool = False) -> l
 
         results.append(AppliedFix(
             finding_id=fx.finding_id, file=fx.file, explanation=fx.explanation,
-            diff=fx.diff, written=written,
+            diff=fx.diff, written=written, regenerate_prompt=fx.regenerate_prompt,
         ))
     return results

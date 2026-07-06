@@ -157,6 +157,11 @@ class FixResult:
     file: str
     diff: str
     explanation: str
+    # A ready-to-paste prompt for an AI coding assistant (Copilot/Cursor/Claude
+    # Code) as an alternative to applying the diff directly — many Argus users
+    # write code with one rather than by hand, so closing the loop through the
+    # same tool that introduced the bug is often the more natural fix path.
+    regenerate_prompt: str = ""
 
 
 def generate_fixes(
@@ -193,5 +198,6 @@ def generate_fixes(
             file=f.file,
             diff=str(parsed["diff"]),
             explanation=str(parsed.get("explanation", "")).strip(),
+            regenerate_prompt=str(parsed.get("regenerate_prompt", "")).strip(),
         ))
     return results

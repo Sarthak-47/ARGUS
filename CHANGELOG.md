@@ -18,6 +18,10 @@ All notable changes to Argus are documented here. Format loosely follows
   per finding, whether it's actually confirmed closed or still detected — instead of a patch that
   matched content and compiled cleanly being trusted as "fixed" when the LLM's diff didn't
   actually address the vulnerable pattern.
+- **AI-native remediation**: `argus fix` now also produces a ready-to-paste prompt for an AI
+  coding assistant (Copilot/Cursor/Claude Code) as an alternative to applying the diff directly —
+  since much of the code Argus scans was written with one of these in the first place, closing
+  the loop through the same tool is often the more natural fix path than a raw patch.
 
 ### Fixed
 - `argus report --format pdf` now warns explicitly when `weasyprint` isn't installed and it

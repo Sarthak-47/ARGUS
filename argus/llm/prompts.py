@@ -92,12 +92,20 @@ FIX_SYSTEM = (
 FIX_INSTRUCTIONS = """\
 For the finding below, return a JSON object with exactly these keys:
 {
-  "can_fix": boolean,       // false if a safe, minimal patch isn't possible from the context shown
-  "diff": string,           // a unified diff (---/+++/@@ hunk) touching ONLY the shown file, or ""
-  "explanation": string     // 1-2 sentences on what the patch does and why it's safe
+  "can_fix": boolean,          // false if a safe, minimal patch isn't possible from the context shown
+  "diff": string,              // a unified diff (---/+++/@@ hunk) touching ONLY the shown file, or ""
+  "explanation": string,       // 1-2 sentences on what the patch does and why it's safe
+  "regenerate_prompt": string  // see below, or "" if can_fix is false
 }
 The diff must apply cleanly against the exact code context shown below — match whitespace and
 line content exactly. Do not include any prose outside the JSON.
+
+For "regenerate_prompt": many Argus users write code with an AI coding assistant (Copilot,
+Cursor, Claude Code) rather than by hand. Write a short, ready-to-paste prompt they could hand
+back to that same assistant instead of applying your diff — one that names the specific
+vulnerability class, explains concretely why the current code is unsafe, and states the safe
+pattern to use instead, so the assistant regenerates the function correctly. Do not just say
+"fix the security issue" — be as specific as the diff itself.
 """
 
 
