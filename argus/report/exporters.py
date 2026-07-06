@@ -60,6 +60,40 @@ def to_json(result: ScanResult) -> str:
     return json.dumps(result.to_dict(), indent=2)
 
 
+_PURL_TYPE = {"npm": "npm", "pypi": "pypi"}
+
+
+def to_sbom(result: ScanResult) -> str:
+    """CycloneDX 1.5 JSON SBOM from the package inventory collected at scan time."""
+    import uuid
+
+    components = []
+    for pkg in result.sbom_components:
+        purl_type = _PURL_TYPE.get(pkg["ecosystem"], pkg["ecosystem"])
+        version = pkg["version"]
+        purl = f"pkg:{purl_type}/{pkg['name']}@{version}" if version != "unknown" else f"pkg:{purl_type}/{pkg['name']}"
+        components.append({
+            "type": "library",
+            "bom-ref": f"{pkg['ecosystem']}:{pkg['name']}@{version}",
+            "name": pkg["name"],
+            "version": version,
+            "purl": purl,
+        })
+
+    return json.dumps({
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.5",
+        "serialNumber": f"urn:uuid:{uuid.uuid4()}",
+        "version": 1,
+        "metadata": {
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "tools": [{"vendor": "Sarthak-47", "name": "Argus", "version": __import__("argus").__version__}],
+            "component": {"type": "application", "name": result.target},
+        },
+        "components": components,
+    }, indent=2)
+
+
 _SARIF_LEVEL = {
     "CRITICAL": "error", "HIGH": "error", "MEDIUM": "warning", "LOW": "note", "INFO": "note",
 }
@@ -198,6 +232,10 @@ def export(result: ScanResult, fmt: str, output_dir: str) -> Path:
     if fmt == "sarif":
         path = out / "argus.sarif"
         path.write_text(to_sarif(result), encoding="utf-8")
+        return path
+    if fmt == "sbom":
+        path = out / "sbom.cdx.json"
+        path.write_text(to_sbom(result), encoding="utf-8")
         return path
     if fmt in ("md", "markdown"):
         path = out / "report.md"

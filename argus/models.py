@@ -162,6 +162,10 @@ class ScanResult:
     finished_at: float | None = None
     llm_provider: str | None = None
     errors: list[str] = field(default_factory=list)
+    # Package inventory ({"name", "version", "ecosystem"}), collected once at
+    # scan time (argus/sbom.py) and persisted here so `argus report --format
+    # sbom` can export it later without needing the scanned repo on disk.
+    sbom_components: list[dict] = field(default_factory=list)
     _seen: dict[tuple, Finding] = field(default_factory=dict, init=False, repr=False, compare=False)
 
     # ----- aggregation helpers -----
@@ -237,4 +241,5 @@ class ScanResult:
             "finished_at": self.finished_at,
             "llm_provider": self.llm_provider,
             "errors": self.errors,
+            "sbom_components": self.sbom_components,
         }

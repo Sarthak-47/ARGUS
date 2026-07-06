@@ -109,6 +109,7 @@ def _deserialize(data: dict) -> ScanResult:
     result.finished_at = data.get("finished_at")
     result.llm_provider = data.get("llm_provider")
     result.errors = data.get("errors", [])
+    result.sbom_components = data.get("sbom_components", [])
 
     cm = data.get("codebase_map")
     if cm:

@@ -51,6 +51,9 @@ All notable changes to Argus are documented here. Format loosely follows
 - **Slack/Discord webhook notifications** (UPGRADE.md #7): `argus config --notify-webhook <url>`
   posts a scan summary (target, risk score/band, critical/high counts) to Slack or Discord when
   a scan completes — one URL, no OAuth, no ticketing system to stand up.
+- **SBOM export** (UPGRADE.md #6): `argus scan/report --format sbom` produces a real CycloneDX
+  1.5 JSON SBOM with correct `purl`s, built from a new full package-inventory parser
+  (`argus/sbom.py`) over `package.json`/`requirements.txt`.
 
 ### Fixed
 - `argus report --format pdf` now warns explicitly when `weasyprint` isn't installed and it

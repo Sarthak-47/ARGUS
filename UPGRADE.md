@@ -109,7 +109,7 @@ message, and explanation — closing the loop all the way to review-ready.
   call (branch, commit, PR) behind a new `--pr` flag. Needs a GitHub token
   (PAT or GitHub App) from the user.
 
-### 6. SBOM export (CycloneDX / SPDX)
+### 6. SBOM export (CycloneDX / SPDX) — ✅ Done (CycloneDX)
 Add `argus report --format sbom` (or a dedicated `argus sbom` command)
 producing a standard Software Bill of Materials from the dependency data
 Argus already collects during supply-chain scanning.
@@ -118,6 +118,17 @@ Argus already collects during supply-chain scanning.
   `argus/scanner/dependencies.py` and `supplychain.py` already gather; the
   hard part is normalizing package versions/licenses into the SBOM spec
   correctly.
+- **Shipped as:** `argus scan/report --format sbom` producing a real
+  CycloneDX 1.5 JSON SBOM (`sbom.cdx.json`) with correct `purl`s per
+  ecosystem. New `argus/sbom.py` extracts a full package inventory (name +
+  version + ecosystem) from `package.json`/`requirements.txt` — a genuinely
+  new parser, since the existing supply-chain scanner only looks at manifests
+  to hunt for vulnerabilities, never to build a complete list of what's
+  there. Collected once at scan time and persisted on `ScanResult` so
+  `argus report --format sbom` works later without needing the repo on disk
+  again. SPDX format not implemented (CycloneDX covers the same need and
+  is the more widely adopted of the two) — worth adding later if a
+  specific consumer requires SPDX specifically.
 
 ### 7. Slack / Discord webhook notifications — ✅ Done
 A configurable webhook (`argus config --notify-webhook <url>`) that posts a

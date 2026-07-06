@@ -115,7 +115,8 @@ def test_to_sarif_file_based_finding_has_physical_location():
 def test_export_writes_each_format(tmp_path):
     r = _sample()
     for fmt, name in [("html", "index.html"), ("json", "report.json"),
-                      ("markdown", "report.md"), ("sarif", "argus.sarif")]:
+                      ("markdown", "report.md"), ("sarif", "argus.sarif"),
+                      ("sbom", "sbom.cdx.json")]:
         path = export(r, fmt, str(tmp_path / fmt))
         assert path.exists() and path.name == name
 
@@ -165,6 +166,14 @@ def test_state_save_load_roundtrip_preserves_metadata():
 
 def test_load_result_none_when_absent():
     assert load_result() is None
+
+
+def test_state_save_load_roundtrip_preserves_sbom_components():
+    r = ScanResult(target="t", phase="scan")
+    r.sbom_components = [{"name": "react", "version": "18.2.0", "ecosystem": "npm"}]
+    save_result(r)
+    loaded = load_result()
+    assert loaded.sbom_components == [{"name": "react", "version": "18.2.0", "ecosystem": "npm"}]
 
 
 def test_save_result_appends_to_history():

@@ -21,6 +21,7 @@ from argus.models import Finding, ScanResult
 
 
 def _do_scan(target: str, deep: bool, depth: str | None, no_llm: bool) -> ScanResult:
+    from argus.sbom import collect_packages
     from argus.scanner import dependencies, ingestion, rules_builtin, secrets, semgrep_runner, supplychain
 
     settings = load_settings()
@@ -68,6 +69,9 @@ def _do_scan(target: str, deep: bool, depth: str | None, no_llm: bool) -> ScanRe
         result.extend(sc_findings)
         for note in sc_notes:
             out.info(note)
+
+        # 4c) Package inventory (for `argus report --format sbom`) -------------
+        result.sbom_components = collect_packages(root, manifests)
 
         # 5) Secret detection --------------------------------------------------
         out.step("Scanning for secrets (regex + entropy)…")

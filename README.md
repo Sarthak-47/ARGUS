@@ -85,7 +85,10 @@ argus attack --url http://localhost:3000  # Phase 2 — attack a running app
 argus audit <repo-url>                    # Phase 1 + Phase 2
 argus fix <path>                          # generate patches for fixable findings (dry-run)
 argus fix <path> --apply                  # write the patches to disk
-argus report --format html                # export the last scan (html|json|markdown|sarif|pdf)
+argus report --format html                # export the last scan (html|json|markdown|sarif|sbom|pdf)
+argus history                             # risk-score trend across past scans
+argus compare                             # what's new/fixed since the last scan
+argus suppress "<finding title>"          # mark a finding ignored — stops it recurring
 argus config --show
 ```
 
