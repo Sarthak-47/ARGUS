@@ -7,8 +7,10 @@ from __future__ import annotations
 import typer
 import pytest
 
-from argus.pipeline import run_scan, run_attack, export_last, _export
-from argus.models import ScanResult
+import argus.pipeline as pipeline
+from argus.pipeline import run_scan, run_attack, export_last, _export, _reverify_fixes, _signature
+from argus.models import Finding, ScanResult
+from argus.fix import AppliedFix
 
 
 def test_run_scan_nonexistent_path_exits_cleanly(tmp_path, capsys):
@@ -56,3 +58,44 @@ def test_export_pdf_without_weasyprint_warns(tmp_path, capsys):
     out = capsys.readouterr().out
     if path.suffix != ".pdf":
         assert "weasyprint" in out.lower()
+
+
+def test_signature_ignores_line_number():
+    # A correct patch routinely shifts every line below it — the reverify
+    # check must not treat that shift alone as "still vulnerable".
+    a = _signature("crypto", "app.py", "Weak hash algorithm (MD5/SHA1)")
+    b = _signature("crypto", "APP.PY", "  weak hash algorithm (md5/sha1)  ")
+    assert a == b
+
+
+def test_reverify_reports_confirmed_closed_when_finding_gone(monkeypatch, capsys):
+    original = Finding(title="Weak hash algorithm (MD5/SHA1)", severity="MEDIUM",
+                        category="crypto", file="app.py", line=5)
+    fixed_scan = ScanResult(target="t", phase="scan")  # no findings — patch worked
+
+    monkeypatch.setattr(pipeline, "_do_scan", lambda *a, **k: fixed_scan)
+
+    applied = AppliedFix(finding_id=original.id, file="app.py", explanation="", diff="", written=True)
+    _reverify_fixes("some/repo", [original], [applied])
+
+    out_text = capsys.readouterr().out
+    assert "confirmed closed" in out_text.lower()
+    assert "still detected" not in out_text.lower()
+
+
+def test_reverify_reports_still_detected_when_finding_persists(monkeypatch, capsys):
+    original = Finding(title="Weak hash algorithm (MD5/SHA1)", severity="MEDIUM",
+                        category="crypto", file="app.py", line=5)
+    # Same signature still present post-patch (e.g. the LLM's fix was a no-op) —
+    # line moved to 9, which must not make this look like a different finding.
+    still_there = Finding(title="Weak hash algorithm (MD5/SHA1)", severity="MEDIUM",
+                           category="crypto", file="app.py", line=9)
+    fresh_scan = ScanResult(target="t", phase="scan")
+    fresh_scan.extend([still_there])
+
+    monkeypatch.setattr(pipeline, "_do_scan", lambda *a, **k: fresh_scan)
+
+    applied = AppliedFix(finding_id=original.id, file="app.py", explanation="", diff="", written=True)
+    _reverify_fixes("some/repo", [original], [applied])
+
+    assert "still detected" in capsys.readouterr().out.lower()

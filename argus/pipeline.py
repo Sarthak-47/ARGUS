@@ -17,7 +17,7 @@ import typer
 from argus.cli import output as out
 from argus.config import load_settings
 from argus.config.defaults import REPORT_FORMATS
-from argus.models import ScanResult
+from argus.models import Finding, ScanResult
 
 
 def _do_scan(target: str, deep: bool, depth: str | None, no_llm: bool) -> ScanResult:
@@ -383,9 +383,46 @@ def run_fix(target: str, *, apply: bool = False) -> None:
         applied = apply_fixes(ingested.root, fixes, apply=apply)
         out.console.print()
         if apply:
-            out.success(f"Applied {len(applied)} fix(es). Re-run argus scan to confirm.")
+            written = [a for a in applied if a.written]
+            out.success(f"Applied {len(written)} fix(es).")
+            if written:
+                _reverify_fixes(target, fixable, written)
         else:
             out.info(f"{len(applied)} fix(es) previewed above (dry-run). Re-run with --apply to write them.")
     finally:
         if ingested.cleanup:
             shutil.rmtree(ingested.root, ignore_errors=True)
+
+
+def _signature(category: str, file: str | None, title: str) -> tuple:
+    # Deliberately excludes line number: a correct patch routinely shifts every
+    # line below it, so keying on line would make a genuinely-fixed finding
+    # look "still detected" just because the file got one line longer.
+    return (category, (file or "").lower(), " ".join(title.lower().split()))
+
+
+def _reverify_fixes(target: str, original_findings: list[Finding], written) -> None:
+    """Re-scan the patched files and check whether each fix actually closed its
+    finding — matching content exactly and not breaking syntax (both already
+    checked before writing) proves the patch is *safe*, not that it *worked*.
+    """
+    from rich.table import Table
+
+    by_id = {f.id: f for f in original_findings}
+    out.step("Re-scanning to confirm each fix actually closed its finding…")
+    fresh = _do_scan(target, deep=False, depth=None, no_llm=True)
+    fresh_signatures = {_signature(f.category, f.file, f.title) for f in fresh.findings}
+
+    table = Table(show_header=True, header_style="bold yellow3", border_style="grey30")
+    table.add_column("FILE", style="wheat1")
+    table.add_column("FINDING")
+    table.add_column("STATUS")
+    for fx in written:
+        original = by_id.get(fx.finding_id)
+        if original is None:
+            continue
+        closed = _signature(original.category, original.file, original.title) not in fresh_signatures
+        status = "[bold green3]✓ confirmed closed[/]" if closed else "[bold red]⚠ still detected[/]"
+        table.add_row(fx.file, original.title, status)
+    out.console.print()
+    out.console.print(table)

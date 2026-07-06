@@ -14,6 +14,10 @@ All notable changes to Argus are documented here. Format loosely follows
   determined. New optional `sandbox` extra (`pip install argus-sec[sandbox]`).
 - `argus audit` now genuinely runs Phase 2 automatically when Docker is available, instead of
   only running Phase 1 and telling the user to run `attack --url` by hand.
+- **Fix-and-reverify**: `argus fix --apply` now re-scans the patched files afterward and reports,
+  per finding, whether it's actually confirmed closed or still detected — instead of a patch that
+  matched content and compiled cleanly being trusted as "fixed" when the LLM's diff didn't
+  actually address the vulnerable pattern.
 
 ### Fixed
 - `argus report --format pdf` now warns explicitly when `weasyprint` isn't installed and it

@@ -28,6 +28,7 @@ _FILE_HEADER = re.compile(r"^(---|\+\+\+) ")
 class AppliedFix:
     """The outcome of validating (and optionally writing) one proposed fix."""
 
+    finding_id: str
     file: str
     explanation: str
     diff: str
@@ -141,5 +142,8 @@ def apply_fixes(root: Path, fixes: list[FixResult], *, apply: bool = False) -> l
             out.success(f"Applied → {fx.file}")
             written = True
 
-        results.append(AppliedFix(file=fx.file, explanation=fx.explanation, diff=fx.diff, written=written))
+        results.append(AppliedFix(
+            finding_id=fx.finding_id, file=fx.file, explanation=fx.explanation,
+            diff=fx.diff, written=written,
+        ))
     return results
