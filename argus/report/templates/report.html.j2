@@ -88,6 +88,22 @@
     </div>
   </div>
 
+  {% if top_risks %}
+  <h2>Top Risks</h2>
+  <div class="top-risks">
+    {% for f in top_risks %}
+    <div class="finding">
+      <div class="f-head">
+        <span class="sq" style="background:{{ sev_color[f.severity.value] }}"></span>
+        <span class="sev" style="color:{{ sev_color[f.severity.value] }}">{{ f.severity.value }}</span>
+        <span class="f-title">{{ f.title }}</span>
+        <span class="f-loc">{{ f.location }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   {% if codebase %}
   <h2>Codebase</h2>
   <table class="cb">

@@ -37,6 +37,19 @@ def test_to_markdown_contains_headings():
     assert "CWE-89" in md
 
 
+def test_to_markdown_top_risks_before_full_findings():
+    md = to_markdown(_sample())
+    assert "## Top Risks" in md
+    assert md.index("## Top Risks") < md.index("## Findings")
+
+
+def test_to_markdown_top_risks_excludes_medium_and_below():
+    r = ScanResult(target="t", phase="scan")
+    r.add(Finding(title="Only a medium issue", severity=Severity.MEDIUM, category="misc"))
+    md = to_markdown(r)
+    assert "## Top Risks" not in md
+
+
 def test_to_html_renders_branding_and_findings():
     html = to_html(_sample())
     assert "ARGUS" in html
@@ -48,6 +61,29 @@ def test_to_html_renders_poc_when_present():
     html = to_html(_sample())
     assert "PROOF OF CONCEPT" in html
     assert "curl -i -X GET" in html
+
+
+def test_to_html_top_risks_appears_before_full_findings_table():
+    html = to_html(_sample())
+    assert "Top Risks" in html
+    assert "SQL injection in /users" in html
+    assert html.index("Top Risks") < html.index("Findings —")
+
+
+def test_to_html_top_risks_excludes_medium_and_below():
+    r = ScanResult(target="t", phase="scan")
+    r.add(Finding(title="Only a medium issue", severity=Severity.MEDIUM, category="misc"))
+    html = to_html(r)
+    assert "Top Risks" not in html
+
+
+def test_to_html_top_risks_capped_at_five():
+    r = ScanResult(target="t", phase="scan")
+    for i in range(8):
+        r.add(Finding(title=f"Critical issue {i}", severity=Severity.CRITICAL,
+                       category="misc", file=f"f{i}.py", line=1))
+    html = to_html(r)
+    assert html.count("Critical issue") == 5 + 8  # 5 in Top Risks + all 8 in the full table
 
 
 def test_to_sarif_is_valid_2_1_0():

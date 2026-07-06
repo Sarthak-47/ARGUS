@@ -26,10 +26,21 @@ def _env() -> Environment:
     )
 
 
+_TOP_RISK_LIMIT = 5
+
+
 def _ctx(result: ScanResult) -> dict:
+    sorted_findings = result.sorted_findings()
+    # Leads the report before the full findings table — a reader should see
+    # the handful of things that actually matter without scrolling past
+    # every LOW/INFO finding first. Empty when there's nothing CRITICAL/HIGH:
+    # a clean-ish scan's risk score already says everything an exec summary
+    # needs to, and an empty "Top Risks" section would just be noise.
+    top_risks = [f for f in sorted_findings if f.severity.value in ("CRITICAL", "HIGH")][:_TOP_RISK_LIMIT]
     return {
         "result": result,
-        "findings": result.sorted_findings(),
+        "findings": sorted_findings,
+        "top_risks": top_risks,
         "counts": result.counts(),
         "risk_score": result.risk_score,
         "risk_band": result.risk_band,
@@ -140,6 +151,13 @@ def to_markdown(result: ScanResult) -> str:
     for s in Severity:
         a(f"| {s.value} | {counts[s.value]} |")
     a("")
+
+    top_risks = [f for f in result.sorted_findings() if f.severity.value in ("CRITICAL", "HIGH")][:_TOP_RISK_LIMIT]
+    if top_risks:
+        a("## Top Risks\n")
+        for f in top_risks:
+            a(f"- **[{f.severity.value}]** {f.title} — `{f.location}`")
+        a("")
 
     if result.codebase_map:
         cm = result.codebase_map

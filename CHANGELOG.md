@@ -39,6 +39,10 @@ All notable changes to Argus are documented here. Format loosely follows
   GUI's Reports screen shows the same as a "SINCE LAST SCAN" panel when available.
 - New `argus status` CLI command: resolved LLM provider + model, detected GPU/VRAM and
   recommended local model, and configured scan/report defaults, as clean JSON or a table.
+- **Executive-summary-first reports** (UPGRADE.md #3): HTML, PDF, and Markdown reports now lead
+  with a "Top Risks" section (the top 5 CRITICAL/HIGH findings) right after the risk-score
+  summary and before the full findings table, instead of the full table being the first thing a
+  reader sees. Omitted entirely on a clean scan with nothing CRITICAL/HIGH.
 
 ### Fixed
 - `argus report --format pdf` now warns explicitly when `weasyprint` isn't installed and it

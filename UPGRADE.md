@@ -55,7 +55,7 @@ title), not just two independent findings tables side by side.
   (matches the existing fix-and-reverify tradeoff — a fix to *one* of several
   identical-looking findings won't show as a partial fix).
 
-### 3. Executive-summary-first report structure
+### 3. Executive-summary-first report structure — ✅ Done
 Reorder the HTML/PDF report to lead with a one-screen summary (risk score,
 critical/high counts, top 3-5 risks by severity) before the full findings
 table, instead of the table being the first thing a reader sees.
@@ -64,6 +64,13 @@ table, instead of the table being the first thing a reader sees.
 - **Effort:** Low. Purely a template reorder in
   `argus/report/templates/report.html.j2` plus the PDF path — no new data.
 - **GUI-only:** Yes.
+- **Shipped as:** a new "Top Risks" section (the top 5 CRITICAL/HIGH findings,
+  computed once in `argus/report/exporters.py::_ctx`) rendered right after the
+  risk-score summary and before the Codebase/full-findings sections — in both
+  the HTML template (PDF reuses the same HTML, so it inherits this for free)
+  and the Markdown exporter, for consistency across every format. Omitted
+  entirely when there's nothing CRITICAL/HIGH, so a clean scan's summary
+  isn't cluttered with an empty section.
 
 ---
 
