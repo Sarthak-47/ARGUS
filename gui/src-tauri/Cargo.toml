@@ -1,6 +1,6 @@
 [package]
 name = "argus-desktop"
-version = "0.1.0"
+version = "0.2.0"
 description = "Argus desktop — point it at a repo, it reads the code, spins up the app, and attacks it."
 authors = ["Sarthak-47"]
 license = "MIT"

@@ -189,7 +189,8 @@ Nobody else combines all six. That's the gap Argus owns.
   CodeView, Settings) rendering real engine data, including captured PoCs.
 - ✅ **Desktop shell**: Tauri 2.0 wraps the GUI as a real native app that invokes the Python engine
   directly (real scans, not just dropped-in JSON). `desktop-release.yml` builds Windows/macOS
-  (universal)/Linux installers on tag; v0.1.0 and v0.1.1 published.
+  (universal)/Linux installers on tag; v0.1.0, v0.1.1 and v0.2.0 published. Ships with no demo
+  data — every screen shows real engine output or an honest empty/first-run state.
 - ✅ **CI-ready**: SARIF output, `--fail-on`, per-rule policy gating (`.argus-policy.toml`),
   GitHub Action, Docker image, green test suite (200+ tests).
 - ✅ **Package verified**: `python -m build` + `twine check` pass; the built wheel installs into

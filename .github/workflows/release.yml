@@ -1,14 +1,15 @@
-# Publishes argus-sec to PyPI when a version tag is pushed (e.g. `git tag v0.1.0`).
+# Publishes argus-sec to PyPI. Triggered MANUALLY (Actions → Release → Run
+# workflow) so a version tag builds the desktop installers without also pushing
+# to PyPI — PyPI publishing is a deliberate, owner-initiated step.
 #
 # One-time setup (no API token needed): on PyPI, add this repo as a Trusted
 # Publisher for the `argus-sec` project (Publishing → Add a pending publisher):
 #   owner: Sarthak-47   repo: ARGUS   workflow: release.yml   environment: pypi
-# After that, tagging a release publishes automatically via OIDC.
+# Then run this workflow from the tag you want to publish.
 name: Release
 
 on:
-  push:
-    tags: ["v*"]
+  workflow_dispatch:
 
 jobs:
   build:

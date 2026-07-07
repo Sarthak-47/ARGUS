@@ -5,6 +5,8 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-07-08
+
 ### Added
 - **Baseline adoption** (`argus scan --write-baseline <file>` / `--baseline <file>`): the standard
   way to turn a scanner on a mature repo without drowning. `--write-baseline` snapshots every
@@ -105,6 +107,14 @@ All notable changes to Argus are documented here. Format loosely follows
   target from that inventory, so a flaky/partial recon on one run doesn't lose surface the later
   agents need. New `argus surface` command lists it.
 
+### Changed
+- **Desktop GUI ships with zero fabricated data.** Removed the bundled demo findings, the fake
+  "Recent Audits"/stats on the Dashboard, and the scripted Live-Attack timeline. Every screen now
+  shows real engine data or an honest empty/first-run state (Reports: "no report yet"; Dashboard:
+  real stats derived from scan history; Live Attack: real running clock during an audit, idle
+  prompt otherwise). No `report.json` is bundled, so a fresh install starts clean. The `argus demo`
+  CLI showcase (bundled vulnerable app) is unchanged.
+
 ### Fixed
 - `argus report --format pdf` now warns explicitly when `weasyprint` isn't installed and it
   falls back to HTML, instead of silently writing a different file.
@@ -160,6 +170,7 @@ Initial tagged release.
   universal `.dmg`, Linux `.deb`/`.rpm`/`.AppImage`).
 - Local-first LLM support (Ollama) plus BYOK providers (Groq, Gemini, Claude, OpenRouter).
 
-[Unreleased]: https://github.com/Sarthak-47/ARGUS/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/Sarthak-47/ARGUS/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Sarthak-47/ARGUS/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/Sarthak-47/ARGUS/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/Sarthak-47/ARGUS/releases/tag/v0.1.0
