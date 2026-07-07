@@ -6,6 +6,14 @@ All notable changes to Argus are documented here. Format loosely follows
 ## [Unreleased]
 
 ### Added
+- **Baseline adoption** (`argus scan --write-baseline <file>` / `--baseline <file>`): the standard
+  way to turn a scanner on a mature repo without drowning. `--write-baseline` snapshots every
+  finding that exists today as accepted; a later `--baseline` scan reports (and gates on) only what's
+  genuinely new. Keyed by the same category+location+normalized-title signature `argus compare`
+  uses, so a finding that merely shifts line numbers stays baselined. Complements `--diff-base`
+  (git-changed files, per-PR) — baseline is finding-identity-based, per-adoption, and needs no git.
+  Composes with `--fail-on`/`--policy`: pre-existing criticals don't fail the build, a brand-new one
+  does.
 - **Exploit chaining** (`argus/chains.py`): after the attack swarm runs, Argus deterministically
   detects when confirmed findings *compound* into an attack path and emits a synthesized CRITICAL
   "attack chain" finding — e.g. a confirmed XSS + a session cookie missing HttpOnly is flagged as

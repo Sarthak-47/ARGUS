@@ -22,6 +22,10 @@ inputs:
     description: "Only report findings in files changed vs this git ref (e.g. the PR base branch). Empty = scan everything."
     required: false
     default: ""
+  baseline:
+    description: "Path to a committed baseline file (from `argus scan --write-baseline`). Only findings absent from it are reported/gated. Empty = report all."
+    required: false
+    default: ""
   format:
     description: "Report format to produce (sarif|json|html|markdown)."
     required: false
@@ -65,5 +69,7 @@ runs:
         if [ -n "${{ inputs.policy }}" ]; then POLICY_FLAG="--policy ${{ inputs.policy }}"; fi
         DIFF_FLAG=""
         if [ -n "${{ inputs.diff-base }}" ]; then DIFF_FLAG="--diff-base ${{ inputs.diff-base }}"; fi
-        argus scan "${{ inputs.target }}" --no-llm --format "${{ inputs.format }}" $FAIL_FLAG $POLICY_FLAG $DIFF_FLAG
+        BASELINE_FLAG=""
+        if [ -n "${{ inputs.baseline }}" ]; then BASELINE_FLAG="--baseline ${{ inputs.baseline }}"; fi
+        argus scan "${{ inputs.target }}" --no-llm --format "${{ inputs.format }}" $FAIL_FLAG $POLICY_FLAG $DIFF_FLAG $BASELINE_FLAG
         echo "sarif-file=argus-report/argus.sarif" >> "$GITHUB_OUTPUT"

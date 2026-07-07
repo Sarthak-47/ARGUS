@@ -130,6 +130,11 @@ fail on any confirmed SQLi but only warn on missing headers. See
 the Action's `diff-base` input) reports only findings in files the PR changed, so a pre-existing
 backlog doesn't fail the build.
 
+Adopting Argus on a repo that already has a backlog? Snapshot it once with `argus scan --write-baseline
+.argus-baseline.json`, commit that file, then scan with `--baseline .argus-baseline.json` — every
+finding that existed at adoption is treated as accepted and only genuinely new ones are reported and
+gated on (survives line-number shifts, needs no git — unlike `--diff-base`).
+
 ## Desktop GUI
 
 A React + Vite + Tauri desktop app ("a war room inside the Parthenon") with six screens —

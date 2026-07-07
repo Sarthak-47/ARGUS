@@ -124,6 +124,37 @@ def test_run_scan_diff_base_keeps_only_changed_file_findings(tmp_path):
     assert "old.py" not in files  # pre-existing, not in the diff
 
 
+def test_run_scan_write_then_baseline_hides_preexisting_shows_new(tmp_path):
+    repo = tmp_path / "legacy"
+    repo.mkdir()
+    (repo / "app.py").write_text(
+        "import os\ndef r(c):\n    os.system('ping ' + c)\n", encoding="utf-8")
+    bl = tmp_path / ".argus-baseline.json"
+
+    # Snapshot the current state as accepted.
+    run_scan(str(repo), deep=False, depth=None, no_llm=True, write_baseline=str(bl))
+    assert bl.is_file()
+
+    # Same code → nothing new gets through the baseline.
+    result = run_scan(str(repo), deep=False, depth=None, no_llm=True, baseline=str(bl))
+    assert result.findings == []
+
+    # Introduce a brand-new finding → only it surfaces.
+    (repo / "app.py").write_text(
+        "import os\ndef r(c):\n    os.system('ping ' + c)\n    eval(c)\n", encoding="utf-8")
+    result = run_scan(str(repo), deep=False, depth=None, no_llm=True, baseline=str(bl))
+    assert result.findings  # the eval() is new
+    assert all("os.system" not in (f.evidence or "") for f in result.findings)
+
+
+def test_run_scan_missing_baseline_file_reports_all(vuln_repo, capsys):
+    # A missing baseline isn't fatal (unlike --diff-base): warn and report all.
+    result = run_scan(str(vuln_repo), deep=False, depth=None, no_llm=True,
+                      baseline=str(vuln_repo / "nope.json"))
+    assert result.findings
+    assert "baseline file not found" in capsys.readouterr().out.lower()
+
+
 def test_run_attack_without_url_or_target_exits_cleanly(capsys):
     with pytest.raises(typer.Exit) as exc_info:
         run_attack(target=None, url=None)
