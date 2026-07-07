@@ -6,6 +6,10 @@ All notable changes to Argus are documented here. Format loosely follows
 ## [Unreleased]
 
 ### Added
+- **Diff-aware scanning** (`argus scan --diff-base <ref>`): the PR-gate model — only report
+  findings in files changed vs a base ref (committed, staged, and untracked), so a pre-existing
+  backlog doesn't drown out or fail CI on what the current change actually introduced. Composes
+  with `--fail-on`/`--policy`; the GitHub Action gained a `diff-base` input.
 - **Dockerfile / compose IaC scanning** (`argus/scanner/iac.py`): the rule scanner is
   extension-keyed and so never looked at Dockerfiles. New file-aware linter flags running as root
   (no `USER`), unpinned/`:latest` base images, `ADD` from a URL, piping a remote download into a

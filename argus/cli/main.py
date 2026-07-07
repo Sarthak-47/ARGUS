@@ -86,11 +86,15 @@ def scan(
     policy: Optional[str] = typer.Option(
         None, "--policy", help="Path to a policy file (.argus-policy.toml) for per-rule CI gating. Overrides --fail-on."
     ),
+    diff_base: Optional[str] = typer.Option(
+        None, "--diff-base", help="Only report findings in files changed vs this git ref (e.g. main) — PR-gate mode."
+    ),
 ) -> None:
     """Phase 1 — static analysis. Read and understand the code without running it."""
     from argus.pipeline import run_scan
 
-    run_scan(target, deep=deep, depth=depth, no_llm=no_llm, export_format=fmt, fail_on=fail_on, policy=policy)
+    run_scan(target, deep=deep, depth=depth, no_llm=no_llm, export_format=fmt,
+             fail_on=fail_on, policy=policy, diff_base=diff_base)
 
 
 # --------------------------------------------------------------------------- #

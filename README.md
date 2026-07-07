@@ -126,7 +126,9 @@ Add Argus to any repo and publish findings to GitHub's **Security tab**:
 For finer control than a single severity threshold, drop a `.argus-policy.toml` at your repo root
 (or pass `--policy <file>`) to fail/warn/ignore per category, detector, or confirmed status — e.g.
 fail on any confirmed SQLi but only warn on missing headers. See
-[`.argus-policy.example.toml`](.argus-policy.example.toml).
+[`.argus-policy.example.toml`](.argus-policy.example.toml). And `argus scan --diff-base main` (or
+the Action's `diff-base` input) reports only findings in files the PR changed, so a pre-existing
+backlog doesn't fail the build.
 
 ## Desktop GUI
 

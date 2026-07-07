@@ -140,6 +140,7 @@ def run_scan(
     export_format: str | None = None,
     fail_on: str | None = None,
     policy: str | None = None,
+    diff_base: str | None = None,
     gate: bool = True,
 ) -> ScanResult:
     from argus.state import save_result
@@ -152,6 +153,9 @@ def run_scan(
     if suppressed_count:
         out.info(f"{suppressed_count} finding(s) suppressed (ignored) — "
                   f"run [wheat1]argus suppressions {target}[/] to review.")
+
+    if diff_base:
+        _filter_to_changed_files(target, result, diff_base)
 
     out.risk_panel(result)
     out.findings_table(result, limit=25)
@@ -178,6 +182,29 @@ def run_scan(
                 return result
         _maybe_fail(result, fail_on)
     return result
+
+
+def _filter_to_changed_files(target: str, result: ScanResult, diff_base: str) -> None:
+    """Keep only findings in files changed vs ``diff_base`` (PR-gate model).
+
+    Findings with no file (Phase-2/HTTP findings don't apply to a static scan,
+    but dependency/IaC findings do carry a file) are dropped when they're not
+    on a changed path. A git failure is fatal here — the user explicitly asked
+    to gate on a diff, so silently scanning everything would be misleading."""
+    from argus.gitutil import GitError, changed_files
+
+    try:
+        changed = changed_files(Path(target).expanduser(), diff_base)
+    except GitError as exc:
+        out.error(str(exc))
+        raise typer.Exit(code=1)
+
+    before = len(result.findings)
+    kept = [f for f in result.findings if f.file and f.file.replace("\\", "/") in changed]
+    result.findings = kept
+    result._seen = {f.dedup_key(): f for f in kept}
+    out.info(f"Diff-aware ({diff_base}): {len(kept)} of {before} finding(s) are in the "
+             f"{len(changed)} changed file(s); the rest were pre-existing.")
 
 
 def _maybe_gate_on_policy(target: str, result: ScanResult, policy_path: str | None) -> bool:

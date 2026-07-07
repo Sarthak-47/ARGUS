@@ -97,6 +97,33 @@ def test_explicit_fail_on_takes_precedence_over_auto_discovered_policy(tmp_path)
     assert result is not None  # --fail-on critical didn't trip; auto-policy was skipped
 
 
+def test_run_scan_diff_base_keeps_only_changed_file_findings(tmp_path):
+    from git import Repo
+
+    repo_dir = tmp_path / "gitrepo"
+    repo = Repo.init(str(repo_dir), initial_branch="main")
+    repo.config_writer().set_value("user", "email", "t@t.co").release()
+    repo.config_writer().set_value("user", "name", "t").release()
+
+    # main: a pre-existing weak-hash finding
+    (repo_dir / "old.py").write_text(
+        "import hashlib\ndef h(p):\n    return hashlib.md5(p.encode()).hexdigest()\n", encoding="utf-8")
+    repo.index.add(["old.py"])
+    repo.index.commit("base")
+
+    # feature branch adds a new file with a command-injection finding
+    repo.git.checkout("-b", "feature")
+    (repo_dir / "new.py").write_text(
+        "import os\ndef r(c):\n    os.system('ping ' + c)\n", encoding="utf-8")
+    repo.index.add(["new.py"])
+    repo.index.commit("feat")
+
+    result = run_scan(str(repo_dir), deep=False, depth=None, no_llm=True, diff_base="main")
+    files = {f.file for f in result.findings}
+    assert "new.py" in files
+    assert "old.py" not in files  # pre-existing, not in the diff
+
+
 def test_run_attack_without_url_or_target_exits_cleanly(capsys):
     with pytest.raises(typer.Exit) as exc_info:
         run_attack(target=None, url=None)
