@@ -199,6 +199,12 @@ Nobody else combines all six. That's the gap Argus owns.
 *Semgrep is optional and layered in when available — it has no native Windows build, so Argus's
 own rules carry the scan there (use the Docker image for full Semgrep).*
 
+## Roadmap
+
+Where Argus is headed next — the path from v0.2.0 to a benchmark-proven 1.0
+(authenticated scanning, API-schema awareness, reachability-filtered SCA,
+auto-fix PRs) is laid out in [ROADMAP.md](ROADMAP.md).
+
 ## Responsible use
 
 Argus is an **offensive** tool. **Only run it against systems you own or are authorized to

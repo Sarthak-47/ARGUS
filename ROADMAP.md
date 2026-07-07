@@ -1,0 +1,139 @@
+# Argus Roadmap — v0.2.0 → v1.0
+
+Where Argus is (v0.2.0) and what "1.0" needs to mean. This supersedes
+[`UPGRADE.md`](UPGRADE.md) (the v0.1→v0.2 backlog, now largely shipped) as the
+forward-looking plan.
+
+It's grounded in what the 2026 market leaders are actually shipping — XBOW,
+Aikido, Snyk, Escape, StackHawk, Invicti, Horizon3 — filtered hard for Argus's
+real audience: **solo developers and small teams**, local-first, no enterprise
+sprawl. Enterprise-flavoured features (org asset graphs, CSPM fleets, SIEM
+correlation) are deliberately out of scope for 1.0.
+
+## Where we are (v0.2.0)
+
+Shipped and solid: two-phase engine (static scan + real attack swarm with
+confirmed PoCs), LLM reasoning, **exploit chaining**, secret/IaC/supply-chain
+detection, ASVS/PCI compliance tags, SBOM, SARIF, policy-as-code gating,
+diff-aware + baseline CI gating, `argus fix` (dry-run/apply with reverify),
+history/compare/suppress, a Tauri desktop app, and cross-platform installers.
+
+Honest gaps that block "1.0": Argus can only attack the **unauthenticated**
+surface, doesn't understand an app's **API schema**, its static scan is
+**noisy** (lockfile/bundle entropy hits), and there's **no published proof** it
+detects what it claims. The whole 2026 market has converged on
+authenticated + API-native + reachability-filtered + benchmark-proven. Those
+are the spine below.
+
+---
+
+## The 1.0 definition of done
+
+> Argus 1.0 can **authenticate to a real app**, **ingest its API surface**,
+> attack it **auth-aware**, produce **low-noise** findings with
+> **reachability-filtered** dependency CVEs, **open a fix PR**, and ships with
+> **published benchmark numbers** against known-vulnerable apps proving its
+> detection rate and false-positive rate.
+
+Everything else is polish around that sentence.
+
+---
+
+## Milestone v0.3 — Reach real apps (authenticated + API-aware)
+
+The single biggest gap. Right now Argus attacks only what an anonymous user can
+reach; almost every real app hides its interesting surface behind a login.
+
+- **v0.3.1 · Authenticated attack sessions.** A credentials config (`--auth`
+  or `.argus-auth.toml`): static bearer token, cookie, HTTP basic, a form-login
+  recording (URL + field map), and OAuth2 client-credentials. Every HTTP agent
+  carries the authenticated session; ReconBot re-crawls as the logged-in user.
+  *Table stakes — every 2026 DAST/agentic tool does OAuth2/JWT/session/MFA.*
+  *Engine work; medium-large.*
+- **v0.3.2 · API schema ingestion.** Seed the attack surface from an
+  OpenAPI/Swagger/Postman collection or a GraphQL introspection dump
+  (`--api-spec <file|url>`), instead of relying only on the crawler. Modern APIs
+  are stateful and spec-defined; crawlers miss them. Composes with the existing
+  surface inventory. *Engine work; medium.*
+- **v0.3.3 · BOLA/BFLA with real auth.** With v0.3.1 landed, extend IDORHunter
+  into proper object-level (BOLA) and function-level (BFLA) authorization
+  testing across two real identities — the #1 API risk (OWASP API Top 10).
+  *Engine work; medium, depends on v0.3.1.*
+
+## Milestone v0.4 — Trust the output (cut noise, prove reachability)
+
+Your DBMS audit surfaced ~229 false-positive entropy hits. Noise is the fastest
+way to lose a user; the market's answer is reachability + smarter filtering.
+
+- **v0.4.1 · Secret-scan noise reduction.** Skip lockfiles, minified bundles,
+  `.map` files, and vendored assets for entropy hits; keep pattern-based hits
+  everywhere. Publish a before/after precision number. *Engine work; small —
+  high ROI, directly fixes what you saw.*
+- **v0.4.2 · SCA reachability analysis.** Only flag a vulnerable dependency as
+  high-severity if the vulnerable package is actually imported/called in the
+  code path; downgrade the rest. *Aikido/Snyk's headline false-positive killer.*
+  *Engine work; medium (start import-level, not full call-graph).*
+- **v0.4.3 · Container image CVE scanning.** Complement the existing Dockerfile
+  IaC linter with a real image-layer CVE scan (Trivy-style) when a built image
+  or base is present. *Engine work; medium.*
+
+## Milestone v0.5 — Close the loop (CI-native remediation)
+
+Argus already generates and reverifies fixes; 1.0 needs to *deliver* them where
+developers live.
+
+- **v0.5.1 · Auto-fix pull requests.** Turn `argus fix --apply` into a real
+  GitHub PR: branch, commit the reverified patch, open a PR with the finding +
+  PoC + before/after. (This is the deferred UPGRADE.md #5 — now a 1.0 goal;
+  needs a token, so opt-in and clearly scoped.) *Aikido AI AutoFix / Snyk.*
+  *Engine + GH API; medium.*
+- **v0.5.2 · PR review comments.** In CI (diff-aware mode), post each new finding
+  as an inline GitHub PR comment instead of only a SARIF upload. *GitHub Advanced
+  Security parity.* *Action work; small-medium.*
+- **v0.5.3 · Broaden auto-sandbox stack detection.** The DBMS repo couldn't be
+  auto-run (no Dockerfile, unguessable start). Add confident start-command
+  detection for Flask/FastAPI, Express/Next, Rails, and `docker-compose up`, so
+  `argus audit <repo>` runs Phase 2 for far more repos. *Engine work; medium.*
+
+## Milestone v1.0 — Prove it, then ship it
+
+- **v1.0.1 · Benchmark suite + published numbers.** Run Argus against a pinned
+  set of deliberately-vulnerable apps (OWASP Juice Shop, DVWA, WebGoat, VAmPI,
+  NodeGoat) in CI; publish detection rate and false-positive rate per category,
+  refreshed on release. **This is the credibility unlock** — it's exactly how
+  XBOW/Horizon3 earn trust, and Argus can't claim "1.0" without it.
+- **v1.0.2 · Integrations.** DefectDojo + Jira export (findings → tickets);
+  keep it optional and lightweight. *Small-medium each.*
+- **v1.0.3 · Docs site + hardening.** A real getting-started/docs site, an
+  auth-scanning tutorial, expanded error handling, and a pass over performance
+  (parallelism in the attack loop). *Docs + polish.*
+
+---
+
+## Explicitly NOT in 1.0 (scope discipline)
+
+- Org-wide asset graphs / exposure-management dashboards (enterprise).
+- CSPM / cloud-account posture scanning (different product).
+- SIEM/Sentinel correlation, multi-tenant SaaS, RBAC/teams.
+- A hosted service — Argus stays local-first and self-hosted.
+- Mobile app testing (XBOW's 2026 item; not Argus's audience).
+
+## Priority at a glance
+
+| Priority | Item | Milestone | Why it's ranked here |
+|---|---|---|---|
+| **P0** | Authenticated attack sessions | v0.3.1 | Unlocks attacking real apps at all |
+| **P0** | Secret-scan noise reduction | v0.4.1 | Cheapest fix for the biggest visible flaw |
+| **P0** | Benchmark suite | v1.0.1 | The only thing that *proves* Argus works |
+| **P1** | API schema ingestion | v0.3.2 | Modern surface is API-first |
+| **P1** | SCA reachability | v0.4.2 | Kills the majority of dep false positives |
+| **P1** | Auto-fix PRs | v0.5.1 | Closes the remediation loop in CI |
+| **P2** | BOLA/BFLA, image CVEs, PR comments, sandbox stacks | v0.3–0.5 | Depth once the spine exists |
+| **P2** | Integrations, docs, hardening | v1.0.2–1.0.3 | Ship polish |
+
+---
+
+*Sources for the market survey behind this plan: XBOW, Aikido, Snyk, Escape,
+StackHawk, Invicti, Checkmarx, and OX Security public materials (2026). Argus
+remains scoped for individual developers and small teams, not enterprise
+security organizations.*
