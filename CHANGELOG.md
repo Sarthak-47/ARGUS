@@ -6,6 +6,11 @@ All notable changes to Argus are documented here. Format loosely follows
 ## [Unreleased]
 
 ### Added
+- **10 new built-in static rules** broadening language coverage beyond the Python-heavy
+  baseline: JS/TS `document.write`/open-redirect/deprecated-`createCipher`/secrets-in-`localStorage`,
+  Python SSTI (`render_template_string`), Django `mark_safe`, `hashlib.new('md5')`, XXE-prone XML
+  parsing, and Go `InsecureSkipVerify`/shell-via-`exec.Command`. Each verified to skip its safe
+  variant (e.g. `createCipheriv`, static `document.write`, `exec.Command("ls", ...)`).
 - **Docker auto-sandbox**: `argus attack <repo>` and `argus audit <repo>` now actually spin the
   target up in Docker and attack it, instead of only printing instructions to start it yourself.
   Auto-generates a Dockerfile for Django (via `manage.py`) and Node (via a `package.json` `start`

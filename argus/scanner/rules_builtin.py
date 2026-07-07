@@ -90,6 +90,35 @@ RULES: list[dict] = [
         "cwe": "CWE-79",
         "fix": "Avoid v-html with untrusted content; sanitise first.",
     },
+    {
+        "id": "js-document-write", "title": "XSS sink: document.write with dynamic input",
+        "severity": Severity.MEDIUM, "category": "xss", "langs": {"JavaScript", "TypeScript"},
+        "pattern": re.compile(r"document\.write(?:ln)?\s*\(\s*(?:`[^`]*\$\{|[A-Za-z_]\w*|['\"].*['\"]\s*\+)"),
+        "cwe": "CWE-79",
+        "fix": "Avoid document.write; build DOM nodes with textContent, or sanitise before injecting HTML.",
+    },
+    {
+        "id": "py-django-mark-safe", "title": "XSS sink: mark_safe on dynamic input",
+        "severity": Severity.MEDIUM, "category": "xss", "langs": {"Python"},
+        "pattern": re.compile(r"mark_safe\s*\(\s*(?:f['\"]|[A-Za-z_]\w*|['\"].*['\"]\s*[+%]|.*\.format\()"),
+        "cwe": "CWE-79",
+        "fix": "Don't mark_safe() attacker-influenced strings; escape them, or sanitise HTML first.",
+    },
+    # ---------------- Open redirect / SSTI ----------------
+    {
+        "id": "js-open-redirect", "title": "Possible open redirect (user-controlled location)",
+        "severity": Severity.MEDIUM, "category": "injection", "langs": {"JavaScript", "TypeScript"},
+        "pattern": re.compile(r"(?i)\.redirect\s*\([^)]*\breq\.(?:query|params|body|headers)\b"),
+        "cwe": "CWE-601",
+        "fix": "Validate redirect targets against an allow-list; never redirect straight to a request-supplied URL.",
+    },
+    {
+        "id": "py-ssti-render-string", "title": "Server-side template injection (render_template_string)",
+        "severity": Severity.HIGH, "category": "injection", "langs": {"Python"},
+        "pattern": re.compile(r"render_template_string\s*\(\s*(?:f['\"]|[A-Za-z_]\w*|['\"].*['\"]\s*[+%]|.*\.format\()"),
+        "cwe": "CWE-94",
+        "fix": "Never build a template from user input; render a fixed template and pass data as context variables.",
+    },
     # ---------------- Crypto ----------------
     {
         "id": "weak-hash-md5-sha1", "title": "Weak hash algorithm (MD5/SHA1)",
@@ -105,6 +134,28 @@ RULES: list[dict] = [
         "require": re.compile(r"(?i)(?:token|secret|password|otp|nonce|session|key|salt)"),
         "cwe": "CWE-338",
         "fix": "Use secrets (Python) or crypto.randomBytes (Node) for security-sensitive values.",
+    },
+    {
+        "id": "hashlib-new-weak", "title": "Weak hash algorithm (MD5/SHA1 via hashlib.new)",
+        "severity": Severity.MEDIUM, "category": "crypto", "langs": {"Python"},
+        "pattern": re.compile(r"(?i)hashlib\.new\s*\(\s*['\"](?:md5|sha1)['\"]"),
+        "cwe": "CWE-327",
+        "fix": "Use SHA-256+ for integrity, and bcrypt/scrypt/argon2 for passwords.",
+    },
+    {
+        "id": "js-deprecated-cipher", "title": "Deprecated/insecure cipher (createCipher)",
+        "severity": Severity.MEDIUM, "category": "crypto", "langs": {"JavaScript", "TypeScript"},
+        "pattern": re.compile(r"crypto\.createCipher(?!iv)\s*\("),
+        "cwe": "CWE-327",
+        "fix": "createCipher derives a weak key with no IV — use createCipheriv with a random IV instead.",
+    },
+    {
+        "id": "js-localstorage-secret", "title": "Sensitive value stored in web storage",
+        "severity": Severity.LOW, "category": "crypto", "langs": {"JavaScript", "TypeScript"},
+        "pattern": re.compile(r"(?i)(?:localStorage|sessionStorage)\.setItem\s*\("),
+        "require": re.compile(r"(?i)(?:token|secret|password|jwt|api[_-]?key|session)"),
+        "cwe": "CWE-522",
+        "fix": "Don't keep tokens/secrets in localStorage (readable by any XSS); use httpOnly cookies.",
     },
     # ---------------- Misconfig / insecure defaults ----------------
     {
@@ -129,6 +180,20 @@ RULES: list[dict] = [
         "fix": "Never disable certificate verification; fix the underlying trust-store issue instead.",
     },
     {
+        "id": "go-insecure-skip-verify", "title": "TLS certificate verification disabled",
+        "severity": Severity.HIGH, "category": "misconfig", "langs": {"Go"},
+        "pattern": re.compile(r"InsecureSkipVerify\s*:\s*true"),
+        "cwe": "CWE-295",
+        "fix": "Remove InsecureSkipVerify: true; configure a proper trust store instead.",
+    },
+    {
+        "id": "go-shell-command", "title": "Possible command injection (shell via exec.Command)",
+        "severity": Severity.HIGH, "category": "injection", "langs": {"Go"},
+        "pattern": re.compile(r"exec\.Command\s*\(\s*['\"](?:/bin/)?(?:sh|bash|zsh|cmd|powershell)['\"]\s*,\s*['\"]-c"),
+        "cwe": "CWE-78",
+        "fix": "Pass the program and its args directly to exec.Command; don't route user input through a shell -c.",
+    },
+    {
         "id": "flask-host-all", "title": "Service bound to all interfaces with debug",
         "severity": Severity.LOW, "category": "misconfig", "langs": {"Python"},
         "pattern": re.compile(r"(?i)\.run\(.*host\s*=\s*['\"]0\.0\.0\.0['\"].*debug\s*=\s*True"),
@@ -149,6 +214,13 @@ RULES: list[dict] = [
         "pattern": re.compile(r"pickle\.loads?\s*\("),
         "cwe": "CWE-502",
         "fix": "Never unpickle untrusted data; use JSON or a signed, safe format.",
+    },
+    {
+        "id": "py-xxe-parse", "title": "Possible XXE (untrusted XML parsing)",
+        "severity": Severity.LOW, "category": "deserialization", "langs": {"Python"},
+        "pattern": re.compile(r"(?i)(?:etree\.(?:parse|fromstring)|xml\.dom\.minidom\.parse|parseString)\s*\("),
+        "cwe": "CWE-611",
+        "fix": "Parse untrusted XML with defusedxml, which disables external entity/DTD resolution (XXE).",
     },
 ]
 
