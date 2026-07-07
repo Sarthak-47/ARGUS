@@ -22,7 +22,7 @@ from argus.models import Finding, ScanResult
 
 def _do_scan(target: str, deep: bool, depth: str | None, no_llm: bool) -> ScanResult:
     from argus.sbom import collect_packages
-    from argus.scanner import dependencies, ingestion, rules_builtin, secrets, semgrep_runner, supplychain
+    from argus.scanner import dependencies, iac, ingestion, rules_builtin, secrets, semgrep_runner, supplychain
 
     settings = load_settings()
     result = ScanResult(target=target, phase="scan")
@@ -72,6 +72,11 @@ def _do_scan(target: str, deep: bool, depth: str | None, no_llm: bool) -> ScanRe
 
         # 4c) Package inventory (for `argus report --format sbom`) -------------
         result.sbom_components = collect_packages(root, manifests)
+
+        # 4d) IaC misconfig (Dockerfiles / compose) ----------------------------
+        out.step("Checking container/IaC config…")
+        iac_findings, _ = iac.scan_iac(root)
+        result.extend(iac_findings)
 
         # 5) Secret detection --------------------------------------------------
         out.step("Scanning for secrets (regex + entropy)…")

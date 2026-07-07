@@ -6,6 +6,10 @@ All notable changes to Argus are documented here. Format loosely follows
 ## [Unreleased]
 
 ### Added
+- **Dockerfile / compose IaC scanning** (`argus/scanner/iac.py`): the rule scanner is
+  extension-keyed and so never looked at Dockerfiles. New file-aware linter flags running as root
+  (no `USER`), unpinned/`:latest` base images, `ADD` from a URL, piping a remote download into a
+  shell, and compose `privileged: true` / `network_mode: host`. Runs as part of every `argus scan`.
 - **10 new secret-detection patterns** for modern token formats with distinctive prefixes
   (very low false-positive): GitHub fine-grained PAT, Google OAuth client secret, npm, PyPI,
   HashiCorp Vault, DigitalOcean, Databricks, Shopify, Telegram bot, and Square tokens.
