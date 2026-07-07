@@ -56,9 +56,14 @@ function detectorToAgent(detector?: string): string {
     headerpoker: "HeaderPoker", csrfhunter: "CSRFHunter", fileattacker: "FileAttacker",
     fuzzer: "Fuzzer", racecondition: "RaceCondition", graphqlagent: "GraphQLAgent",
     websocketagent: "WebSocketAgent", idorhunter: "IDORHunter",
+    mcpsecurity: "MCPSecurity", promptinjection: "PromptInjection", businesslogic: "BusinessLogic",
+    domxss: "DomXSSHunter",
   };
   const head = d.split(":")[0];
   if (map[head]) return map[head];
+  if (d.startsWith("chain:")) return "Attack chain";
+  if (d.startsWith("iac:")) return "IaC scan";
+  if (d.startsWith("supplychain")) return "Supply chain";
   if (d.startsWith("rule:") || d.startsWith("semgrep")) return "Static scan";
   if (d.startsWith("secrets")) return "Secret scan";
   if (d.startsWith("npm") || d.startsWith("pip")) return "Dependency audit";
