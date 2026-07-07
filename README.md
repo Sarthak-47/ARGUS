@@ -175,7 +175,8 @@ Nobody else combines all six. That's the gap Argus owns.
   PromptInjectionAgent, BusinessLogicAgent, and the opt-in DomXSSHunter), orchestration loop,
   Docker auto-sandboxing when no `--url` is given, callback server for blind detection,
   **exploit chaining** (compounds confirmed findings into attack paths — e.g. XSS + a
-  script-readable session cookie → account takeover), deduplicated findings, a persistent
+  script-readable session cookie → account takeover, or clickjacking + a missing CSRF token →
+  forced state change), deduplicated findings, a persistent
   attack-surface inventory that grows across runs, and a
   reproducible proof-of-concept per confirmed exploit.
 - ✅ **`argus fix`**: LLM-generated patches for fixable findings — dry-run preview or `--apply`,

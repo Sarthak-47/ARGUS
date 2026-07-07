@@ -17,9 +17,10 @@ All notable changes to Argus are documented here. Format loosely follows
 - **Exploit chaining** (`argus/chains.py`): after the attack swarm runs, Argus deterministically
   detects when confirmed findings *compound* into an attack path and emits a synthesized CRITICAL
   "attack chain" finding — e.g. a confirmed XSS + a session cookie missing HttpOnly is flagged as
-  account takeover, not two isolated medium issues. Ships four chains (XSS→session-theft,
-  auth-bypass→IDOR, upload+traversal→arbitrary-write, exposed-MCP+leaked-secret); each only fires
-  from findings an agent actually confirmed, so a chain is never speculative.
+  account takeover, not two isolated medium issues. Ships five chains (XSS→session-theft,
+  auth-bypass→IDOR, upload+traversal→arbitrary-write, clickjacking+missing-CSRF→forced-action,
+  exposed-MCP+leaked-secret); each only fires from findings an agent actually confirmed, so a chain
+  is never speculative.
 - **Diff-aware scanning** (`argus scan --diff-base <ref>`): the PR-gate model — only report
   findings in files changed vs a base ref (committed, staged, and untracked), so a pre-existing
   backlog doesn't drown out or fail CI on what the current change actually introduced. Composes

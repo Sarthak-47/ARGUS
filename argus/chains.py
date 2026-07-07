@@ -74,6 +74,21 @@ CHAIN_RULES: list[ChainRule] = [
             "canonicalise and confine all file paths to an allow-listed base directory.",
     ),
     ChainRule(
+        name="clickjacking-csrf-forced-action",
+        detector="chain:clickjacking-csrf-forced-action",
+        cwe="CWE-352",
+        steps=[("csrfhunter:form",), ("csrfhunter:clickjacking",)],
+        title="Attack chain: clickjacking + missing CSRF token → forced state change",
+        narrative="A state-changing endpoint has no CSRF protection AND the app can be framed "
+                  "(no X-Frame-Options / frame-ancestors). An attacker overlays the app in an "
+                  "invisible iframe and tricks a logged-in victim into performing the action — "
+                  "change email, transfer funds, escalate a role — with a single click, no token "
+                  "needed. Either weakness alone is lower-risk; together they're a working exploit.",
+        fix="Add anti-CSRF tokens (or SameSite=Strict cookies) to every state-changing request AND "
+            "send X-Frame-Options: DENY / a restrictive frame-ancestors CSP — fixing either link "
+            "breaks the chain.",
+    ),
+    ChainRule(
         name="mcp-exposure-leak",
         detector="chain:mcp-exposure-leak",
         cwe="CWE-306",

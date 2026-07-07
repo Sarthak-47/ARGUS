@@ -39,6 +39,17 @@ def test_mcp_exposure_plus_leak_chain():
     assert [c.detector for c in chains] == ["chain:mcp-exposure-leak"]
 
 
+def test_clickjacking_plus_csrf_forms_forced_action_chain():
+    chains = detect_chains([_f("csrfhunter:form"), _f("csrfhunter:clickjacking")])
+    assert [c.detector for c in chains] == ["chain:clickjacking-csrf-forced-action"]
+    assert chains[0].cwe == "CWE-352"
+
+
+def test_clickjacking_alone_does_not_chain():
+    assert detect_chains([_f("csrfhunter:clickjacking")]) == []
+    assert detect_chains([_f("csrfhunter:form")]) == []
+
+
 def test_single_half_does_not_form_a_chain():
     assert detect_chains([_f("xsshunter:reflected")]) == []
     assert detect_chains([_f("idorhunter")]) == []
