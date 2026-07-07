@@ -29,6 +29,33 @@ def test_run_scan_end_to_end_on_vuln_repo(vuln_repo):
     assert result.risk_score > 0
 
 
+def test_run_scan_policy_fails_ci_on_matching_finding(vuln_repo):
+    # vuln_repo has an injection finding; a policy that fails on injection
+    # should make run_scan exit non-zero (the CI gate).
+    (vuln_repo / "gate.toml").write_text(
+        'default = "warn"\n\n[[rules]]\ncategory = "injection"\naction = "fail"\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(typer.Exit) as exc_info:
+        run_scan(str(vuln_repo), deep=False, depth=None, no_llm=True,
+                 policy=str(vuln_repo / "gate.toml"))
+    assert exc_info.value.exit_code == 2
+
+
+def test_run_scan_policy_passes_when_only_warnings(vuln_repo):
+    (vuln_repo / "gate.toml").write_text('default = "warn"\n', encoding="utf-8")
+    result = run_scan(str(vuln_repo), deep=False, depth=None, no_llm=True,
+                      policy=str(vuln_repo / "gate.toml"))
+    assert result is not None  # no exit raised
+
+
+def test_run_scan_missing_policy_file_exits_cleanly(vuln_repo, capsys):
+    with pytest.raises(typer.Exit) as exc_info:
+        run_scan(str(vuln_repo), deep=False, depth=None, no_llm=True, policy="does-not-exist.toml")
+    assert exc_info.value.exit_code == 1
+    assert "policy file not found" in capsys.readouterr().out.lower()
+
+
 def test_run_attack_without_url_or_target_exits_cleanly(capsys):
     with pytest.raises(typer.Exit) as exc_info:
         run_attack(target=None, url=None)

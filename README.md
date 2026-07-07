@@ -122,6 +122,10 @@ Add Argus to any repo and publish findings to GitHub's **Security tab**:
 ```
 
 `argus scan --format sarif` and `argus scan --fail-on high` also work standalone in any pipeline.
+For finer control than a single severity threshold, drop a `.argus-policy.toml` at your repo root
+(or pass `--policy <file>`) to fail/warn/ignore per category, detector, or confirmed status — e.g.
+fail on any confirmed SQLi but only warn on missing headers. See
+[`.argus-policy.example.toml`](.argus-policy.example.toml).
 
 ## Desktop GUI
 

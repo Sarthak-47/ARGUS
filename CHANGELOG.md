@@ -58,6 +58,11 @@ All notable changes to Argus are documented here. Format loosely follows
   + confirmed + CVSS) used as the sort tie-break within a severity band, so a confirmed,
   high-confidence, high-CVSS finding surfaces before a merely-plausible one at the same
   severity — without ever letting a lower severity outrank a higher one.
+- **CI policy-as-code gating** (UPGRADE.md #9): a `.argus-policy.toml` file (new `--policy` flag,
+  or auto-detected in the target dir) lets you fail/warn/ignore per severity, category, detector,
+  or confirmed status — e.g. fail on any confirmed SQLi but only warn on missing headers, finer
+  than the single-threshold `--fail-on`. `argus scan` exits 2 on a policy failure. The GitHub
+  Action gained a `policy` input. See `.argus-policy.example.toml`.
 
 ### Fixed
 - `argus report --format pdf` now warns explicitly when `weasyprint` isn't installed and it

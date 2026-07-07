@@ -83,11 +83,14 @@ def scan(
     fail_on: Optional[str] = typer.Option(
         None, "--fail-on", help="Exit non-zero if a finding at/above this severity exists: critical|high|medium|low."
     ),
+    policy: Optional[str] = typer.Option(
+        None, "--policy", help="Path to a policy file (.argus-policy.toml) for per-rule CI gating. Overrides --fail-on."
+    ),
 ) -> None:
     """Phase 1 — static analysis. Read and understand the code without running it."""
     from argus.pipeline import run_scan
 
-    run_scan(target, deep=deep, depth=depth, no_llm=no_llm, export_format=fmt, fail_on=fail_on)
+    run_scan(target, deep=deep, depth=depth, no_llm=no_llm, export_format=fmt, fail_on=fail_on, policy=policy)
 
 
 # --------------------------------------------------------------------------- #

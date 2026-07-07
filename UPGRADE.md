@@ -174,13 +174,22 @@ sorting purely by CVSS/severity bucket.
 
 ## Tier 3 — bigger lifts, lower priority for now
 
-### 9. CI policy-as-code gating
+### 9. CI policy-as-code gating — ✅ Done
 Extend `--fail-on` (today: one global severity threshold) to per-rule/
 per-category policies — e.g. fail on any confirmed SQLi but only warn on
 missing security headers.
 - **Inspired by:** Semgrep AppSec Platform's policy-as-code CI gates.
 - **Effort:** Medium-high. Needs a small policy config format and CLI/CI
   wiring; genuinely useful but a bigger surface than the Tier 1-2 items.
+- **Shipped as:** new `argus/policy.py` + a `.argus-policy.toml` TOML format
+  (see `.argus-policy.example.toml`). Ordered rules match on
+  severity/category/detector(prefix)/confirmed (ANDed within a rule,
+  first-match-wins across rules) and resolve each finding to fail/warn/ignore;
+  any `fail` finding makes `argus scan` exit 2 (the CI gate). Wired via a new
+  `--policy` flag (overrides `--fail-on`) and auto-applied when a
+  `.argus-policy.toml` sits in a local target dir. The GitHub Action gained a
+  `policy` input. `--fail-on`'s single-threshold behavior is untouched for
+  anyone who prefers it.
 
 ### 10. Lightweight OWASP ASVS / PCI-DSS tagging
 Tag findings with the specific ASVS control or PCI-DSS requirement they

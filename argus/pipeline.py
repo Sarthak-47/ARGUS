@@ -134,6 +134,7 @@ def run_scan(
     no_llm: bool = False,
     export_format: str | None = None,
     fail_on: str | None = None,
+    policy: str | None = None,
 ) -> ScanResult:
     from argus.state import save_result
     from argus.suppressions import apply_suppressions
@@ -160,8 +161,47 @@ def run_scan(
     out.console.print()
     out.info("Run [wheat1]argus attack --url <running-app>[/] to actively exploit these findings.")
 
+    # A policy file supersedes --fail-on (finer-grained gate). If neither is
+    # given, an .argus-policy.toml sitting in a local target dir is auto-applied.
+    if policy or fail_on is None:
+        if _maybe_gate_on_policy(target, result, policy):
+            return result
     _maybe_fail(result, fail_on)
     return result
+
+
+def _maybe_gate_on_policy(target: str, result: ScanResult, policy_path: str | None) -> bool:
+    """Evaluate a policy file if one applies. Returns True if a policy was
+    applied (so the caller skips the coarse --fail-on gate)."""
+    from argus.policy import PolicyError, evaluate, find_default_policy, load_policy
+
+    resolved: Path | None
+    if policy_path:
+        resolved = Path(policy_path).expanduser()
+        if not resolved.is_file():
+            out.error(f"Policy file not found: {resolved}")
+            raise typer.Exit(code=1)
+    else:
+        resolved = find_default_policy(target)
+        if resolved is None:
+            return False
+
+    try:
+        pol = load_policy(resolved)
+    except PolicyError as exc:
+        out.error(str(exc))
+        raise typer.Exit(code=1)
+
+    outcome = evaluate(pol, result.findings)
+    out.console.print()
+    out.info(f"Policy [wheat1]{resolved.name}[/]: "
+             f"{len(outcome.failing)} fail · {len(outcome.warning)} warn · {len(outcome.ignored)} ignore")
+    if outcome.should_fail:
+        out.error(f"{len(outcome.failing)} finding(s) violate the fail policy:")
+        for f in outcome.failing[:10]:
+            out.console.print(f"  [dark_orange3]✗[/] {f.severity.value} · {f.title} ({f.location})")
+        raise typer.Exit(code=2)
+    return True
 
 
 def _maybe_notify(result: ScanResult) -> None:

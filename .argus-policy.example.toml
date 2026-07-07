@@ -1,0 +1,38 @@
+# Example Argus CI policy — copy to `.argus-policy.toml` at your repo root and
+# it's auto-applied by `argus scan` (or point at it explicitly with `--policy`).
+#
+# A policy gives finer control than `--fail-on <severity>`: it decides, per
+# finding, whether it should FAIL the build, just WARN, or be IGNORED entirely
+# for gating purposes.
+
+# Action for any finding no rule below matches.  fail | warn | ignore
+default = "warn"
+
+# Rules are evaluated top to bottom; the FIRST matching rule decides the action.
+# A rule matches when every field it lists matches the finding (fields are ANDed).
+# Match fields: severity, category, detector (prefix match), confirmed (bool).
+
+# Anything an attack agent actually confirmed (proved exploitable) blocks the build.
+[[rules]]
+confirmed = true
+action = "fail"
+
+# Injection of any kind is a hard fail regardless of the tool's severity bucket.
+[[rules]]
+category = "injection"
+action = "fail"
+
+# Any critical finding fails.
+[[rules]]
+severity = "critical"
+action = "fail"
+
+# The entropy-based secret heuristic is noisy — warn, never block on it alone.
+[[rules]]
+detector = "secrets-entropy"
+action = "warn"
+
+# Missing-header / hardening findings: report but don't fail the build.
+[[rules]]
+category = "hardening"
+action = "warn"
