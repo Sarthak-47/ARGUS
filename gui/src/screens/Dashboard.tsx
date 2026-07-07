@@ -1,5 +1,4 @@
-import { C, FONT, bandColor, bandLabel } from "../theme";
-import { AUDITS, STATS } from "../data";
+import { C, FONT, bandColor, bandLabel, sevColor } from "../theme";
 import { useStore } from "../store";
 import { ArgusEye } from "../components/ArgusEye";
 import type { HistoryEntry } from "../adapter";
@@ -18,13 +17,24 @@ export function Dashboard() {
   const setScreen = s.setScreen;
   const realHistory = s.history && s.history.length > 0 ? s.history : null;
 
-  // Most recent first for the list; real data replaces the bundled demo rows
-  // the moment at least one real scan has been recorded.
+  // Most recent first for the list. Empty until at least one real scan runs —
+  // the app ships with no fabricated audit rows.
   const audits = realHistory
     ? [...realHistory].reverse().slice(0, 6).map((e) => ({
         name: e.target, score: e.riskScore, time: timeAgo(e.finishedAt),
       }))
-    : AUDITS;
+    : [];
+
+  // Headline stats derived from real history (null until the first scan).
+  const latest = realHistory ? realHistory[realHistory.length - 1] : null;
+  const stats = realHistory && latest
+    ? [
+        { label: "TOTAL SCANS", value: String(realHistory.length), color: C.goldenrod },
+        { label: "LATEST RISK", value: String(latest.riskScore), color: bandColor(latest.riskScore) },
+        { label: "CRITICAL", value: String(latest.counts?.CRITICAL || 0), color: sevColor("CRITICAL") },
+        { label: "HIGH", value: String(latest.counts?.HIGH || 0), color: sevColor("HIGH") },
+      ]
+    : null;
 
   return (
     <section style={{ padding: "36px 46px 64px 46px", maxWidth: 1180, position: "relative" }}>
@@ -59,6 +69,11 @@ export function Dashboard() {
         RECENT AUDITS
       </div>
       <div style={{ display: "flex", flexDirection: "column", border: `1px solid ${C.relief}`, background: C.stoneDark, marginBottom: 52 }}>
+        {audits.length === 0 && (
+          <div style={{ padding: "34px 28px", fontFamily: FONT.body, fontStyle: "italic", fontSize: 14, color: C.stoneText, textAlign: "center" }}>
+            No scans yet — run one and it'll appear here.
+          </div>
+        )}
         {audits.map((a, i) => (
           <button
             key={`${a.name}-${i}`}
@@ -98,18 +113,24 @@ export function Dashboard() {
           opacity={0.08}
           style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", pointerEvents: "none", zIndex: 0 }}
         />
-        <div style={{ position: "relative", zIndex: 1, display: "flex", gap: 1, background: C.relief, border: `1px solid ${C.relief}` }}>
-          {STATS.map((st) => (
-            <div key={st.label} style={{ flex: 1, background: "rgba(15,15,21,0.86)", padding: "30px 28px" }}>
-              <div style={{ fontFamily: FONT.display, fontSize: 82, fontWeight: 700, color: st.color, lineHeight: 0.85 }}>
-                {st.value}
+        {stats ? (
+          <div style={{ position: "relative", zIndex: 1, display: "flex", gap: 1, background: C.relief, border: `1px solid ${C.relief}` }}>
+            {stats.map((st) => (
+              <div key={st.label} style={{ flex: 1, background: "rgba(15,15,21,0.86)", padding: "30px 28px" }}>
+                <div style={{ fontFamily: FONT.display, fontSize: 82, fontWeight: 700, color: st.color, lineHeight: 0.85 }}>
+                  {st.value}
+                </div>
+                <div style={{ fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.2em", color: C.stoneText, marginTop: 14 }}>
+                  {st.label}
+                </div>
               </div>
-              <div style={{ fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.2em", color: C.stoneText, marginTop: 14 }}>
-                {st.label}
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ position: "relative", zIndex: 1, border: `1px solid ${C.relief}`, background: "rgba(15,15,21,0.86)", padding: "40px 28px", textAlign: "center", fontFamily: FONT.body, fontStyle: "italic", fontSize: 14, color: C.stoneText }}>
+            Your scan stats will appear here after the first run.
+          </div>
+        )}
       </div>
     </section>
   );

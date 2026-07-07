@@ -1,17 +1,13 @@
-// Global UI state + the live-attack demo engine, ported from the design's DCLogic.
+// Global UI state. All findings/history/status come from the real Python engine
+// (via Tauri IPC in the desktop app, or a dropped-in report.json in the browser
+// dev build). There is no scripted/simulated data here.
 
 import { create } from "zustand";
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import { AGENTS, TIMELINE, type AgentState, type FeedLine } from "./data";
+import { AGENTS } from "./data";
 import { mapReport, mapHistory, type LoadedReport, type HistoryEntry, type EngineComparison, type StatusInfo } from "./adapter";
 
 export type Screen = "dashboard" | "scan" | "live" | "report" | "settings" | "code";
-
-function freshAgents(): Record<string, AgentState> {
-  const o: Record<string, AgentState> = {};
-  AGENTS.forEach((n) => (o[n] = { status: "queued", sent: 0, confirmed: 0, progress: 0 }));
-  return o;
-}
 
 function allChecked(v: boolean): Record<string, boolean> {
   const o: Record<string, boolean> = {};
@@ -21,15 +17,6 @@ function allChecked(v: boolean): Record<string, boolean> {
 
 interface State {
   screen: Screen;
-  // live attack
-  attackRunning: boolean;
-  riskScore: number;
-  confirmed: number;
-  confFlash: number;
-  tick: number;
-  activated: number;
-  agents: Record<string, AgentState>;
-  feed: FeedLine[];
   // scan config
   scanChecked: Record<string, boolean>;
   depth: "Quick" | "Standard" | "Deep";
@@ -38,16 +25,15 @@ interface State {
   // report
   filter: string;
   selectedId: number | null;
-  reportRisk: number;
   // code view (drill-down from a static finding)
   codeSnippet: { startLine: number; lines: string[] } | null;
   codeError: string | null;
   codeLoading: boolean;
   // settings
   provider: string;
-  // real engine data (null => use bundled demo data)
+  // real engine data (null => nothing scanned yet)
   report: LoadedReport | null;
-  // real scan history (null => use bundled demo Recent Audits/stats)
+  // real scan history (null => no scans recorded yet)
   history: HistoryEntry[] | null;
   // what's new/fixed since the previous scan (null => not available yet)
   comparison: EngineComparison | null;
@@ -87,34 +73,18 @@ interface State {
   select: (id: number | null) => void;
   setProvider: (p: string) => void;
   openCodeView: (file: string, line: number) => Promise<void>;
-  startAttack: () => void;
-  resetAttack: () => void;
-  countReport: () => void;
 }
 
-let attackTimer: ReturnType<typeof setInterval> | null = null;
-let reportTimer: ReturnType<typeof setInterval> | null = null;
 let auditTimer: ReturnType<typeof setInterval> | null = null;
-const reduceMotion =
-  typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export const useStore = create<State>((set, get) => ({
   screen: "dashboard",
-  attackRunning: false,
-  riskScore: 0,
-  confirmed: 0,
-  confFlash: 0,
-  tick: 0,
-  activated: 0,
-  agents: freshAgents(),
-  feed: [],
   scanChecked: allChecked(true),
   depth: "Standard",
   phase1: true,
   phase2: true,
   filter: "All",
   selectedId: null,
-  reportRisk: 0,
   codeSnippet: null,
   codeError: null,
   codeLoading: false,
@@ -176,7 +146,6 @@ export const useStore = create<State>((set, get) => ({
       const report = mapReport(JSON.parse(json));
       if (auditTimer) { clearInterval(auditTimer); auditTimer = null; }
       set({ report, auditRunning: false, screen: "report" });
-      get().countReport();
       get().loadHistory();
       get().loadComparison();
     } catch (err) {
@@ -186,7 +155,8 @@ export const useStore = create<State>((set, get) => ({
   },
 
   loadReport: async () => {
-    // Pull a real Argus report if one was dropped into the app's public dir.
+    // Pull a real Argus report if one was dropped into the app's public dir
+    // (browser dev build). Ships absent, so a fresh app simply has no report.
     try {
       const res = await fetch("report.json", { cache: "no-store" });
       if (!res.ok) return;
@@ -195,7 +165,7 @@ export const useStore = create<State>((set, get) => ({
         set({ report: mapReport(json) });
       }
     } catch {
-      /* no report available — keep demo data */
+      /* no report available — the app shows its empty state */
     }
   },
 
@@ -208,7 +178,7 @@ export const useStore = create<State>((set, get) => ({
         set({ history: mapHistory(parsed) });
       }
     } catch {
-      /* no history yet, or not running in the desktop shell — keep demo data */
+      /* no history yet, or not running in the desktop shell */
     }
   },
 
@@ -258,8 +228,7 @@ export const useStore = create<State>((set, get) => ({
 
   setScreen: (s) => {
     set({ screen: s, selectedId: null });
-    if (s === "live") get().startAttack();
-    if (s === "report") { get().countReport(); get().loadComparison(); }
+    if (s === "report") get().loadComparison();
   },
 
   openCodeView: async (file, line) => {
@@ -305,86 +274,5 @@ export const useStore = create<State>((set, get) => ({
         .then(() => get().loadStatus())
         .catch(() => { /* keep the local selection even if persisting failed */ });
     }
-  },
-
-  resetAttack: () => {
-    if (attackTimer) clearInterval(attackTimer);
-    attackTimer = null;
-    set({
-      attackRunning: false, riskScore: 0, confirmed: 0, confFlash: 0, tick: 0,
-      activated: 0, agents: freshAgents(), feed: [],
-    });
-  },
-
-  startAttack: () => {
-    get().resetAttack();
-    set({ attackRunning: true });
-
-    const finishInstant = () => {
-      set((s) => {
-        const agents = { ...s.agents };
-        let feed = [...s.feed];
-        TIMELINE.forEach((ev, i) => {
-          if (ev.a) {
-            const [n, upd] = ev.a;
-            agents[n] = { ...agents[n], ...upd };
-          }
-          feed = feed.concat([{ agent: ev.f[0], text: ev.f[1], sev: ev.f[2], id: i }]);
-        });
-        Object.keys(agents).forEach((n) => {
-          if (agents[n].status === "running") agents[n] = { ...agents[n], status: "complete", progress: 100 };
-        });
-        return { agents, feed, riskScore: 74, confirmed: 8, activated: 18, attackRunning: false };
-      });
-    };
-
-    if (reduceMotion) {
-      finishInstant();
-      return;
-    }
-
-    attackTimer = setInterval(() => {
-      const s = get();
-      if (s.tick >= TIMELINE.length) {
-        if (attackTimer) clearInterval(attackTimer);
-        attackTimer = null;
-        const agents = { ...s.agents };
-        Object.keys(agents).forEach((n) => {
-          if (agents[n].status === "running") agents[n] = { ...agents[n], status: "complete", progress: 100 };
-        });
-        set({ agents, attackRunning: false });
-        return;
-      }
-      const ev = TIMELINE[s.tick];
-      const agents = { ...s.agents };
-      if (ev.a) {
-        const [n, upd] = ev.a;
-        agents[n] = { ...agents[n], ...upd };
-      }
-      set({
-        tick: s.tick + 1,
-        agents,
-        feed: s.feed.concat([{ agent: ev.f[0], text: ev.f[1], sev: ev.f[2], id: s.tick }]),
-        riskScore: ev.risk ? Math.min(74, s.riskScore + ev.risk) : s.riskScore,
-        confirmed: ev.conf ? s.confirmed + ev.conf : s.confirmed,
-        confFlash: ev.conf ? s.confFlash + 1 : s.confFlash,
-        activated: s.activated + (ev.act || 0),
-      });
-    }, 780);
-  },
-
-  countReport: () => {
-    if (reportTimer) clearInterval(reportTimer);
-    if (reduceMotion) {
-      set({ reportRisk: 74 });
-      return;
-    }
-    set({ reportRisk: 0 });
-    const start = Date.now();
-    reportTimer = setInterval(() => {
-      const p = Math.min(1, (Date.now() - start) / 1500);
-      set({ reportRisk: Math.round(74 * (1 - Math.pow(1 - p, 2))) });
-      if (p >= 1 && reportTimer) clearInterval(reportTimer);
-    }, 40);
   },
 }));

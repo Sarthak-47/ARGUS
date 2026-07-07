@@ -1,13 +1,14 @@
 import { C, FONT, sevColor, bandColor } from "../theme";
-import { FINDINGS } from "../data";
 import { useStore } from "../store";
+import { ArgusEye } from "../components/ArgusEye";
 import { GreekKeyDivider } from "../components/Decor";
 
 export function Reports() {
   const s = useStore();
   const live = s.report;
-  const allFindings = (live ? live.findings : FINDINGS).filter((f) => !s.suppressedIds.has(f.id));
-  const target = live ? live.target : "github.com/user/ecommerce-app";
+  if (!live) return <NoReport onScan={() => s.setScreen("scan")} />;
+  const allFindings = live.findings.filter((f) => !s.suppressedIds.has(f.id));
+  const target = live.target;
 
   const counts = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0 } as Record<string, number>;
   allFindings.forEach((f) => (counts[f.severity] = (counts[f.severity] || 0) + 1));
@@ -24,8 +25,8 @@ export function Reports() {
               <span style={{ fontFamily: FONT.code, letterSpacing: 0, fontSize: 12, color: C.parchment }}>{target}</span>{" "}
               <span style={{ color: C.relief }}>/</span> <span style={{ color: C.goldenrod }}>REPORT</span>
             </span>
-            <span style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 12, letterSpacing: 0, color: live ? C.goldenrod : C.stoneText }}>
-              {live ? "● live data" : "○ demo data"}
+            <span style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 12, letterSpacing: 0, color: C.goldenrod }}>
+              ● live data
             </span>
           </div>
           <button className="btn-ghost" style={{ fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.16em", color: C.bronze, background: "transparent", border: `1px solid ${C.bronze}`, padding: "10px 18px", cursor: "pointer" }}>
@@ -37,11 +38,11 @@ export function Reports() {
         <div style={{ border: `1px solid ${C.relief}`, background: C.stoneDark, padding: 38, display: "flex", alignItems: "center", gap: 52, marginBottom: 6 }}>
           <div style={{ textAlign: "center", paddingRight: 52, borderRight: `1px solid ${C.relief}` }}>
             <div style={{ fontFamily: FONT.display, fontSize: 10, letterSpacing: "0.22em", color: C.stoneText, marginBottom: 12 }}>RISK SCORE</div>
-            <div style={{ fontFamily: FONT.display, fontSize: 78, fontWeight: 700, color: live ? bandColor(live.riskScore) : C.sienna, lineHeight: 0.8 }}>
-              {live ? live.riskScore : s.reportRisk}
+            <div style={{ fontFamily: FONT.display, fontSize: 78, fontWeight: 700, color: bandColor(live.riskScore), lineHeight: 0.8 }}>
+              {live.riskScore}
             </div>
-            <div style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 16, letterSpacing: "0.04em", color: live ? bandColor(live.riskScore) : C.sienna, marginTop: 10 }}>
-              {live ? live.band : "High"}
+            <div style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 16, letterSpacing: "0.04em", color: bandColor(live.riskScore), marginTop: 10 }}>
+              {live.band}
             </div>
           </div>
           <div style={{ display: "flex", gap: 44, flex: 1 }}>
@@ -187,6 +188,27 @@ export function Reports() {
           </div>
         )}
       </div>
+    </section>
+  );
+}
+
+function NoReport({ onScan }: { onScan: () => void }) {
+  return (
+    <section style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, padding: 40 }}>
+      <ArgusEye size={72} opacity={0.5} />
+      <div style={{ fontFamily: FONT.display, fontSize: 13, letterSpacing: "0.22em", color: C.goldPale }}>
+        NO REPORT YET
+      </div>
+      <div style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 15, color: C.stoneText, maxWidth: 420, textAlign: "center", lineHeight: 1.6 }}>
+        Run a scan and Argus will render its findings here — risk score, every
+        vulnerability with evidence, and a reproducible proof-of-concept.
+      </div>
+      <button
+        onClick={onScan}
+        style={{ fontFamily: FONT.display, fontSize: 12, letterSpacing: "0.18em", fontWeight: 600, color: C.goldenrod, background: "transparent", border: `1px solid ${C.bronze}`, padding: "12px 24px", cursor: "pointer" }}
+      >
+        NEW SCAN
+      </button>
     </section>
   );
 }

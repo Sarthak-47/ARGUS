@@ -1,10 +1,9 @@
 import { C, FONT, sevColor } from "../theme";
-import { FINDINGS } from "../data";
 import { useStore } from "../store";
 
 export function CodeView() {
   const s = useStore();
-  const allFindings = s.report ? s.report.findings : FINDINGS;
+  const allFindings = s.report?.findings ?? [];
   const finding = allFindings.find((f) => f.id === s.selectedId) || null;
 
   return (
