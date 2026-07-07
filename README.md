@@ -130,9 +130,10 @@ fail on any confirmed SQLi but only warn on missing headers. See
 
 ## Desktop GUI
 
-A React + Vite + Tauri desktop app ("a war room inside the Parthenon") with five screens —
-Dashboard, New Scan, Live Attack, Reports, Settings — that renders **real engine output** (drop
-an `argus scan --format json` result at `gui/public/report.json`).
+A React + Vite + Tauri desktop app ("a war room inside the Parthenon") with six screens —
+Dashboard (with a live risk-trend graph), New Scan, Live Attack, Reports, CodeView, Settings.
+Inside the native app it **invokes the Python engine directly** to run real scans; in the browser
+dev build it renders a dropped-in `argus scan --format json` result at `gui/public/report.json`.
 
 ```bash
 cd gui
@@ -142,9 +143,7 @@ npm run tauri dev        # native window (needs Rust: https://rustup.rs)
 npm run tauri build      # produces a real .exe/.dmg/.AppImage in src-tauri/target/release
 ```
 
-The native shell is ~9MB and starts in well under a second — a fraction of an Electron
-equivalent. Wiring the desktop window to invoke the Python engine directly (rather than reading
-a dropped-in `report.json`) is tracked as the next step.
+The native shell is ~9MB and starts in well under a second — a fraction of an Electron equivalent.
 
 ## Why Argus
 
@@ -163,20 +162,26 @@ Nobody else combines all six. That's the gap Argus owns.
 
 - ✅ **Phase 1 — Static analysis** (`argus scan`): rules, dependency audit, supply-chain manifest
   analysis (typosquats, unpinned versions, install-script abuse), secret detection, LLM reasoning,
-  reports (HTML/JSON/Markdown/SARIF).
+  reports (HTML/JSON/Markdown/SARIF/PDF), CycloneDX SBOM export, and OWASP ASVS / PCI-DSS tags
+  per finding.
 - ✅ **Phase 2 — Attack swarm** (`argus attack`): **17 agents** (13 original + MCPSecurityAgent,
   PromptInjectionAgent, BusinessLogicAgent, and the opt-in DomXSSHunter), orchestration loop,
   Docker auto-sandboxing when no `--url` is given, callback server for blind detection,
-  deduplicated findings, and a reproducible proof-of-concept per confirmed exploit.
+  deduplicated findings, a persistent attack-surface inventory that grows across runs, and a
+  reproducible proof-of-concept per confirmed exploit.
 - ✅ **`argus fix`**: LLM-generated patches for fixable findings — dry-run preview or `--apply`,
   with fix-and-reverify (re-scans afterward to confirm each patch actually closed the finding)
   and an AI-assistant regenerate-prompt alongside every diff.
+- ✅ **Workflow**: scan history + trend (`argus history`), scan-to-scan diff (`argus compare`),
+  finding lifecycle/suppression (`argus suppress`), Slack/Discord webhook notifications.
 - ✅ **`argus demo`**: zero-setup showcase against a bundled vulnerable app.
-- ✅ **GUI**: five screens rendering real engine data, including captured PoCs.
-- ✅ **Desktop shell**: Tauri 2.0 wraps the GUI as a real native app (`npm run tauri build`) —
-  verified ~9MB `.exe` that launches and runs. `desktop-release.yml` builds Windows/macOS/Linux
-  installers on tag. Wiring it to invoke the Python engine directly is the next step.
-- ✅ **CI-ready**: SARIF output, `--fail-on`, GitHub Action, green test suite (103 tests).
+- ✅ **GUI**: six screens (Dashboard with a live risk-trend graph, New Scan, Live Attack, Reports,
+  CodeView, Settings) rendering real engine data, including captured PoCs.
+- ✅ **Desktop shell**: Tauri 2.0 wraps the GUI as a real native app that invokes the Python engine
+  directly (real scans, not just dropped-in JSON). `desktop-release.yml` builds Windows/macOS
+  (universal)/Linux installers on tag; v0.1.0 and v0.1.1 published.
+- ✅ **CI-ready**: SARIF output, `--fail-on`, per-rule policy gating (`.argus-policy.toml`),
+  GitHub Action, Docker image, green test suite (200+ tests).
 - ✅ **Package verified**: `python -m build` + `twine check` pass; the built wheel installs into
   a clean venv and runs. `release.yml` publishes to PyPI on tag via trusted publishing.
 
