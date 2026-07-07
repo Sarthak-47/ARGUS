@@ -56,6 +56,36 @@ def test_run_scan_missing_policy_file_exits_cleanly(vuln_repo, capsys):
     assert "policy file not found" in capsys.readouterr().out.lower()
 
 
+def test_run_scan_auto_discovers_policy_in_target_dir(vuln_repo):
+    # A .argus-policy.toml sitting in the target dir is applied with no --policy flag.
+    (vuln_repo / ".argus-policy.toml").write_text(
+        'default = "warn"\n\n[[rules]]\ncategory = "injection"\naction = "fail"\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(typer.Exit) as exc_info:
+        run_scan(str(vuln_repo), deep=False, depth=None, no_llm=True)
+    assert exc_info.value.exit_code == 2
+
+
+def test_explicit_fail_on_takes_precedence_over_auto_discovered_policy(tmp_path):
+    # An explicit --fail-on is a deliberate choice; an auto-discovered policy
+    # file must not silently override it. This repo has only a MEDIUM finding
+    # (weak MD5): --fail-on critical won't trip, but the auto-policy WOULD fail
+    # on the crypto category — so a clean return proves the policy was skipped.
+    repo = tmp_path / "medium-only"
+    repo.mkdir()
+    (repo / "app.py").write_text(
+        "import hashlib\ndef h(p):\n    return hashlib.md5(p.encode()).hexdigest()\n",
+        encoding="utf-8",
+    )
+    (repo / ".argus-policy.toml").write_text(
+        'default = "warn"\n\n[[rules]]\ncategory = "crypto"\naction = "fail"\n',
+        encoding="utf-8",
+    )
+    result = run_scan(str(repo), deep=False, depth=None, no_llm=True, fail_on="critical")
+    assert result is not None  # --fail-on critical didn't trip; auto-policy was skipped
+
+
 def test_run_attack_without_url_or_target_exits_cleanly(capsys):
     with pytest.raises(typer.Exit) as exc_info:
         run_attack(target=None, url=None)
