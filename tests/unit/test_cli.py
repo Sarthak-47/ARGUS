@@ -24,7 +24,7 @@ def test_help_lists_all_commands():
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
     for cmd in ("scan", "attack", "audit", "fix", "demo", "report", "history", "compare", "status",
-                "suppress", "suppressions", "config", "setup"):
+                "surface", "suppress", "suppressions", "config", "setup"):
         assert cmd in result.stdout
 
 
@@ -89,3 +89,14 @@ def test_suppressions_json_is_valid_for_an_explicit_empty_target():
     result = runner.invoke(app, ["suppressions", "--target", "nope", "--format", "json"])
     assert result.exit_code == 0
     assert result.stdout.strip() == "[]"
+
+
+def test_surface_json_is_valid_for_an_explicit_empty_target():
+    result = runner.invoke(app, ["surface", "--target", "nope", "--format", "json"])
+    assert result.exit_code == 0
+    assert result.stdout.strip() == "[]"
+
+
+def test_surface_without_target_or_scan_exits_nonzero():
+    result = runner.invoke(app, ["surface"])
+    assert result.exit_code != 0

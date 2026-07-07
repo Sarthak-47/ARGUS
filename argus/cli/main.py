@@ -179,6 +179,20 @@ def status(
 
 
 # --------------------------------------------------------------------------- #
+# surface
+# --------------------------------------------------------------------------- #
+@app.command()
+def surface(
+    target: Optional[str] = typer.Option(None, "--target", help="Defaults to the last scan's target."),
+    fmt: str = typer.Option("table", "--format", help="table | json"),
+) -> None:
+    """Show the remembered attack-surface (endpoints) for a target across scans."""
+    from argus.commands.surface_cmd import run_surface
+
+    run_surface(target=target, fmt=fmt)
+
+
+# --------------------------------------------------------------------------- #
 # suppress / suppressions
 # --------------------------------------------------------------------------- #
 @app.command()

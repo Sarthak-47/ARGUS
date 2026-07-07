@@ -89,6 +89,7 @@ argus report --format html                # export the last scan (html|json|mark
 argus history                             # risk-score trend across past scans
 argus compare                             # what's new/fixed since the last scan
 argus suppress "<finding title>"          # mark a finding ignored — stops it recurring
+argus surface                             # endpoints remembered across attack runs
 argus config --show
 ```
 

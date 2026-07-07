@@ -94,8 +94,16 @@ async def run_attack_async(
     provider=None,
     concurrency: int = 10,
     on_event=None,
-) -> tuple[list[Finding], list[AgentReport]]:
-    """Run recon + selected agents against ``base_url``. Returns (findings, reports)."""
+    seed_endpoints=None,
+) -> tuple[list[Finding], list[AgentReport], list]:
+    """Run recon + selected agents against ``base_url``.
+
+    ``seed_endpoints`` (from a persisted surface inventory) pre-populate the
+    attack surface before recon runs, so later agents benefit from endpoints a
+    prior run found even if this run's recon misses them.
+
+    Returns (findings, reports, discovered_endpoints).
+    """
     from argus.sandbox.callback_server import CallbackServer
 
     prior = prior_findings or []
@@ -123,6 +131,12 @@ async def run_attack_async(
                 on_event=on_event,
             )
 
+            # 0) Seed from the persisted surface inventory, if any.
+            if seed_endpoints:
+                for ep in seed_endpoints:
+                    ctx.add_endpoint(ep)
+                ctx.emit("surface", f"seeded {len(seed_endpoints)} endpoint(s) from prior scans")
+
             # 1) Recon always first
             recon = ReconBot()
             recon_report = await recon.run(ctx)
@@ -132,7 +146,7 @@ async def run_attack_async(
                 # Recon couldn't even reach the target — every other agent would
                 # just re-discover the same dead connection. Stop here instead of
                 # burning a timeout per agent against a host we know is down.
-                return ctx.findings, reports
+                return ctx.findings, reports, ctx.endpoint_list()
 
             # 2) Ordered post-recon agents
             order = _select_order(requested_agents, prior)
@@ -145,7 +159,7 @@ async def run_attack_async(
                     reports.append(AgentReport(agent=agent.name, status="error", notes=[str(exc)]))
                     ctx.emit(agent.name, f"agent error: {exc}", "crit")
 
-            return ctx.findings, reports
+            return ctx.findings, reports, ctx.endpoint_list()
     finally:
         if callback is not None:
             callback.stop()

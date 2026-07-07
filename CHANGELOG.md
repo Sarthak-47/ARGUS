@@ -67,6 +67,10 @@ All notable changes to Argus are documented here. Format loosely follows
   matching OWASP ASVS 4.0.3 control and PCI-DSS 4.0 requirement, shown in JSON/HTML/Markdown
   reports and the desktop GUI's finding detail panel. Static offline mapping, full coverage of
   the CWEs Argus emits — audit-relevant context, not a compliance-scoring product.
+- **Persistent attack-surface inventory** (UPGRADE.md #11): `argus attack` now remembers the
+  endpoints it discovers per target (`~/.argus/surface/`) and seeds the next run against the same
+  target from that inventory, so a flaky/partial recon on one run doesn't lose surface the later
+  agents need. New `argus surface` command lists it.
 
 ### Fixed
 - `argus report --format pdf` now warns explicitly when `weasyprint` isn't installed and it

@@ -327,14 +327,24 @@ def run_attack(
             else:
                 out.console.print(f"  [dark_orange3]\\[{agent}][/] [grey58]{text}[/]")
 
-        findings, reports = run_attack_sync(
+        # The surface inventory is keyed on the logical target (repo path or
+        # URL), not the ephemeral sandbox port — same key `save_result` reports.
+        from argus.surface import load_surface, save_surface
+        surface_key = target if sandbox else base_url
+        seed = load_surface(surface_key) if surface_key else []
+        if seed:
+            out.info(f"Seeding {len(seed)} endpoint(s) from previous scans of this target.")
+
+        findings, reports, endpoints = run_attack_sync(
             base_url, requested_agents=requested, prior_findings=prior_findings,
-            provider=provider, on_event=feed,
+            provider=provider, on_event=feed, seed_endpoints=seed or None,
         )
+        if surface_key:
+            save_surface(surface_key, endpoints)
 
         # Report the original repo target, not the sandbox's ephemeral localhost
         # port, when Argus spun it up itself — far more meaningful in a report.
-        result = ScanResult(target=target if sandbox else base_url, phase="attack")
+        result = ScanResult(target=surface_key, phase="attack")
         result.extend(findings)
         result.finished_at = time.time()
 

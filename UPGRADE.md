@@ -208,7 +208,7 @@ violate, without building a full compliance-scoring product.
   Reports detail panel as ASVS/PCI chips. Deliberately not a scoring/
   certification product — just audit-relevant orientation per finding.
 
-### 11. Persistent attack-surface inventory across scans
+### 11. Persistent attack-surface inventory across scans — ✅ Done
 Track discovered endpoints/assets across multiple scans of the same target
 as a standing inventory, rather than each scan starting from zero surface
 knowledge.
@@ -218,6 +218,15 @@ knowledge.
 - **Effort:** High. Needs persistent endpoint storage keyed per target and
   changes to how ReconBot/CrawlerBot seed their starting surface.
 - **Depends on:** natural to build after #1/#2 establish scan history.
+- **Shipped as:** new `argus/surface.py` persisting the union of every endpoint
+  ever discovered for a target under `~/.argus/surface/<hash>.json` (keyed on
+  the logical target — repo path or URL — not the ephemeral sandbox port).
+  `run_attack_async` gained a `seed_endpoints` param and now returns the
+  discovered endpoints too; `argus attack` seeds the context from the saved
+  inventory before recon and saves the merged surface after, so the known
+  surface grows monotonically instead of resetting each run. New `argus
+  surface [--target] [--format]` command to view it. Params and sample status
+  merge across runs, capped at 2000 endpoints/target.
 
 ### 12. VS Code / IDE plugin
 Surface findings inline in the editor as the user writes code, closer to a
