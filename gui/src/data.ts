@@ -55,6 +55,7 @@ export interface Finding {
   fix: string;
   file?: string | null;
   line?: number | null;
+  compliance?: { asvs: string; pci_dss: string; label: string } | null;
 }
 
 const xss =

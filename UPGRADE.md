@@ -191,7 +191,7 @@ missing security headers.
   `policy` input. `--fail-on`'s single-threshold behavior is untouched for
   anyone who prefers it.
 
-### 10. Lightweight OWASP ASVS / PCI-DSS tagging
+### 10. Lightweight OWASP ASVS / PCI-DSS tagging — ✅ Done
 Tag findings with the specific ASVS control or PCI-DSS requirement they
 violate, without building a full compliance-scoring product.
 - **Inspired by:** Aikido/Snyk's bundled compliance mapping, deliberately
@@ -199,6 +199,14 @@ violate, without building a full compliance-scoring product.
   not this audience).
 - **Effort:** Medium. Mostly a static mapping table from
   category/CWE → ASVS/PCI control, applied at report-render time.
+- **Shipped as:** new `argus/compliance.py` — a static, offline CWE →
+  (OWASP ASVS 4.0.3 control, PCI-DSS 4.0 requirement) table covering every one
+  of the 36 CWEs Argus actually emits (a guard test fails CI if a new
+  agent/rule ever introduces an unmapped CWE). Surfaced via a derived
+  `Finding.compliance` property (no persistence — computed from the CWE) that
+  flows into the JSON export, the HTML/Markdown reports, and the desktop GUI's
+  Reports detail panel as ASVS/PCI chips. Deliberately not a scoring/
+  certification product — just audit-relevant orientation per finding.
 
 ### 11. Persistent attack-surface inventory across scans
 Track discovered endpoints/assets across multiple scans of the same target

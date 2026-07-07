@@ -126,7 +126,7 @@
       <span class="f-loc">{{ f.location }}</span>
     </div>
     <div class="f-body">
-      <span class="detector">{{ f.detector }}</span>{% if f.cwe %} · <span class="f-loc">{{ f.cwe }}</span>{% endif %}
+      <span class="detector">{{ f.detector }}</span>{% if f.cwe %} · <span class="f-loc">{{ f.cwe }}</span>{% endif %}{% if f.compliance %} · <span class="f-loc">{{ f.compliance.asvs }}</span> · <span class="f-loc">{{ f.compliance.pci_dss }}</span>{% endif %}
       {% if f.description %}<div class="kv">WHAT IS IT</div><div class="desc">{{ f.description }}</div>{% endif %}
       {% if f.evidence %}<div class="kv">EVIDENCE</div><pre>{{ f.evidence }}</pre>{% endif %}
       {% if f.exploit %}<div class="kv">EXPLOIT</div><div class="desc">{{ f.exploit }}</div>{% endif %}

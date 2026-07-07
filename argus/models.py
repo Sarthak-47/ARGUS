@@ -132,9 +132,17 @@ class Finding:
         cvss_bonus = (self.cvss or 0) * 2                                  # 0-20 (cvss caps at 10)
         return confidence_bonus + confirmed_bonus + cvss_bonus
 
+    @property
+    def compliance(self) -> dict | None:
+        """OWASP ASVS + PCI-DSS mapping derived from this finding's CWE, or None."""
+        from argus.compliance import compliance_for
+
+        return compliance_for(self.cwe)
+
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
         d["severity"] = self.severity.value
+        d["compliance"] = self.compliance
         return d
 
 

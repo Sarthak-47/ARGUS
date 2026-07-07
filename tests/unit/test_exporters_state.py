@@ -63,6 +63,19 @@ def test_to_html_renders_poc_when_present():
     assert "curl -i -X GET" in html
 
 
+def test_to_html_renders_compliance_tags():
+    # _sample()'s SQLi finding carries CWE-89 -> ASVS V5.3.4 / PCI-DSS 6.2.4
+    html = to_html(_sample())
+    assert "ASVS V5.3.4" in html
+    assert "PCI-DSS 6.2.4" in html
+
+
+def test_to_markdown_renders_compliance_line():
+    md = to_markdown(_sample())
+    assert "ASVS V5.3.4" in md
+    assert "PCI-DSS 6.2.4" in md
+
+
 def test_to_html_top_risks_appears_before_full_findings_table():
     html = to_html(_sample())
     assert "Top Risks" in html

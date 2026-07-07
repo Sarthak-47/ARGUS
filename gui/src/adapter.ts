@@ -23,6 +23,7 @@ export interface EngineFinding {
   confidence?: string;
   confirmed?: boolean;
   poc?: { type?: string; curl?: string; request?: string; response?: string } | null;
+  compliance?: { asvs: string; pci_dss: string; label: string } | null;
 }
 
 export interface EngineReport {
@@ -150,6 +151,7 @@ export function mapReport(json: EngineReport): LoadedReport {
     fix: f.fix || "",
     file: f.file,
     line: f.line,
+    compliance: f.compliance,
   }));
 
   return {

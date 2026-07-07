@@ -131,6 +131,15 @@ export function Reports() {
                 <span>Found by <span style={{ fontStyle: "normal", color: C.bronze, fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.06em" }}>{sel.agent}</span></span>
                 <span>CVSS <span style={{ fontStyle: "normal", color: sevColor(sel.severity), fontFamily: FONT.code }}>{sel.cvss}</span></span>
               </div>
+              {sel.compliance && (
+                <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+                  {[sel.compliance.asvs, sel.compliance.pci_dss].map((tag) => (
+                    <span key={tag} style={{ fontFamily: FONT.code, fontSize: 10, color: C.goldPale, background: C.ember, border: `1px solid ${C.relief}`, padding: "4px 9px", letterSpacing: "0.04em" }}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
               <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
                 {sel.file && sel.line != null && (
                   <button

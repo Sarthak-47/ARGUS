@@ -63,6 +63,10 @@ All notable changes to Argus are documented here. Format loosely follows
   or confirmed status — e.g. fail on any confirmed SQLi but only warn on missing headers, finer
   than the single-threshold `--fail-on`. `argus scan` exits 2 on a policy failure. The GitHub
   Action gained a `policy` input. See `.argus-policy.example.toml`.
+- **OWASP ASVS / PCI-DSS tagging** (UPGRADE.md #10): every finding with a CWE now carries the
+  matching OWASP ASVS 4.0.3 control and PCI-DSS 4.0 requirement, shown in JSON/HTML/Markdown
+  reports and the desktop GUI's finding detail panel. Static offline mapping, full coverage of
+  the CWEs Argus emits — audit-relevant context, not a compliance-scoring product.
 
 ### Fixed
 - `argus report --format pdf` now warns explicitly when `weasyprint` isn't installed and it

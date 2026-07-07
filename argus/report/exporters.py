@@ -207,6 +207,8 @@ def to_markdown(result: ScanResult) -> str:
         a(f"### [{f.severity.value}] {f.title}")
         a(f"- **Location:** `{f.location}`  ")
         a(f"- **Detector:** {f.detector}" + (f" · **CWE:** {f.cwe}" if f.cwe else ""))
+        if f.compliance:
+            a(f"- **Compliance:** {f.compliance['asvs']} · {f.compliance['pci_dss']}")
         if f.description:
             a(f"\n{f.description}\n")
         if f.evidence:
