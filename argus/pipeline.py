@@ -141,6 +141,8 @@ def run_scan(
     fail_on: str | None = None,
     policy: str | None = None,
     diff_base: str | None = None,
+    baseline: str | None = None,
+    write_baseline: str | None = None,
     gate: bool = True,
 ) -> ScanResult:
     from argus.state import save_result
@@ -153,6 +155,19 @@ def run_scan(
     if suppressed_count:
         out.info(f"{suppressed_count} finding(s) suppressed (ignored) — "
                   f"run [wheat1]argus suppressions {target}[/] to review.")
+
+    # --write-baseline snapshots the *whole* current finding set as accepted and
+    # exits — it's an adoption one-shot, not a scan you gate on.
+    if write_baseline:
+        from argus.baseline import write_baseline as _write_baseline
+        count = _write_baseline(Path(write_baseline).expanduser(), result.findings)
+        out.success(f"Baseline written → [wheat1]{write_baseline}[/] "
+                    f"({count} finding signature(s) recorded as accepted).")
+        out.info("Future scans with [wheat1]--baseline[/] this file will report only new findings.")
+        return result
+
+    if baseline:
+        _filter_to_baseline(baseline, result)
 
     if diff_base:
         _filter_to_changed_files(target, result, diff_base)
@@ -205,6 +220,26 @@ def _filter_to_changed_files(target: str, result: ScanResult, diff_base: str) ->
     result._seen = {f.dedup_key(): f for f in kept}
     out.info(f"Diff-aware ({diff_base}): {len(kept)} of {before} finding(s) are in the "
              f"{len(changed)} changed file(s); the rest were pre-existing.")
+
+
+def _filter_to_baseline(baseline_path: str, result: ScanResult) -> None:
+    """Keep only findings absent from the baseline (adoption model). Unlike a
+    diff gate, a missing/empty baseline file isn't fatal — treat it as "nothing
+    accepted yet" so a first run surfaces everything rather than erroring."""
+    from argus.baseline import filter_new, load_baseline
+
+    path = Path(baseline_path).expanduser()
+    if not path.is_file():
+        out.warn(f"Baseline file not found ({path}) — reporting all findings. "
+                 f"Create one with [wheat1]--write-baseline {baseline_path}[/].")
+        return
+    baseline = load_baseline(path)
+    before = len(result.findings)
+    kept, baselined = filter_new(result.findings, baseline)
+    result.findings = kept
+    result._seen = {f.dedup_key(): f for f in kept}
+    out.info(f"Baseline ({path.name}): {baselined} of {before} finding(s) were already "
+             f"accepted; {len(kept)} new.")
 
 
 def _maybe_gate_on_policy(target: str, result: ScanResult, policy_path: str | None) -> bool:

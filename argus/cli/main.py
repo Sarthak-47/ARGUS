@@ -89,12 +89,19 @@ def scan(
     diff_base: Optional[str] = typer.Option(
         None, "--diff-base", help="Only report findings in files changed vs this git ref (e.g. main) — PR-gate mode."
     ),
+    baseline: Optional[str] = typer.Option(
+        None, "--baseline", help="Report only findings NOT in this baseline file — adopt Argus on a legacy repo without drowning."
+    ),
+    write_baseline: Optional[str] = typer.Option(
+        None, "--write-baseline", help="Record every current finding to this file as the accepted baseline, then exit."
+    ),
 ) -> None:
     """Phase 1 — static analysis. Read and understand the code without running it."""
     from argus.pipeline import run_scan
 
     run_scan(target, deep=deep, depth=depth, no_llm=no_llm, export_format=fmt,
-             fail_on=fail_on, policy=policy, diff_base=diff_base)
+             fail_on=fail_on, policy=policy, diff_base=diff_base,
+             baseline=baseline, write_baseline=write_baseline)
 
 
 # --------------------------------------------------------------------------- #
