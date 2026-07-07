@@ -6,7 +6,7 @@ Command bodies stay thin: they parse options, then delegate to the engine
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import List, Optional
 
 import typer
 
@@ -102,6 +102,59 @@ def scan(
     run_scan(target, deep=deep, depth=depth, no_llm=no_llm, export_format=fmt,
              fail_on=fail_on, policy=policy, diff_base=diff_base,
              baseline=baseline, write_baseline=write_baseline)
+
+
+# --------------------------------------------------------------------------- #
+# precommit  (fast staged-file gate for a pre-commit hook)
+# --------------------------------------------------------------------------- #
+@app.command()
+def precommit(
+    files: Optional[List[str]] = typer.Argument(
+        None, help="Files to scan. A pre-commit hook passes the staged files; omit to scan currently-staged files yourself."
+    ),
+    fail_on: str = typer.Option(
+        "high", "--fail-on", help="Block the commit on a finding at/above this severity: critical|high|medium|low."
+    ),
+) -> None:
+    """Fast staged-file scan for a pre-commit hook — secrets + built-in rules, no LLM, no network."""
+    from pathlib import Path
+
+    from argus.cli import output as out
+    from argus.precommit import blocking_findings, scan_paths, staged_files
+
+    root = Path.cwd()
+    targets = list(files) if files else staged_files(root)
+    if not targets:
+        raise typer.Exit(0)
+
+    findings = scan_paths(targets, root)
+    if not findings:
+        raise typer.Exit(0)
+
+    blocking = blocking_findings(findings, fail_on)
+    # Show blocking findings prominently; non-blocking ones as an FYI note.
+    shown = blocking or findings
+    out.console.print()
+    for f in shown:
+        loc = f"{f.file}:{f.line}" if f.line else (f.file or "")
+        out.console.print(
+            f"  {out.severity_dot(f.severity)} [bold]{f.title}[/]  "
+            f"[grey58]{loc}[/]  [dark_orange3]{f.detector}[/]"
+        )
+        if f.evidence:
+            out.console.print(f"      [grey42]{f.evidence.strip()[:100]}[/]")
+
+    if blocking:
+        out.console.print()
+        out.error(
+            f"{len(blocking)} finding(s) at/above {fail_on.upper()} — commit blocked. "
+            f"Fix them, or bypass with [wheat1]git commit --no-verify[/] (not recommended)."
+        )
+        raise typer.Exit(1)
+
+    out.console.print()
+    out.info(f"{len(findings)} low-severity finding(s) noted (below {fail_on.upper()}) — commit allowed.")
+    raise typer.Exit(0)
 
 
 # --------------------------------------------------------------------------- #

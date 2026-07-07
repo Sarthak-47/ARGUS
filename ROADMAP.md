@@ -135,11 +135,11 @@ These don't gate 1.0 on the engine side, but they're how Argus actually gets
 *used*: each one puts Argus in front of new developers or makes it a daily
 habit. Build them in parallel with the milestones above — cheapest-first.
 
-- **D1 · `pre-commit` hook.** An official `.pre-commit-hooks.yaml` so anyone
-  wires Argus (secret + static scan on staged files) into their repo in three
-  lines. The most-loved shift-left pattern of 2026, and Argus already has the
-  staged-file logic (`gitutil.changed_files`). Every install is a developer
-  using Argus *daily*. *Small; highest adoption ROI.*
+- **D1 · `pre-commit` hook.** ✅ **Done (v0.2.0+).** `argus precommit` +
+  `.pre-commit-hooks.yaml` (`id: argus`, `argus-strict`) gate commits on secrets
+  and vulnerable patterns using the fast deterministic passes only. The
+  most-loved shift-left pattern of 2026, and every install is a developer using
+  Argus *daily*.
 - **D2 · "Scanned by Argus" README badge.** A shields.io endpoint others drop
   into *their* repos — free social proof and backlinks that compound forever.
   *Tiny.*

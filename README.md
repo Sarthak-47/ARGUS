@@ -135,6 +135,24 @@ Adopting Argus on a repo that already has a backlog? Snapshot it once with `argu
 finding that existed at adoption is treated as accepted and only genuinely new ones are reported and
 gated on (survives line-number shifts, needs no git — unlike `--diff-base`).
 
+## Catch it before it commits (pre-commit hook)
+
+The cheapest way to use Argus is on every commit — block a hardcoded secret or
+an obvious vulnerable pattern *before* it ever lands in git history. Add to your
+`.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: https://github.com/Sarthak-47/ARGUS
+    rev: v0.2.0
+    hooks:
+      - id: argus            # blocks on HIGH+ findings (use `argus-strict` for MEDIUM+)
+```
+
+Then `pre-commit install`. It runs the deterministic passes only (secrets +
+built-in rules) — no LLM, no network — so it's fast enough for every commit.
+Standalone: `argus precommit` scans your currently-staged files.
+
 ## Desktop GUI
 
 A React + Vite + Tauri desktop app ("a war room inside the Parthenon") with six screens —

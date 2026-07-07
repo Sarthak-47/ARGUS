@@ -1,0 +1,29 @@
+# Argus as a pre-commit hook. In a consuming repo's .pre-commit-config.yaml:
+#
+#   repos:
+#     - repo: https://github.com/Sarthak-47/ARGUS
+#       rev: v0.2.0
+#       hooks:
+#         - id: argus
+#
+# Then: `pre-commit install`. Every commit is scanned (secrets + built-in
+# vulnerability rules) and blocked if anything HIGH or above is found — no LLM,
+# no network, fast enough to run on every commit.
+- id: argus
+  name: Argus security scan (secrets + vulns)
+  description: Scan staged files for hardcoded secrets and known-vulnerable code patterns before they land in history.
+  entry: argus precommit
+  language: python
+  pass_filenames: true
+  require_serial: true
+  minimum_pre_commit_version: "2.9.0"
+
+# Stricter variant: block on MEDIUM and above too.
+- id: argus-strict
+  name: Argus security scan (strict — MEDIUM+)
+  description: Same as `argus`, but blocks the commit on MEDIUM-severity findings as well.
+  entry: argus precommit --fail-on medium
+  language: python
+  pass_filenames: true
+  require_serial: true
+  minimum_pre_commit_version: "2.9.0"

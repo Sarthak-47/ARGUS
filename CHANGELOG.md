@@ -5,6 +5,16 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+### Added
+- **`pre-commit` hook** (ROADMAP D1): a new `argus precommit` command plus a
+  `.pre-commit-hooks.yaml` (`id: argus`, and `argus-strict` for MEDIUM+) so any
+  repo can gate commits on secrets and vulnerable code patterns in three lines.
+  Scans only the staged files with the fast deterministic passes (secrets +
+  built-in rules — no LLM, no network), reusing the exact per-file scanners the
+  full `argus scan` uses, and blocks the commit (exit 1) on any finding at/above
+  `--fail-on` (default HIGH). Shift-left: catch a leaked key before it lands in
+  history, where it's far cheaper to fix.
+
 ## [0.2.0] — 2026-07-08
 
 ### Added
