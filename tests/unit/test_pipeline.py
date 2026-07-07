@@ -67,6 +67,17 @@ def test_run_scan_auto_discovers_policy_in_target_dir(vuln_repo):
     assert exc_info.value.exit_code == 2
 
 
+def test_run_scan_gate_false_skips_policy_gating(vuln_repo):
+    # gate=False (what `argus audit`'s Phase 1 uses) must not raise even when a
+    # fail-policy would otherwise abort — the audit needs to reach Phase 2.
+    (vuln_repo / ".argus-policy.toml").write_text(
+        'default = "warn"\n\n[[rules]]\ncategory = "injection"\naction = "fail"\n',
+        encoding="utf-8",
+    )
+    result = run_scan(str(vuln_repo), deep=False, depth=None, no_llm=True, gate=False)
+    assert result is not None  # no typer.Exit raised
+
+
 def test_explicit_fail_on_takes_precedence_over_auto_discovered_policy(tmp_path):
     # An explicit --fail-on is a deliberate choice; an auto-discovered policy
     # file must not silently override it. This repo has only a MEDIUM finding

@@ -135,6 +135,7 @@ def run_scan(
     export_format: str | None = None,
     fail_on: str | None = None,
     policy: str | None = None,
+    gate: bool = True,
 ) -> ScanResult:
     from argus.state import save_result
     from argus.suppressions import apply_suppressions
@@ -161,12 +162,16 @@ def run_scan(
     out.console.print()
     out.info("Run [wheat1]argus attack --url <running-app>[/] to actively exploit these findings.")
 
-    # A policy file supersedes --fail-on (finer-grained gate). If neither is
-    # given, an .argus-policy.toml sitting in a local target dir is auto-applied.
-    if policy or fail_on is None:
-        if _maybe_gate_on_policy(target, result, policy):
-            return result
-    _maybe_fail(result, fail_on)
+    # CI gating (policy / --fail-on). Skipped when ``gate`` is False — e.g.
+    # `argus audit` runs a scan as its Phase 1 but shouldn't abort the whole
+    # audit before Phase 2 just because an auto-discovered policy would fail.
+    if gate:
+        # A policy file supersedes --fail-on (finer-grained gate). If neither is
+        # given, an .argus-policy.toml sitting in a local target dir is auto-applied.
+        if policy or fail_on is None:
+            if _maybe_gate_on_policy(target, result, policy):
+                return result
+        _maybe_fail(result, fail_on)
     return result
 
 
@@ -380,7 +385,9 @@ def run_audit(target: str, fix: bool = False, agents: str | None = None) -> None
 
     out.banner()
     out.rule("FULL AUDIT")
-    run_scan(target)
+    # gate=False: a full audit is interactive exploration (Phase 1 + Phase 2),
+    # not a CI gate — don't let an auto-discovered policy abort it after Phase 1.
+    run_scan(target, gate=False)
     out.console.print()
 
     if docker_available():
