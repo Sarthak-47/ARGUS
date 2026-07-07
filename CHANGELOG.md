@@ -5,6 +5,8 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-07-08
+
 ### Added
 - **Authenticated attack sessions** (ROADMAP v0.3.1): `argus attack`/`audit --auth
   .argus-auth.toml` (auto-discovered in the working dir) give the whole 17-agent
@@ -189,7 +191,8 @@ Initial tagged release.
   universal `.dmg`, Linux `.deb`/`.rpm`/`.AppImage`).
 - Local-first LLM support (Ollama) plus BYOK providers (Groq, Gemini, Claude, OpenRouter).
 
-[Unreleased]: https://github.com/Sarthak-47/ARGUS/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/Sarthak-47/ARGUS/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Sarthak-47/ARGUS/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Sarthak-47/ARGUS/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/Sarthak-47/ARGUS/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/Sarthak-47/ARGUS/releases/tag/v0.1.0
