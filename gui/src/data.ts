@@ -56,6 +56,9 @@ export interface Finding {
   file?: string | null;
   line?: number | null;
   compliance?: { asvs: string; pci_dss: string; label: string } | null;
+  // Present only on synthesized exploit-chain findings: how many confirmed
+  // findings the chain compounds. Drives the ⛓ badge in Reports.
+  chainOf?: number;
 }
 
 const xss =

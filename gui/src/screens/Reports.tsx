@@ -100,7 +100,10 @@ export function Reports() {
                   <span style={{ width: 9, height: 9, borderRadius: 2, background: sevColor(f.severity), flex: "0 0 auto" }} />
                   <span style={{ fontFamily: FONT.display, fontSize: 10, letterSpacing: "0.12em", color: sevColor(f.severity) }}>{f.severity}</span>
                 </span>
-                <span style={{ fontFamily: FONT.body, fontSize: 17, color: C.parchment, flex: "1 1 0", minWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
+                <span style={{ fontFamily: FONT.body, fontSize: 17, color: C.parchment, flex: "1 1 0", minWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 8 }}>
+                  {f.chainOf ? <span title={`Exploit chain — compounds ${f.chainOf} confirmed findings`} style={{ color: C.crimson, flex: "0 0 auto" }}>⛓</span> : null}
+                  {f.name}
+                </span>
                 <span style={{ fontFamily: FONT.code, fontSize: 11.5, color: C.stoneText, width: 168, flex: "0 0 auto", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.endpoint}</span>
                 <span style={{ fontFamily: FONT.display, fontSize: 10, letterSpacing: "0.06em", color: C.bronze, width: 100, flex: "0 0 auto" }}>{f.agent}</span>
                 <span style={{ fontFamily: FONT.code, fontSize: 11, color: C.stoneText, width: 50, flex: "0 0 auto", textAlign: "right" }}>{f.cvss}</span>
@@ -126,6 +129,11 @@ export function Reports() {
                 <button onClick={() => s.select(null)} style={{ background: "none", border: "none", color: C.stoneText, fontSize: 18, cursor: "pointer", lineHeight: 1 }}>✕</button>
               </div>
               <div style={{ fontFamily: FONT.display, fontSize: 17, letterSpacing: "0.04em", color: C.goldPale, marginBottom: 10 }}>{sel.name}</div>
+              {sel.chainOf ? (
+                <div style={{ fontFamily: FONT.display, fontSize: 10, letterSpacing: "0.14em", color: C.crimson, border: `1px solid ${C.crimson}`, background: "rgba(139,0,0,0.12)", padding: "6px 10px", marginBottom: 10, display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  <span>⛓</span> ATTACK CHAIN — COMPOUNDS {sel.chainOf} CONFIRMED FINDINGS
+                </div>
+              ) : null}
               <span style={{ fontFamily: FONT.code, fontSize: 12, color: C.bronze }}>{sel.endpoint}</span>
               <div style={{ display: "flex", gap: 20, marginTop: 14, fontFamily: FONT.body, fontStyle: "italic", fontSize: 14, color: C.stoneText }}>
                 <span>Found by <span style={{ fontStyle: "normal", color: C.bronze, fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.06em" }}>{sel.agent}</span></span>

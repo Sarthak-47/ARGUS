@@ -20,7 +20,9 @@ All notable changes to Argus are documented here. Format loosely follows
   account takeover, not two isolated medium issues. Ships five chains (XSS→session-theft,
   auth-bypass→IDOR, upload+traversal→arbitrary-write, clickjacking+missing-CSRF→forced-action,
   exposed-MCP+leaked-secret); each only fires from findings an agent actually confirmed, so a chain
-  is never speculative.
+  is never speculative. The desktop GUI's Reports screen now badges these findings distinctly — a
+  ⛓ marker in the list and an "ATTACK CHAIN — COMPOUNDS N CONFIRMED FINDINGS" banner in the detail
+  panel — so a compound attack path reads as more than just another CRITICAL row.
 - **Diff-aware scanning** (`argus scan --diff-base <ref>`): the PR-gate model — only report
   findings in files changed vs a base ref (committed, staged, and untracked), so a pre-existing
   backlog doesn't drown out or fail CI on what the current change actually introduced. Composes

@@ -24,6 +24,7 @@ export interface EngineFinding {
   confirmed?: boolean;
   poc?: { type?: string; curl?: string; request?: string; response?: string } | null;
   compliance?: { asvs: string; pci_dss: string; label: string } | null;
+  metadata?: { chain_of?: Array<number | string> } | null;
 }
 
 export interface EngineReport {
@@ -157,6 +158,9 @@ export function mapReport(json: EngineReport): LoadedReport {
     file: f.file,
     line: f.line,
     compliance: f.compliance,
+    // Exploit chains carry the list of confirmed findings they compound; expose
+    // the count so the UI can badge them distinctly from atomic findings.
+    chainOf: (f.detector || "").startsWith("chain:") ? (f.metadata?.chain_of?.length ?? 0) : undefined,
   }));
 
   return {
