@@ -6,6 +6,9 @@ All notable changes to Argus are documented here. Format loosely follows
 ## [Unreleased]
 
 ### Added
+- **10 new secret-detection patterns** for modern token formats with distinctive prefixes
+  (very low false-positive): GitHub fine-grained PAT, Google OAuth client secret, npm, PyPI,
+  HashiCorp Vault, DigitalOcean, Databricks, Shopify, Telegram bot, and Square tokens.
 - **10 new built-in static rules** broadening language coverage beyond the Python-heavy
   baseline: JS/TS `document.write`/open-redirect/deprecated-`createCipher`/secrets-in-`localStorage`,
   Python SSTI (`render_template_string`), Django `mark_safe`, `hashlib.new('md5')`, XXE-prone XML

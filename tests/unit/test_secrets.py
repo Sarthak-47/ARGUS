@@ -38,3 +38,31 @@ def test_real_generic_secret_flagged(tmp_path):
     f.write_text("password = 'Tr0ub4dor&3xKqun'\n", encoding="utf-8")
     findings = scan_secrets(tmp_path)
     assert any("Generic Secret" in x.title for x in findings)
+
+
+def test_detects_modern_token_formats(tmp_path):
+    # Fake-but-format-valid tokens built by concatenation so no complete
+    # secret literal is committed (GitHub push protection would flag it).
+    tokens = {
+        "npm Access Token": "npm_" + "A" * 36,
+        "PyPI Upload Token": "pypi-AgE" + "B" * 55,
+        "HashiCorp Vault Token": "hvs." + "C" * 30,
+        "DigitalOcean PAT": "dop_v1_" + "a" * 64,
+        "Shopify Access Token": "shpat_" + "a" * 32,
+    }
+    lines = [f"key{i} = '{tok}'" for i, tok in enumerate(tokens.values())]
+    (tmp_path / "creds.env").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    titles = " ".join(f.title for f in scan_secrets(tmp_path))
+    for label in tokens:
+        assert label in titles, f"{label} not detected"
+
+
+def test_modern_token_patterns_ignore_benign_text(tmp_path):
+    (tmp_path / "readme.md").write_text(
+        "Run npm install then dapper up. Visit https://example.com for docs.\n",
+        encoding="utf-8",
+    )
+    findings = scan_secrets(tmp_path)
+    labels = {f.title for f in findings}
+    for label in ("npm Access Token", "Databricks Token", "HashiCorp Vault Token"):
+        assert label not in labels
