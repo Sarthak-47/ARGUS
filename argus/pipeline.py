@@ -339,6 +339,7 @@ def run_attack(
     agents: str | None = None,
     *,
     auth: str | None = None,
+    api_spec: str | None = None,
     banner: bool = True,
 ) -> ScanResult | None:
     from argus.auth import AuthError, load_auth
@@ -418,6 +419,18 @@ def run_attack(
         if seed:
             out.info(f"Seeding {len(seed)} endpoint(s) from previous scans of this target.")
 
+        # Seed from an API spec (OpenAPI/Swagger/Postman/GraphQL), if provided.
+        if api_spec:
+            from argus.apispec import ApiSpecError, load_endpoints
+
+            try:
+                spec_eps, note = load_endpoints(api_spec, base_url)
+            except ApiSpecError as exc:
+                out.error(str(exc))
+                raise typer.Exit(code=1)
+            seed = list(seed) + spec_eps
+            out.info(f"API spec ({note}) — the swarm will test the declared surface directly.")
+
         if auth_cfg is not None:
             out.info("Authenticated session configured — agents will attack the logged-in surface.")
 
@@ -476,7 +489,7 @@ def _attack_summary(reports) -> None:
 
 
 def run_audit(target: str, fix: bool = False, agents: str | None = None,
-              auth: str | None = None) -> None:
+              auth: str | None = None, api_spec: str | None = None) -> None:
     from argus.sandbox.docker_manager import docker_available
 
     out.banner()
@@ -487,7 +500,7 @@ def run_audit(target: str, fix: bool = False, agents: str | None = None,
     out.console.print()
 
     if docker_available():
-        run_attack(target=target, agents=agents, auth=auth, banner=False)
+        run_attack(target=target, agents=agents, auth=auth, api_spec=api_spec, banner=False)
     else:
         out.info("Phase 1 complete. Phase 2 needs Docker to sandbox the target automatically — "
                  "point Argus at a running instance instead:")

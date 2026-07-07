@@ -152,6 +152,19 @@ or extracts a token from the JSON response), and **OAuth2 client-credentials**.
 See [`.argus-auth.example.toml`](.argus-auth.example.toml). Credentials are never
 echoed into a captured proof-of-concept. (Keep `.argus-auth.toml` out of git.)
 
+### Feed it your API spec
+
+Modern APIs are stateful and spec-defined — a link-following crawler misses most
+of the surface. Hand Argus the spec and it seeds every declared endpoint directly:
+
+```bash
+argus attack --url http://localhost:3000 --api-spec openapi.yaml
+```
+
+Accepts **OpenAPI 3.x**, **Swagger 2.0**, **Postman v2** collections, and a
+**GraphQL introspection** dump — as a file or URL. Spec paths are resolved against
+your target's URL, so a spec written for production still points at localhost.
+
 ## Catch it before it commits (pre-commit hook)
 
 The cheapest way to use Argus is on every commit — block a hardcoded secret or

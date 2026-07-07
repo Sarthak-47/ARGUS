@@ -50,11 +50,10 @@ reach; almost every real app hides its interesting surface behind a login.
   client-credentials. Applied once to the shared httpx client, so every agent
   and ReconBot's crawl carry the logged-in session. Verified end-to-end: the
   swarm sends the credential on every request to a real server.
-- **v0.3.2 · API schema ingestion.** Seed the attack surface from an
-  OpenAPI/Swagger/Postman collection or a GraphQL introspection dump
-  (`--api-spec <file|url>`), instead of relying only on the crawler. Modern APIs
-  are stateful and spec-defined; crawlers miss them. Composes with the existing
-  surface inventory. *Engine work; medium.*
+- **v0.3.2 · API schema ingestion.** ✅ **Done.** `--api-spec <file|url>` seeds
+  the surface from OpenAPI 3.x / Swagger 2.0 / Postman v2 / GraphQL introspection;
+  paths resolve against the target URL and compose with the surface inventory.
+  Verified: the swarm attacks a spec-only endpoint with no inbound links.
 - **v0.3.3 · BOLA/BFLA with real auth.** With v0.3.1 landed, extend IDORHunter
   into proper object-level (BOLA) and function-level (BFLA) authorization
   testing across two real identities — the #1 API risk (OWASP API Top 10).

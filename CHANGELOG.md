@@ -5,6 +5,15 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+### Added
+- **API schema ingestion** (ROADMAP v0.3.2): `argus attack`/`audit --api-spec
+  <file|url>` seeds the attack surface straight from an **OpenAPI 3.x**, **Swagger
+  2.0**, **Postman v2** collection, or **GraphQL introspection** dump — so the
+  swarm tests spec-declared endpoints a link-following crawler would never reach.
+  Paths (and any basePath the spec declares) are resolved against the target's
+  URL, so a production spec still points at localhost/staging. Verified
+  end-to-end: the swarm attacks a spec-only endpoint with no inbound links.
+
 ## [0.3.0] — 2026-07-08
 
 ### Added
