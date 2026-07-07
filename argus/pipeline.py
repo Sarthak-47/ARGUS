@@ -383,6 +383,15 @@ def run_attack(
         # port, when Argus spun it up itself — far more meaningful in a report.
         result = ScanResult(target=surface_key, phase="attack")
         result.extend(findings)
+
+        # Exploit chaining: surface compound attack paths from the confirmed set.
+        from argus.chains import detect_chains
+        chains = detect_chains(result.findings)
+        if chains:
+            result.extend(chains)
+            for c in chains:
+                out.console.print(f"  [dark_orange3]\\[CHAIN][/] [bold red]⛓ {c.title}[/]")
+
         result.finished_at = time.time()
 
         out.console.print()

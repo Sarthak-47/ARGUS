@@ -169,7 +169,9 @@ Nobody else combines all six. That's the gap Argus owns.
 - ✅ **Phase 2 — Attack swarm** (`argus attack`): **17 agents** (13 original + MCPSecurityAgent,
   PromptInjectionAgent, BusinessLogicAgent, and the opt-in DomXSSHunter), orchestration loop,
   Docker auto-sandboxing when no `--url` is given, callback server for blind detection,
-  deduplicated findings, a persistent attack-surface inventory that grows across runs, and a
+  **exploit chaining** (compounds confirmed findings into attack paths — e.g. XSS + a
+  script-readable session cookie → account takeover), deduplicated findings, a persistent
+  attack-surface inventory that grows across runs, and a
   reproducible proof-of-concept per confirmed exploit.
 - ✅ **`argus fix`**: LLM-generated patches for fixable findings — dry-run preview or `--apply`,
   with fix-and-reverify (re-scans afterward to confirm each patch actually closed the finding)
