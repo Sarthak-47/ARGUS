@@ -6,6 +6,15 @@ All notable changes to Argus are documented here. Format loosely follows
 ## [Unreleased]
 
 ### Added
+- **Authenticated attack sessions** (ROADMAP v0.3.1): `argus attack`/`audit --auth
+  .argus-auth.toml` (auto-discovered in the working dir) give the whole 17-agent
+  swarm — and ReconBot's crawl — a real logged-in session, so Argus can finally
+  attack the surface behind a login instead of only the unauthenticated doormat.
+  Supports a bearer token, arbitrary headers, session cookies, HTTP basic, a form
+  login (reuses the session cookie it sets or extracts a token from the JSON
+  response), and OAuth2 client-credentials. Because every agent shares one httpx
+  client, auth is applied once and inherited everywhere; credentials are never
+  echoed into a captured PoC. See `.argus-auth.example.toml`.
 - **`pre-commit` hook** (ROADMAP D1): a new `argus precommit` command plus a
   `.pre-commit-hooks.yaml` (`id: argus`, and `argus-strict` for MEDIUM+) so any
   repo can gate commits on secrets and vulnerable code patterns in three lines.

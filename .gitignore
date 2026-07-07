@@ -38,3 +38,6 @@ _design_export/
 
 # Locally dropped-in engine report for the browser dev build (never ship demo data)
 gui/public/report.json
+
+# Real auth credentials for authenticated scans — never commit
+.argus-auth.toml

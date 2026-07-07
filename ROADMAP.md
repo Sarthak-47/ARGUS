@@ -44,12 +44,12 @@ Everything else is polish around that sentence.
 The single biggest gap. Right now Argus attacks only what an anonymous user can
 reach; almost every real app hides its interesting surface behind a login.
 
-- **v0.3.1 · Authenticated attack sessions.** A credentials config (`--auth`
-  or `.argus-auth.toml`): static bearer token, cookie, HTTP basic, a form-login
-  recording (URL + field map), and OAuth2 client-credentials. Every HTTP agent
-  carries the authenticated session; ReconBot re-crawls as the logged-in user.
-  *Table stakes — every 2026 DAST/agentic tool does OAuth2/JWT/session/MFA.*
-  *Engine work; medium-large.*
+- **v0.3.1 · Authenticated attack sessions.** ✅ **Done.** `--auth
+  .argus-auth.toml` (auto-discovered): bearer token, headers, session cookies,
+  HTTP basic, form login (session-cookie or token-from-JSON), and OAuth2
+  client-credentials. Applied once to the shared httpx client, so every agent
+  and ReconBot's crawl carry the logged-in session. Verified end-to-end: the
+  swarm sends the credential on every request to a real server.
 - **v0.3.2 · API schema ingestion.** Seed the attack surface from an
   OpenAPI/Swagger/Postman collection or a GraphQL introspection dump
   (`--api-spec <file|url>`), instead of relying only on the crawler. Modern APIs

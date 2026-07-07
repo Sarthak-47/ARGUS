@@ -338,12 +338,23 @@ def run_attack(
     url: str | None = None,
     agents: str | None = None,
     *,
+    auth: str | None = None,
     banner: bool = True,
 ) -> ScanResult | None:
+    from argus.auth import AuthError, load_auth
     from argus.llm.orchestrator import AGENT_REGISTRY, run_attack_sync
     from argus.llm.provider import get_provider
     from argus.sandbox.docker_manager import Sandbox, SandboxError, availability_note, docker_available
     from argus.state import load_result, save_result
+
+    # Resolve an authenticated session (explicit --auth file, or an
+    # auto-discovered .argus-auth.toml) up front so a bad config fails fast.
+    try:
+        auth_cfg = load_auth(auth)
+    except AuthError as exc:
+        out.banner() if banner else None
+        out.error(str(exc))
+        raise typer.Exit(code=1)
 
     if banner:
         out.banner()
@@ -407,10 +418,18 @@ def run_attack(
         if seed:
             out.info(f"Seeding {len(seed)} endpoint(s) from previous scans of this target.")
 
-        findings, reports, endpoints = run_attack_sync(
-            base_url, requested_agents=requested, prior_findings=prior_findings,
-            provider=provider, on_event=feed, seed_endpoints=seed or None,
-        )
+        if auth_cfg is not None:
+            out.info("Authenticated session configured — agents will attack the logged-in surface.")
+
+        try:
+            findings, reports, endpoints = run_attack_sync(
+                base_url, requested_agents=requested, prior_findings=prior_findings,
+                provider=provider, on_event=feed, seed_endpoints=seed or None,
+                auth=auth_cfg,
+            )
+        except AuthError as exc:
+            out.error(f"Authentication failed — aborting attack: {exc}")
+            raise typer.Exit(code=1)
         if surface_key:
             save_surface(surface_key, endpoints)
 
@@ -456,7 +475,8 @@ def _attack_summary(reports) -> None:
     out.console.print(table)
 
 
-def run_audit(target: str, fix: bool = False, agents: str | None = None) -> None:
+def run_audit(target: str, fix: bool = False, agents: str | None = None,
+              auth: str | None = None) -> None:
     from argus.sandbox.docker_manager import docker_available
 
     out.banner()
@@ -467,7 +487,7 @@ def run_audit(target: str, fix: bool = False, agents: str | None = None) -> None
     out.console.print()
 
     if docker_available():
-        run_attack(target=target, agents=agents, banner=False)
+        run_attack(target=target, agents=agents, auth=auth, banner=False)
     else:
         out.info("Phase 1 complete. Phase 2 needs Docker to sandbox the target automatically — "
                  "point Argus at a running instance instead:")

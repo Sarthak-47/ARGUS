@@ -95,6 +95,7 @@ async def run_attack_async(
     concurrency: int = 10,
     on_event=None,
     seed_endpoints=None,
+    auth=None,
 ) -> tuple[list[Finding], list[AgentReport], list]:
     """Run recon + selected agents against ``base_url``.
 
@@ -130,6 +131,18 @@ async def run_attack_async(
                 provider=provider,
                 on_event=on_event,
             )
+
+            # 0a) Authenticate the shared client, if configured — every agent
+            # (and ReconBot's crawl) then acts as the logged-in user.
+            if auth is not None:
+                from argus.auth import AuthError
+
+                try:
+                    summary = await auth.apply(client)
+                    ctx.emit("auth", f"authenticated session: {summary}")
+                except AuthError as exc:
+                    ctx.emit("auth", f"authentication failed: {exc}", "crit")
+                    raise
 
             # 0) Seed from the persisted surface inventory, if any.
             if seed_endpoints:

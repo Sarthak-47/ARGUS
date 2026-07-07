@@ -135,6 +135,23 @@ Adopting Argus on a repo that already has a backlog? Snapshot it once with `argu
 finding that existed at adoption is treated as accepted and only genuinely new ones are reported and
 gated on (survives line-number shifts, needs no git — unlike `--diff-base`).
 
+## Attack behind a login (authenticated scanning)
+
+Most real apps hide their interesting surface behind a login, so an
+unauthenticated scan only sees the doormat. Give Argus a session and the whole
+17-agent swarm — including ReconBot's crawl — acts as the logged-in user:
+
+```bash
+argus attack --url http://localhost:3000 --auth .argus-auth.toml
+```
+
+A `.argus-auth.toml` (auto-discovered in the working directory, or passed with
+`--auth`) supports a **bearer token**, arbitrary **headers**, session
+**cookies**, **HTTP basic**, a **form login** (reuses the session cookie it sets,
+or extracts a token from the JSON response), and **OAuth2 client-credentials**.
+See [`.argus-auth.example.toml`](.argus-auth.example.toml). Credentials are never
+echoed into a captured proof-of-concept. (Keep `.argus-auth.toml` out of git.)
+
 ## Catch it before it commits (pre-commit hook)
 
 The cheapest way to use Argus is on every commit — block a hardcoded secret or

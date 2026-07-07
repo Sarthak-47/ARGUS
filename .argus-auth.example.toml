@@ -1,0 +1,48 @@
+# Authenticated attack sessions for `argus attack` / `argus audit`.
+#
+# Copy to `.argus-auth.toml` (auto-discovered in the working dir) or pass with
+# `--auth <file>`. Fill in only the section(s) you need — they compose. Every
+# agent then attacks the logged-in surface. Credentials are never echoed into a
+# captured proof-of-concept (Authorization/Cookie headers are redacted).
+#
+# Keep real credentials OUT of version control — add `.argus-auth.toml` to
+# .gitignore.
+
+# --- Static credentials -------------------------------------------------------
+
+# A bearer token (shorthand for an Authorization header):
+# bearer = "eyJhbGciOi..."
+
+# Arbitrary headers (API keys, tenant headers, etc.):
+# [headers]
+# X-API-Key = "..."
+
+# Session cookies:
+# [cookies]
+# session = "..."
+
+# HTTP basic auth:
+# [basic]
+# username = "admin"
+# password = "s3cret"
+
+# --- Form login ---------------------------------------------------------------
+# POST credentials to a login URL. Argus reuses the session cookie it sets; or,
+# if the endpoint returns a token in JSON, set `token_json_path` to use it as a
+# bearer token (dotted path into the response, e.g. "data.token").
+#
+# [login]
+# url = "http://localhost:3000/api/login"
+# method = "POST"
+# json = true                 # send the body as JSON (omit/false = form-encoded)
+# token_json_path = "token"   # optional — extract a bearer token from the response
+# [login.data]
+# email = "admin@example.com"
+# password = "s3cret"
+
+# --- OAuth2 client-credentials ------------------------------------------------
+# [oauth2]
+# token_url = "http://localhost:3000/oauth/token"
+# client_id = "..."
+# client_secret = "..."
+# scope = "read write"        # optional
