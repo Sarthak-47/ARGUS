@@ -77,10 +77,12 @@ way to lose a user; the market's answer is reachability + smarter filtering.
   runs everywhere. Verified: a lockfile full of integrity hashes yields zero
   entropy noise while a real key in it (and a genuine secret in normal source)
   is still flagged.
-- **v0.4.2 · SCA reachability analysis.** Only flag a vulnerable dependency as
-  high-severity if the vulnerable package is actually imported/called in the
-  code path; downgrade the rest. *Aikido/Snyk's headline false-positive killer.*
-  *Engine work; medium (start import-level, not full call-graph).*
+- **v0.4.2 · SCA reachability analysis.** ✅ **Done.** A vulnerable dependency
+  not imported anywhere in first-party code is downgraded one severity and
+  annotated "likely transitive/unused"; imported ones keep severity and are
+  marked reachable. Import-level pass over Python + JS/TS with dist→import
+  aliases. Verified: an imported CVE stays CRITICAL, an unimported one drops to
+  HIGH with the note.
 - **v0.4.3 · Container image CVE scanning.** Complement the existing Dockerfile
   IaC linter with a real image-layer CVE scan (Trivy-style) when a built image
   or base is present. *Engine work; medium.*

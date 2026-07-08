@@ -113,7 +113,14 @@ def audit_pip(root: Path) -> tuple[list[Finding], str | None]:
 
 
 def audit_dependencies(root: Path) -> tuple[list[Finding], list[str]]:
-    """Run all available dependency auditors. Returns (findings, notes)."""
+    """Run all available dependency auditors. Returns (findings, notes).
+
+    Findings are passed through reachability analysis: a vulnerable package that
+    isn't imported anywhere in the first-party code is downgraded and annotated
+    as likely transitive/unused, so real, reachable CVEs surface first.
+    """
+    from argus.reachability import annotate_reachability
+
     findings: list[Finding] = []
     notes: list[str] = []
     for fn in (audit_npm, audit_pip):
@@ -121,4 +128,9 @@ def audit_dependencies(root: Path) -> tuple[list[Finding], list[str]]:
         findings.extend(f)
         if note:
             notes.append(note)
+    annotate_reachability(findings, root)
+    unreached = sum(1 for f in findings if f.metadata.get("reachable") is False)
+    if unreached:
+        notes.append(f"reachability: {unreached} vulnerable package(s) not imported "
+                     f"in your code — downgraded as likely transitive/unused")
     return findings, notes

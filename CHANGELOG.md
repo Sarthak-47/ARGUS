@@ -5,6 +5,15 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+### Added
+- **SCA reachability analysis** (ROADMAP v0.4.2): a vulnerable dependency that
+  isn't actually imported anywhere in the first-party code is now downgraded one
+  severity and annotated "likely transitive/unused", so real, reachable CVEs
+  surface first. Import-level pass over Python (`import`/`from`) and JS/TS
+  (`import`/`require`, incl. scoped packages), with dist→import aliases for the
+  common mismatches (PyYAML→yaml, beautifulsoup4→bs4, …). Reachable findings keep
+  their severity and are marked as imported.
+
 ## [0.4.0] — 2026-07-08
 
 ### Changed
