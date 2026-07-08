@@ -3,7 +3,7 @@
 All notable changes to Argus are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased]
+## [1.1.0] — 2026-07-08
 
 ### Added
 - **LLM taint-tracing mode** (ROADMAP v0.4.6): new `argus scan --taint` traces
@@ -404,7 +404,8 @@ Initial tagged release.
   universal `.dmg`, Linux `.deb`/`.rpm`/`.AppImage`).
 - Local-first LLM support (Ollama) plus BYOK providers (Groq, Gemini, Claude, OpenRouter).
 
-[Unreleased]: https://github.com/Sarthak-47/ARGUS/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/Sarthak-47/ARGUS/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/Sarthak-47/ARGUS/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/Sarthak-47/ARGUS/compare/v0.6.0...v1.0.0
 [0.6.0]: https://github.com/Sarthak-47/ARGUS/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/Sarthak-47/ARGUS/compare/v0.4.0...v0.5.0
