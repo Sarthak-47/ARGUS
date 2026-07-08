@@ -96,11 +96,20 @@ way to lose a user; the market's answer is reachability + smarter filtering.
   by (ecosystem, package name) rather than exact version, since the
   auditor-resolved version (npm audit's lockfile-pinned version) and the
   declared-manifest version the SBOM uses can legitimately differ.
-- **v0.4.5 · Behavioral dependency analysis.** Beyond CVE lookup: score each
-  dependency the way Socket does — install-script inspection, network-call and
-  filesystem-access profiling, obfuscation detection — to catch a *malicious*
-  package before any CVE exists. Argus already flags install-scripts; deepen it.
-  *Engine work; medium.*
+- **v0.4.5 · Behavioral dependency analysis.** ✅ **Done.** Deepened the
+  install-script check beyond the original curl-piped-to-shell pattern:
+  a download-then-execute two-step (fetch a binary, `chmod +x`, run it —
+  split across commands to dodge the piped-shell check), a base64-decoded
+  payload piped to a shell (obfuscation), environment-secret exfiltration (a
+  token/key/secret-shaped env var read alongside an outbound POST/upload),
+  and writes to a sensitive filesystem path (`~/.ssh`, `~/.npmrc`, `~/.aws`,
+  shell profiles). All static, offline, pattern-based analysis of the
+  manifest's own scripts — Argus never executes an install script to profile
+  it, since actually running untrusted code is the exact thing a security
+  scanner shouldn't do. Now also checks `preuninstall`/`postuninstall`, not
+  just `pre`/`postinstall`. Verified: each new check fires on a crafted
+  malicious pattern and stays silent on benign scripts (e.g. `node-gyp
+  rebuild`).
 - **v0.4.6 · LLM taint-tracing mode.** A VulnHuntr-style pass that traces full
   call chains from user input to a dangerous sink (SQLi/SSRF/XSS/IDOR/RCE/LFI),
   reported only when the whole path is present. Plays directly to Argus's
@@ -161,7 +170,10 @@ developers live.
     endpoint exist purely inside a `<script>` tag (a DOM write + a `fetch()`
     call, nothing in the server-rendered HTML) — both genuinely discovered.
     `.github/workflows/benchmark.yml` now installs the `browser` extra plus
-    Chromium so the real `juice_shop` benchmark case exercises this.
+    Chromium so the real `juice_shop` benchmark case exercises this. **Confirmed
+    against the real target:** re-running the benchmark moved `juice_shop` from
+    14% (1/7) to **29% (2/7)**, findings up from 77 to 78 — SQL injection, which
+    Juice Shop only exposes behind Angular's client-side router, is now caught.
   - **Follow-up B — CSRF-aware form login.** ✅ **Done.** `AuthConfig`'s form
     login gained an optional `csrf_field`: Argus GETs the login page first,
     scrapes a named hidden input's value regardless of attribute order, and

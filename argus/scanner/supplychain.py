@@ -8,8 +8,16 @@ content directly). Runs offline against ``package.json``/``requirements.txt``:
     name are flagged for review (bundled static allowlist, no network calls);
   - unpinned versions — ``*``/``latest`` always, ``^``/``~`` ranges only when no
     lockfile exists to pin the actually-installed version;
-  - suspicious install scripts — ``postinstall``/``preinstall`` piping a download
-    straight into a shell, the classic supply-chain-compromise pattern.
+  - behavioral install-script analysis (roadmap v0.4.5) — beyond the original
+    curl-piped-to-shell check: a download-then-execute two-step (fetch a
+    binary, chmod +x, run it — the piped-shell check alone misses this),
+    obfuscated payloads (a base64 blob decoded straight into a shell),
+    environment-secret exfiltration (a script that reads a token/key/secret-
+    shaped env var and also makes an outbound POST/upload), and writes to a
+    sensitive filesystem path (~/.ssh, ~/.npmrc, ~/.aws, ...). All static,
+    offline, and pattern-based — Argus never executes an install script to
+    profile it; that would mean actually running untrusted code, which is the
+    exact thing a security scanner shouldn't do.
 """
 
 from __future__ import annotations
@@ -22,8 +30,96 @@ from argus.models import Finding, Severity
 from argus.scanner.popular_packages import POPULAR_NPM, POPULAR_PYPI
 
 _NPM_LOCKFILES = ("package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "pnpm-lock.yaml")
+_INSTALL_HOOKS = ("preinstall", "install", "postinstall", "preuninstall", "postuninstall")
 _SHELL_PIPE = re.compile(r"(?i)(curl|wget)\b[^|;&]*\|\s*(sh|bash|zsh)\b")
 _FLOATING_RANGE = re.compile(r"^[\^~]")
+
+# Behavioral install-script checks (roadmap v0.4.5) — each independent of the
+# curl-piped-to-shell check above, since a real compromise can split the
+# download and the execution into separate commands to dodge exactly that.
+_HAS_DOWNLOAD = re.compile(r"(?i)\b(curl|wget)\b[^;&|]*(-o\s|-O\b|--output)")
+_HAS_CHMOD_X = re.compile(r"(?i)chmod\s+\+x\b")
+_HAS_RELATIVE_EXEC = re.compile(r"(?i)(^|[;&|]\s*)\./\S+")
+_BASE64_DECODE_PIPE = re.compile(r"(?i)base64\s+(-d|--decode)[^|;&]*\|\s*(sh|bash|zsh)\b")
+_SECRETY_ENV = re.compile(r"(?i)\$\{?(?:[A-Z0-9_]*(?:TOKEN|SECRET|API_KEY|PASSWORD|CREDENTIAL)[A-Z0-9_]*)\}?")
+_NETWORK_SEND = re.compile(r"(?i)\b(curl|wget)\b[^;&|]*(-d\s|--data|-X\s*POST|--upload-file)")
+_SENSITIVE_PATH_WRITE = re.compile(
+    r"(?i)(>>?\s*|cp\s+\S+\s+|cat\s+\S+\s*>>?\s*)(~/\.ssh|~/\.npmrc|~/\.aws|~/\.bashrc|~/\.profile|/etc/passwd|/etc/shadow)"
+)
+
+
+def _behavioral_checks(hook: str, cmd: str, manifest_rel: str) -> list[Finding]:
+    """Pattern-based behavioral analysis of a single install-hook command
+    string, independent of the original curl-piped-to-shell check."""
+    findings: list[Finding] = []
+
+    if _HAS_DOWNLOAD.search(cmd) and _HAS_CHMOD_X.search(cmd) and _HAS_RELATIVE_EXEC.search(cmd):
+        findings.append(Finding(
+            title=f"Install script downloads and executes a binary: '{hook}'",
+            severity=Severity.CRITICAL, category="dependency", detector="supplychain:install-script",
+            file=manifest_rel,
+            evidence=f"{hook}: {cmd[:200]}",
+            description=f"The '{hook}' script downloads a file, makes it executable, and runs "
+                        f"it — splitting the download and execution into separate commands "
+                        f"dodges a naive curl-piped-to-shell check, but the effect is identical: "
+                        f"arbitrary code execution on every install.",
+            exploit="Anyone who runs `npm install` executes whatever binary the remote URL "
+                    "currently serves, with no review possible at install time.",
+            fix="Never download and execute a binary from an install hook. Vendor the binary, "
+                "or require an explicit, reviewed install step.",
+            cwe="CWE-829", cvss=8.6, confidence="medium",
+        ))
+
+    if _BASE64_DECODE_PIPE.search(cmd):
+        findings.append(Finding(
+            title=f"Obfuscated payload in install script: '{hook}'",
+            severity=Severity.CRITICAL, category="dependency", detector="supplychain:install-script",
+            file=manifest_rel,
+            evidence=f"{hook}: {cmd[:200]}",
+            description=f"The '{hook}' script base64-decodes a blob and pipes it straight into "
+                        f"a shell — the payload is invisible to a plain-text review of the "
+                        f"script, a common obfuscation technique in real supply-chain compromises.",
+            exploit="The decoded payload runs with the same privileges as the install, and its "
+                    "content can't be reviewed without decoding it out-of-band first.",
+            fix="Never decode-and-execute an opaque blob from an install hook. Vendor the script "
+                "in plain, reviewable form.",
+            cwe="CWE-506", cvss=8.6, confidence="medium",
+        ))
+
+    if _SECRETY_ENV.search(cmd) and _NETWORK_SEND.search(cmd):
+        findings.append(Finding(
+            title=f"Install script may exfiltrate secrets: '{hook}'",
+            severity=Severity.CRITICAL, category="dependency", detector="supplychain:install-script",
+            file=manifest_rel,
+            evidence=f"{hook}: {cmd[:200]}",
+            description=f"The '{hook}' script reads what looks like a secret-shaped environment "
+                        f"variable (token/key/password/credential) and also makes an outbound "
+                        f"POST/upload — the pattern used to steal CI/CD secrets (npm tokens, "
+                        f"cloud credentials) during `npm install`.",
+            exploit="Any secret exposed to the install environment (CI tokens, cloud keys) can "
+                    "be sent to an attacker-controlled endpoint with no further access needed.",
+            fix="Install scripts should never need network access to a secret-bearing "
+                "environment. Remove the hook or replace it with a reviewed, offline step.",
+            cwe="CWE-200", cvss=8.1, confidence="low",
+        ))
+
+    if _SENSITIVE_PATH_WRITE.search(cmd):
+        findings.append(Finding(
+            title=f"Install script writes to a sensitive path: '{hook}'",
+            severity=Severity.HIGH, category="dependency", detector="supplychain:install-script",
+            file=manifest_rel,
+            evidence=f"{hook}: {cmd[:200]}",
+            description=f"The '{hook}' script writes to a sensitive user/system path "
+                        f"(SSH keys, npm/AWS credentials, shell profile) — a common persistence "
+                        f"or credential-theft technique for a compromised package.",
+            exploit="Appending to ~/.ssh/authorized_keys or a shell profile can grant an "
+                    "attacker persistent access to the machine running the install.",
+            fix="An install script should never need to modify SSH keys, cloud credential "
+                "files, or shell profiles. Remove the hook or replace it with a reviewed step.",
+            cwe="CWE-732", cvss=7.8, confidence="medium",
+        ))
+
+    return findings
 
 
 def _levenshtein_le1(a: str, b: str) -> bool:
@@ -125,9 +221,11 @@ def _check_npm_manifest(root: Path, manifest_rel: str) -> list[Finding]:
 
     scripts = data.get("scripts")
     if isinstance(scripts, dict):
-        for hook in ("postinstall", "preinstall"):
+        for hook in _INSTALL_HOOKS:
             cmd = scripts.get(hook)
-            if isinstance(cmd, str) and _SHELL_PIPE.search(cmd):
+            if not isinstance(cmd, str):
+                continue
+            if _SHELL_PIPE.search(cmd):
                 findings.append(Finding(
                     title=f"Suspicious install script: '{hook}'",
                     severity=Severity.CRITICAL, category="dependency", detector="supplychain:install-script",
@@ -142,6 +240,7 @@ def _check_npm_manifest(root: Path, manifest_rel: str) -> list[Finding]:
                         "script, or require an explicit, reviewed install step.",
                     cwe="CWE-829", cvss=8.6, confidence="high",
                 ))
+            findings.extend(_behavioral_checks(hook, cmd, manifest_rel))
     return findings
 
 

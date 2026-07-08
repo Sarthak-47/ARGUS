@@ -48,6 +48,8 @@ _CWE_MAP: dict[str, tuple[str, str, str]] = {
     "639": ("V4.2.1", "6.2.4", "Insecure direct object reference"),
     "668": ("V1.14.4", "1.3.1", "Resource exposed to wrong sphere"),
     "693": ("V14.4.1", "6.2.4", "Protection mechanism failure"),
+    "506": ("V10.3.1", "6.3.2", "Embedded malicious/obfuscated code"),
+    "732": ("V12.3.1", "7.1.2", "Incorrect permission assignment on a critical resource"),
     "798": ("V2.10.4", "8.3.1", "Hardcoded credentials"),
     "829": ("V10.3.2", "6.3.2", "Untrusted functionality inclusion"),
     "841": ("V11.1.1", "6.2.4", "Improper workflow / business logic"),

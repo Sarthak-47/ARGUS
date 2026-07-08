@@ -13,7 +13,17 @@ All notable changes to Argus are documented here. Format loosely follows
   call it fires — the Angular/React/Vue SPA gap that hid Juice Shop's
   client-routed surface from a regex-over-server-HTML crawl. Verified live
   against a real server whose only link and only API call exist purely
-  inside a `<script>` tag.
+  inside a `<script>` tag. Confirmed against the real target: the
+  `juice_shop` benchmark case moved from 14% (1/7) to **29% (2/7)**.
+- **Behavioral dependency analysis** (ROADMAP v0.4.5): install-script
+  analysis deepened beyond the original curl-piped-to-shell check — a
+  download-then-execute two-step, a base64-decoded payload piped to a
+  shell, environment-secret exfiltration (a secret-shaped env var read
+  alongside an outbound POST/upload), and writes to a sensitive filesystem
+  path (~/.ssh, ~/.npmrc, ~/.aws, ...) are all now flagged. Static and
+  offline throughout — Argus never executes an install script to profile
+  it. Also now checks `preuninstall`/`postuninstall`, not just
+  `pre`/`postinstall`.
 - **VEX output** (ROADMAP v0.4.4): `argus report --format vex` writes a
   CycloneDX 1.5 VEX document (`vex.cdx.json`) — a per-dependency-finding
   exploitability statement (`exploitable` / `not_affected` with
