@@ -69,8 +69,9 @@ def test_scan_tool_returns_real_findings(tmp_path):
 def test_scan_tool_missing_target_reports_error(tmp_path):
     missing = str(tmp_path / "does-not-exist")
     server = build_server()
-    with pytest.raises(Exception):  # FileNotFoundError surfaces through the tool call
-        _call(server, "argus_scan", {"target": missing})
+    content, structured = _call(server, "argus_scan", {"target": missing})
+    assert "error" in structured
+    assert missing in structured["error"] or "does-not-exist" in structured["error"]
 
 
 def test_attack_tool_no_stdout_leakage_and_returns_findings():

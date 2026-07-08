@@ -262,17 +262,30 @@ CASES: dict[str, BenchmarkCase] = {
 }
 
 
-def _run_setup(base_url: str, path: str, data: dict[str, str]) -> None:
+def _run_setup(base_url: str, path: str, data: dict[str, str], attempts: int = 3) -> None:
     """Best-effort one-time POST a fresh target needs before it's usable at
-    all (DVWA's DB init). Errors are swallowed — the target may already be
-    initialized, or a version mismatch might change the exact form; the
-    ready-path reachability check and the auth login are the real gates."""
+    all (DVWA's DB init). GETs the page first (some apps only honor the setup
+    POST within a session the GET establishes) and retries with backoff — in
+    a multi-process image (web server + database supervised together), the
+    database can still be initializing for a few seconds after the web server
+    already answers requests, so the very first setup attempt can silently
+    race an unready backend. Errors are swallowed either way: the target may
+    already be initialized, or a version mismatch might change the exact
+    form; the ready-path reachability check and the auth login are the real
+    gates on whether the target is actually usable."""
+    import time
+
     import httpx
 
-    try:
-        httpx.post(base_url + path, data=data, timeout=15.0)
-    except httpx.HTTPError:
-        pass
+    for attempt in range(attempts):
+        try:
+            with httpx.Client(timeout=15.0) as client:
+                client.get(base_url + path)
+                client.post(base_url + path, data=data)
+            return
+        except httpx.HTTPError:
+            if attempt < attempts - 1:
+                time.sleep(3.0)
 
 
 def _run_docker_target(case: BenchmarkCase, timeout: float = 90.0) -> list[Finding]:

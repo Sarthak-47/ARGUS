@@ -195,11 +195,50 @@ def test_run_setup_swallows_errors(monkeypatch):
 
     from argus.benchmark import _run_setup
 
-    def fail(*a, **kw):
-        raise httpx.ConnectError("nope")
+    class FailingClient:
+        def __enter__(self):
+            return self
 
-    monkeypatch.setattr(httpx, "post", fail)
-    _run_setup("http://nope", "/setup.php", {"x": "y"})  # must not raise
+        def __exit__(self, *a):
+            return False
+
+        def get(self, *a, **kw):
+            raise httpx.ConnectError("nope")
+
+        def post(self, *a, **kw):
+            raise httpx.ConnectError("nope")
+
+    monkeypatch.setattr(httpx, "Client", lambda **kw: FailingClient())
+    _run_setup("http://nope", "/setup.php", {"x": "y"}, attempts=1)  # must not raise, no sleep
+
+
+def test_run_setup_retries_on_failure_then_succeeds(monkeypatch):
+    import httpx
+
+    from argus.benchmark import _run_setup
+
+    calls = {"n": 0}
+
+    class FlakyClient:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def get(self, *a, **kw):
+            return None
+
+        def post(self, *a, **kw):
+            calls["n"] += 1
+            if calls["n"] < 2:
+                raise httpx.ConnectError("db not ready yet")
+            return None
+
+    monkeypatch.setattr(httpx, "Client", lambda **kw: FlakyClient())
+    monkeypatch.setattr("time.sleep", lambda s: None)  # don't actually wait in tests
+    _run_setup("http://x", "/setup.php", {"x": "y"}, attempts=3)
+    assert calls["n"] == 2  # failed once, succeeded on retry
 
 
 def test_docker_target_wires_csrf_aware_auth(monkeypatch):

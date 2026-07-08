@@ -28,6 +28,13 @@ def _quiet(fn: Callable, *args: Any, **kwargs: Any) -> Any:
         return fn(*args, **kwargs)
 
 
+def _error_dict(exc: Exception) -> dict[str, str]:
+    """A tool-call failure (bad target, unreachable app, ...) as a clean
+    structured response an agent can read, rather than a raw exception
+    propagating through the MCP protocol as an opaque JSON-RPC error."""
+    return {"error": str(exc)}
+
+
 def build_server():
     """Construct the FastMCP server with argus_scan/argus_attack/argus_fix
     registered. Split out from :func:`run` so tests can call tools directly
@@ -45,9 +52,14 @@ def build_server():
         from argus.pipeline import _do_scan
         from argus.scanner import ingestion
 
-        ingested = ingestion.ingest(target)
+        try:
+            ingested = ingestion.ingest(target)
+        except Exception as exc:  # bad path, unreachable repo URL, ...
+            return _error_dict(exc)
         try:
             result = _quiet(_do_scan, target, deep=deep, depth=None, no_llm=True)
+        except Exception as exc:
+            return _error_dict(exc)
         finally:
             if ingested.cleanup:
                 shutil.rmtree(ingested.root, ignore_errors=True)
@@ -70,8 +82,11 @@ def build_server():
         # the other tools, even though the orchestrator itself prints nothing.
         requested = [a.strip().lower() for a in agents.split(",")] if agents else None
         buf = io.StringIO()
-        with contextlib.redirect_stdout(buf):
-            findings, reports, _eps = await run_attack_async(url, requested_agents=requested)
+        try:
+            with contextlib.redirect_stdout(buf):
+                findings, reports, _eps = await run_attack_async(url, requested_agents=requested)
+        except Exception as exc:  # unreachable url, bad agent name, ...
+            return _error_dict(exc)
         return {
             "target": url,
             "findings": [f.to_dict() for f in findings],
@@ -100,15 +115,23 @@ def build_server():
         if provider is None:
             return {"error": "No LLM provider configured — run `argus setup` first."}
 
-        result = _quiet(_do_scan, target, deep=False, depth=None, no_llm=True)
+        try:
+            result = _quiet(_do_scan, target, deep=False, depth=None, no_llm=True)
+        except Exception as exc:
+            return _error_dict(exc)
         fixable = [f for f in result.findings if f.file]
         if not fixable:
             return {"fixes": [], "note": "No fixable (file-based) findings."}
 
-        ingested = ingestion.ingest(target)
+        try:
+            ingested = ingestion.ingest(target)
+        except Exception as exc:
+            return _error_dict(exc)
         try:
             fixes = _quiet(generate_fixes, provider, ingested.root, fixable)
             applied = _quiet(apply_fixes, ingested.root, fixes, apply=apply)
+        except Exception as exc:
+            return _error_dict(exc)
         finally:
             if ingested.cleanup:
                 shutil.rmtree(ingested.root, ignore_errors=True)

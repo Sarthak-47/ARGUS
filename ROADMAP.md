@@ -162,6 +162,17 @@ developers live.
     general **post-login step** (`post_login_url`/`post_login_data`, runs on
     the same session after login — useful for any app with a similar
     unlock-after-login pattern, not just DVWA) and the benchmark wires it.
+    **Honest result:** the real `dvwa` benchmark score stayed at 33% (2/6)
+    across both fixes, even though both mechanisms are independently verified
+    working against a real server that validates them server-side. The
+    remaining gap is a `vulnerables/web-dvwa`-image-specific detail not yet
+    root-caused (candidates: MySQL init lagging the web server becoming
+    reachable, so the DB-setup POST races an unready database; or this
+    image's exact field names differing from the classic DVWA form) — not
+    something debuggable without interactive access to the ephemeral CI
+    container. The CSRF-login and post-login mechanisms themselves are real,
+    general-purpose, shipped features regardless; this specific target's
+    number is an open follow-up, published as such rather than implied fixed.
   - **Follow-up C — auto-discover a target's own OpenAPI spec.** ✅ **Done.**
     ReconBot now probes well-known spec paths (`/openapi.json`,
     `/swagger.json`, `/api/openapi.json`, `/.well-known/openapi.json`, …) and,
