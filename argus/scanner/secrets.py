@@ -73,6 +73,45 @@ def shannon_entropy(s: str) -> float:
 
 _HIGH_ENTROPY_TOKEN = re.compile(r"[A-Za-z0-9+/=_\-]{20,}")
 
+# Files where the *entropy* heuristic is almost pure noise: lockfiles are full of
+# integrity hashes, minified bundles are one giant high-entropy blob, and
+# vendored/build output isn't the developer's own code. The high-confidence
+# regex pass still runs on these — a real AWS key in a lockfile is still real —
+# but the low-confidence entropy pass is skipped. (Fixes the bulk of the
+# false-positive entropy hits a real-world audit surfaced — mostly
+# package-lock.json integrity hashes.)
+_ENTROPY_SKIP_NAMES = {
+    "package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "pnpm-lock.yaml",
+    "poetry.lock", "pipfile.lock", "cargo.lock", "composer.lock", "gemfile.lock",
+    "go.sum", "flake.lock", "bun.lockb",
+}
+_ENTROPY_SKIP_SUFFIXES = (".min.js", ".min.css", ".map", ".lock")
+_ENTROPY_SKIP_DIRS = {"dist", "build", "vendor", ".next", ".nuxt", "out", "node_modules", "coverage"}
+# Pure-hex tokens of classic checksum lengths (md5/sha1/sha256/sha512) are
+# digests, not credentials — skip them in the entropy pass.
+_HASH_LEN = {32, 40, 64, 128}
+_HEX_ONLY = re.compile(r"^[0-9a-f]+$")
+
+
+def _entropy_low_signal(rel: str, lines: list[str]) -> bool:
+    """True if the entropy pass should be skipped for this file (lockfile,
+    minified bundle, or vendored/build output)."""
+    p = rel.lower()
+    name = p.rsplit("/", 1)[-1]
+    if name in _ENTROPY_SKIP_NAMES or name.endswith(_ENTROPY_SKIP_SUFFIXES):
+        return True
+    if set(p.split("/")[:-1]) & _ENTROPY_SKIP_DIRS:
+        return True
+    # Minified heuristic: an early very-long line with almost no whitespace.
+    for ln in lines[:50]:
+        if len(ln) > 1000 and (ln.count(" ") / len(ln)) < 0.02:
+            return True
+    return False
+
+
+def _looks_like_hash(token: str) -> bool:
+    return len(token) in _HASH_LEN and bool(_HEX_ONLY.match(token))
+
 
 def _scan_text(rel: str, text: str) -> list[Finding]:
     findings: list[Finding] = []
@@ -109,13 +148,16 @@ def _scan_text(rel: str, text: str) -> list[Finding]:
                 confidence="high",
             ))
 
-    # entropy pass — only on lines not already flagged
+    # entropy pass — only on lines not already flagged, and skipped entirely for
+    # low-signal files (lockfiles, minified bundles, vendored/build output).
     flagged_lines = {ln for _, ln in seen}
+    if _entropy_low_signal(rel, lines):
+        return findings
     for idx, line in enumerate(lines, start=1):
         if idx in flagged_lines or len(line) > 2000:
             continue
         for token in _HIGH_ENTROPY_TOKEN.findall(line):
-            if _PLACEHOLDER.search(token) or len(set(token)) < 12:
+            if _PLACEHOLDER.search(token) or len(set(token)) < 12 or _looks_like_hash(token):
                 continue
             if shannon_entropy(token) >= 4.3:
                 findings.append(Finding(

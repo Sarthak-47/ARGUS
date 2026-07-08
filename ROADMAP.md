@@ -71,10 +71,12 @@ reach; almost every real app hides its interesting surface behind a login.
 Your DBMS audit surfaced ~229 false-positive entropy hits. Noise is the fastest
 way to lose a user; the market's answer is reachability + smarter filtering.
 
-- **v0.4.1 · Secret-scan noise reduction.** Skip lockfiles, minified bundles,
-  `.map` files, and vendored assets for entropy hits; keep pattern-based hits
-  everywhere. Publish a before/after precision number. *Engine work; small —
-  high ROI, directly fixes what you saw.*
+- **v0.4.1 · Secret-scan noise reduction.** ✅ **Done.** The entropy pass now
+  skips lockfiles, minified bundles, `.map` files, and vendored/build dirs, and
+  ignores checksum-length hex digests; the high-confidence pattern pass still
+  runs everywhere. Verified: a lockfile full of integrity hashes yields zero
+  entropy noise while a real key in it (and a genuine secret in normal source)
+  is still flagged.
 - **v0.4.2 · SCA reachability analysis.** Only flag a vulnerable dependency as
   high-severity if the vulnerable package is actually imported/called in the
   code path; downgrade the rest. *Aikido/Snyk's headline false-positive killer.*

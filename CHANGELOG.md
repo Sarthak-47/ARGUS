@@ -5,6 +5,16 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+### Changed
+- **Secret-scan noise reduction** (ROADMAP v0.4.1): the high-entropy heuristic no
+  longer fires in low-signal files — lockfiles (`package-lock.json`, `yarn.lock`,
+  `go.sum`, …), minified bundles (`*.min.js`, `*.map`), and vendored/build output
+  (`dist/`, `build/`, `vendor/`, `node_modules/`) — and skips pure-hex tokens of
+  checksum length (md5/sha1/sha256/sha512). The high-confidence *pattern* pass
+  still runs everywhere, so a real key in a lockfile is still caught. This removes
+  the bulk of the false-positive entropy hits a real-world audit surfaced (mostly
+  `package-lock.json` integrity hashes) without dropping genuine secrets.
+
 ### Added
 - **Deeper MCP-security scanning** (ROADMAP v0.3.4): MCPSecurityAgent now goes
   past "is a server exposed" to inspect the exposed catalog — it flags **tool
