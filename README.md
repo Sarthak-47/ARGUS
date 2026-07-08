@@ -179,6 +179,21 @@ Accepts **OpenAPI 3.x**, **Swagger 2.0**, **Postman v2** collections, and a
 **GraphQL introspection** dump — as a file or URL. Spec paths are resolved against
 your target's URL, so a spec written for production still points at localhost.
 
+## Show it off — the "Scanned by Argus" badge
+
+Running Argus on your repo? Let people know — drop this in your own README:
+
+```markdown
+[![Scanned by Argus](https://img.shields.io/badge/security-scanned%20by%20Argus-B8860B)](https://github.com/Sarthak-47/ARGUS)
+```
+
+[![Scanned by Argus](https://img.shields.io/badge/security-scanned%20by%20Argus-B8860B)](https://github.com/Sarthak-47/ARGUS)
+
+It's a static badge (Argus has no hosted backend to poll for live status), so it
+signals "we run Argus here," not a real-time pass/fail — pair it with the
+[GitHub Action](#put-it-in-ci) or the [pre-commit hook](#catch-it-before-it-commits-pre-commit-hook)
+below if you want the claim to actually be enforced.
+
 ## Catch it before it commits (pre-commit hook)
 
 The cheapest way to use Argus is on every commit — block a hardcoded secret or

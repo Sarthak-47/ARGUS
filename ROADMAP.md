@@ -153,9 +153,9 @@ habit. Build them in parallel with the milestones above — cheapest-first.
   and vulnerable patterns using the fast deterministic passes only. The
   most-loved shift-left pattern of 2026, and every install is a developer using
   Argus *daily*.
-- **D2 · "Scanned by Argus" README badge.** A shields.io endpoint others drop
-  into *their* repos — free social proof and backlinks that compound forever.
-  *Tiny.*
+- **D2 · "Scanned by Argus" README badge.** ✅ **Done.** A static shields.io
+  badge with copy-pasteable markdown, documented in the README — free social
+  proof and backlinks that compound forever.
 - **D3 · Argus as an MCP server.** Expose `scan` / `attack` / `fix` as MCP tools
   so Copilot / Cursor / Claude Code can run Argus from inside the editor. MCP is
   the defining 2026 distribution surface (GitHub shipped secret-scanning-over-MCP

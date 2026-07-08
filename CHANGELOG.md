@@ -5,6 +5,14 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+### Added
+- **"Scanned by Argus" badge** (ROADMAP D2): a static shields.io badge
+  (`security: scanned by Argus`) other repos can drop into their own README —
+  documented with copy-pasteable markdown right in ours. Honestly scoped: a
+  static claim, not a live status (Argus has no hosted backend to poll), paired
+  with a pointer to the Action/pre-commit hook for anyone who wants the claim
+  actually enforced.
+
 ## [0.5.0] — 2026-07-08
 
 ### Added
