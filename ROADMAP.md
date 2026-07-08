@@ -188,9 +188,11 @@ developers live.
   Jira-importable CSV (one issue per finding, mapped Summary/Description/
   Priority/Labels) for Jira's built-in CSV importer — no API/credentials
   needed. Verified live via the CLI against a real scan.
-- **v1.0.3 · Docs site + hardening.** A real getting-started/docs site, an
-  auth-scanning tutorial, expanded error handling, and a pass over performance
-  (parallelism in the attack loop). *Docs + polish.*
+- **v1.0.3 · Docs site + hardening.** ✅ **Done.** New `docs/` guide set
+  (getting started, authenticated scanning, CI integration, troubleshooting).
+  MCP server tools (`argus_scan`/`argus_attack`/`argus_fix`) now return a
+  structured `{"error": ...}` dict on failure instead of a raw exception
+  through the protocol, matching `argus_fix`'s existing pattern.
 
 ---
 

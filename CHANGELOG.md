@@ -6,6 +6,13 @@ All notable changes to Argus are documented here. Format loosely follows
 ## [Unreleased]
 
 ### Added
+- **Docs site + MCP hardening** (ROADMAP v1.0.3): new `docs/` guide set
+  (getting started, authenticated scanning, CI integration, troubleshooting)
+  covering ground the README doesn't have room for. `argus_scan`/
+  `argus_attack`/`argus_fix` (the MCP server tools) now return a structured
+  `{"error": "..."}` dict on failure — a bad path, an unreachable repo URL —
+  instead of letting a raw exception propagate through the MCP protocol,
+  matching the pattern `argus_fix` already used for "no provider configured".
 - **Integrations** (ROADMAP v1.0.2): DefectDojo needed no new code — its
   built-in SARIF import type already accepts `argus scan --format sarif`.
   New `argus report --format jira` writes a Jira-importable CSV (one issue per
