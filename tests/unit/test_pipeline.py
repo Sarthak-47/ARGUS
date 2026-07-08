@@ -8,7 +8,7 @@ import typer
 import pytest
 
 import argus.pipeline as pipeline
-from argus.pipeline import run_scan, run_attack, run_fix, export_last, _export, _reverify_fixes
+from argus.pipeline import run_scan, run_attack, run_fix, run_pr_comment, export_last, _export, _reverify_fixes
 from argus.compare import finding_signature
 from argus.models import Finding, ScanResult
 from argus.fix import AppliedFix
@@ -320,3 +320,38 @@ def test_run_fix_pr_dirty_repo_exits_cleanly(tmp_path, monkeypatch, capsys):
         run_fix(str(tmp_path), apply=True, pr=True)
     assert exc_info.value.exit_code == 1
     assert "uncommitted changes" in capsys.readouterr().out.lower()
+
+
+def test_run_pr_comment_noop_outside_pr_context(capsys, monkeypatch):
+    monkeypatch.setattr("argus.prcomments.context_from_env", lambda: None)
+    run_pr_comment()  # must not raise
+    assert "skipping pr comments" in capsys.readouterr().out.lower()
+
+
+def test_run_pr_comment_noop_when_no_saved_scan(capsys, monkeypatch):
+    from argus.prcomments import PrContext
+
+    monkeypatch.setattr("argus.prcomments.context_from_env",
+                        lambda: PrContext(owner="a", repo="b", pr_number=1, commit_sha="s", token="t"))
+    monkeypatch.setattr("argus.state.load_result", lambda: None)
+    run_pr_comment()
+    assert "no findings" in capsys.readouterr().out.lower()
+
+
+def test_run_pr_comment_posts_findings_from_last_scan(capsys, monkeypatch):
+    from argus.prcomments import PrCommentResult, PrContext
+
+    scan = ScanResult(target="t", phase="scan")
+    scan.extend([Finding(title="X", severity="HIGH", category="c", detector="d", file="a.py", line=1)])
+
+    monkeypatch.setattr("argus.prcomments.context_from_env",
+                        lambda: PrContext(owner="a", repo="b", pr_number=1, commit_sha="s", token="t"))
+    monkeypatch.setattr("argus.state.load_result", lambda: scan)
+
+    async def fake_post(ctx, findings, client=None):
+        assert len(findings) == 1
+        return PrCommentResult(posted=1)
+
+    monkeypatch.setattr("argus.prcomments.post_review_comments", fake_post)
+    run_pr_comment()
+    assert "posted 1 comment" in capsys.readouterr().out.lower()

@@ -30,6 +30,10 @@ inputs:
     description: "Report format to produce (sarif|json|html|markdown)."
     required: false
     default: "sarif"
+  pr-comments:
+    description: "Post new findings as inline GitHub PR review comments, in addition to the SARIF upload. Needs `pull-requests: write` permission on the calling job. A no-op outside a pull_request event, so it's safe to leave on for every trigger."
+    required: false
+    default: "false"
   version:
     description: "Argus version/ref to install (PyPI version, or a git ref). Default: latest from PyPI."
     required: false
@@ -73,3 +77,12 @@ runs:
         if [ -n "${{ inputs.baseline }}" ]; then BASELINE_FLAG="--baseline ${{ inputs.baseline }}"; fi
         argus scan "${{ inputs.target }}" --no-llm --format "${{ inputs.format }}" $FAIL_FLAG $POLICY_FLAG $DIFF_FLAG $BASELINE_FLAG
         echo "sarif-file=argus-report/argus.sarif" >> "$GITHUB_OUTPUT"
+
+    - name: Post PR review comments
+      # Runs even if the scan step above failed the job (e.g. --fail-on tripped)
+      # so the inline comments still land — same pattern as a SARIF upload.
+      if: ${{ inputs.pr-comments == 'true' && !cancelled() }}
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: argus pr-comment

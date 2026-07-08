@@ -137,6 +137,11 @@ Adopting Argus on a repo that already has a backlog? Snapshot it once with `argu
 finding that existed at adoption is treated as accepted and only genuinely new ones are reported and
 gated on (survives line-number shifts, needs no git — unlike `--diff-base`).
 
+Want findings inline on the PR itself, not just in the Security tab? Add `pr-comments: "true"` (needs
+`permissions: pull-requests: write` on the job) and Argus posts each new finding as a review comment
+right on the changed line — idempotent, so re-runs on the same commit don't double-post. A no-op
+outside a `pull_request` event, so it's safe to leave on unconditionally.
+
 ## Attack behind a login (authenticated scanning)
 
 Most real apps hide their interesting surface behind a login, so an

@@ -112,9 +112,11 @@ developers live.
   PR via the `gh` CLI. Opt-in, requires explicit GitHub auth (`gh auth login` or
   `GH_TOKEN`/`GITHUB_TOKEN`), refuses on a dirty tree/detached HEAD/no origin.
   Verified end-to-end against a throwaway local remote. *Aikido AI AutoFix / Snyk.*
-- **v0.5.2 · PR review comments.** In CI (diff-aware mode), post each new finding
-  as an inline GitHub PR comment instead of only a SARIF upload. *GitHub Advanced
-  Security parity.* *Action work; small-medium.*
+- **v0.5.2 · PR review comments.** ✅ **Done.** New `pr-comments` Action input +
+  `argus pr-comment` command posts each new finding as an inline PR review
+  comment via the REST API — zero extra setup in GitHub Actions, idempotent
+  (fingerprinted, never double-posts), degrades gracefully for lines outside
+  the diff. *GitHub Advanced Security parity.*
 - **v0.5.3 · Broaden auto-sandbox stack detection.** The DBMS repo couldn't be
   auto-run (no Dockerfile, unguessable start). Add confident start-command
   detection for Flask/FastAPI, Express/Next, Rails, and `docker-compose up`, so

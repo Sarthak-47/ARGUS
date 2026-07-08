@@ -209,6 +209,22 @@ def report(
 
 
 # --------------------------------------------------------------------------- #
+# pr-comment  (CI: post findings as inline GitHub PR review comments)
+# --------------------------------------------------------------------------- #
+@app.command(name="pr-comment")
+def pr_comment() -> None:
+    """Post the last scan's findings as inline GitHub PR review comments.
+
+    Run right after `argus scan --diff-base <base>` in a GitHub Actions
+    pull_request job. A no-op outside a PR context, so it's safe to add to any
+    workflow unconditionally.
+    """
+    from argus.pipeline import run_pr_comment
+
+    run_pr_comment()
+
+
+# --------------------------------------------------------------------------- #
 # history
 # --------------------------------------------------------------------------- #
 @app.command()

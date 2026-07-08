@@ -341,6 +341,41 @@ def export_last(fmt: str = "html", output: str | None = None) -> None:
     _export(result, fmt, output)
 
 
+def run_pr_comment() -> None:
+    """Post the last scan's findings as inline GitHub PR review comments.
+
+    Meant to run right after `argus scan --diff-base <base>` in a GitHub Actions
+    `pull_request` job — reuses that scan's already-persisted result rather than
+    re-scanning. A no-op (exit 0) outside a PR context (push event, local run,
+    no token) so it's always safe to add to a workflow unconditionally.
+    """
+    import asyncio
+
+    from argus.prcomments import context_from_env, post_review_comments
+    from argus.state import load_result
+
+    ctx = context_from_env()
+    if ctx is None:
+        out.info("Not running in a GitHub PR context — skipping PR comments.")
+        return
+
+    result = load_result()
+    if result is None or not result.findings:
+        out.info("No findings to comment on.")
+        return
+
+    out.step(f"Posting inline PR review comments to {ctx.owner}/{ctx.repo}#{ctx.pr_number}…")
+    outcome = asyncio.run(post_review_comments(ctx, result.findings))
+    out.success(
+        f"Posted {outcome.posted} comment(s) "
+        f"({outcome.skipped_duplicate} already posted, "
+        f"{outcome.skipped_not_in_diff} not on a diff line, "
+        f"{outcome.skipped_no_location} with no file/line)."
+    )
+    for err in outcome.errors:
+        out.warn(f"Could not post comment: {err}")
+
+
 def run_attack(
     target: str | None = None,
     url: str | None = None,

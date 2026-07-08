@@ -6,6 +6,17 @@ All notable changes to Argus are documented here. Format loosely follows
 ## [Unreleased]
 
 ### Added
+- **Inline PR review comments** (ROADMAP v0.5.2): the GitHub Action gained a
+  `pr-comments` input (and a new `argus pr-comment` command) that posts each new
+  finding as an inline review comment right on the changed line — not just
+  buried in the SARIF-driven Security tab. Zero extra setup inside GitHub
+  Actions (uses the job's automatic `github.token` + the standard
+  `pull_request` event payload); a no-op outside a PR context, so it's safe to
+  leave on unconditionally. Idempotent — each comment embeds an invisible
+  fingerprint (the same signature `argus compare` uses) so re-running CI on the
+  same commit never double-posts. Posts one atomic review when every finding is
+  on a diff line; falls back to individual comments (skipping only the ones
+  outside the diff) if not.
 - **Auto-fix pull requests** (ROADMAP v0.5.1): `argus fix <path> --apply --pr`
   takes the already-validated, reverified patches one step further — commits
   them to a new `argus/auto-fix-<ts>` branch, pushes it, and opens a real
