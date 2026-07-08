@@ -194,6 +194,19 @@ signals "we run Argus here," not a real-time pass/fail — pair it with the
 [GitHub Action](#put-it-in-ci) or the [pre-commit hook](#catch-it-before-it-commits-pre-commit-hook)
 below if you want the claim to actually be enforced.
 
+## Run it from your editor (MCP server)
+
+```bash
+pip install 'argus-sec[mcp]'
+argus mcp-server
+```
+
+Exposes `argus_scan`, `argus_attack`, and `argus_fix` as MCP tools, so Copilot,
+Cursor, or Claude Code can run a real security scan/attack/fix directly instead
+of you shelling out and pasting results back in. Point your MCP client's config
+at the `argus mcp-server` command (stdio transport) the same way you'd add any
+other MCP server.
+
 ## Catch it before it commits (pre-commit hook)
 
 The cheapest way to use Argus is on every commit — block a hardcoded secret or
@@ -321,9 +334,20 @@ argus benchmark                     # the full suite (juice_shop/dvwa/vampi need
 
 The [`benchmark.yml`](.github/workflows/benchmark.yml) GitHub Action runs the
 full suite (Docker cases included) on every release and publishes the results
-as a job summary + artifact — building this suite already caught and fixed a
-real gap: `argus demo`'s advertised `INJECTOR:SQLI-ERROR` output wasn't
-actually firing until the benchmark's ground truth exposed it.
+as a job summary + artifact — building this suite already caught and fixed two
+real bugs: `argus demo`'s advertised `INJECTOR:SQLI-ERROR` output wasn't
+actually firing until the ground truth exposed it, and a category mismatch was
+silently hiding a real detection.
+
+First published numbers, run against real Docker targets on GitHub's own
+runners — not smoothed over: `argus_demo` **100%** (14/14 — the fully
+self-contained case), `dvwa` **33%** (2/6), `juice_shop` **14%** (1/7), `vampi`
+**0%** (0/5). The three external misses are honest, understood gaps — Juice
+Shop is an Angular SPA (Argus's crawler doesn't execute JS yet), DVWA's login
+needs a CSRF-token-scraping form login Argus doesn't do yet, and VAmPI is
+API-only with no crawlable HTML — tracked as concrete follow-ups in
+[ROADMAP.md](ROADMAP.md#milestone-v10--prove-it-then-ship-it). That's the
+point of a benchmark: it tells you what's actually true, not what sounds good.
 
 ## Roadmap
 

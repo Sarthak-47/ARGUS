@@ -1,0 +1,130 @@
+"""Argus as an MCP server (roadmap D3).
+
+Exposes scan / attack / fix as MCP tools so an editor agent (Claude Code,
+Cursor, Copilot) can run Argus directly instead of shelling out to the CLI and
+scraping text. Optional: ``pip install 'argus-sec[mcp]'``, then
+``argus mcp-server``.
+
+MCP's stdio transport is a raw JSON-RPC stream *over stdout* — any stray print
+corrupts it, and the engine's own Rich console output (``argus/cli/output.py``)
+writes straight to stdout by design for the CLI. Every tool here runs the
+engine with stdout redirected away while it works, and returns structured
+JSON instead of printed text.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import io
+import shutil
+from typing import Any, Callable
+
+
+def _quiet(fn: Callable, *args: Any, **kwargs: Any) -> Any:
+    """Run ``fn`` with stdout redirected away — required so the engine's Rich
+    console output never corrupts the MCP stdio JSON-RPC stream."""
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        return fn(*args, **kwargs)
+
+
+def build_server():
+    """Construct the FastMCP server with argus_scan/argus_attack/argus_fix
+    registered. Split out from :func:`run` so tests can call tools directly
+    without needing a real stdio client."""
+    from mcp.server.fastmcp import FastMCP
+
+    server = FastMCP("argus")
+
+    @server.tool()
+    def argus_scan(target: str, deep: bool = False) -> dict[str, Any]:
+        """Run Argus's Phase 1 static security scan against a local path or repo
+        URL. Deterministic (no LLM) for speed and reproducibility; returns risk
+        score, band, finding counts, and every finding with its file/line/CWE/fix.
+        """
+        from argus.pipeline import _do_scan
+        from argus.scanner import ingestion
+
+        ingested = ingestion.ingest(target)
+        try:
+            result = _quiet(_do_scan, target, deep=deep, depth=None, no_llm=True)
+        finally:
+            if ingested.cleanup:
+                shutil.rmtree(ingested.root, ignore_errors=True)
+        return result.to_dict()
+
+    @server.tool()
+    async def argus_attack(url: str, agents: str | None = None) -> dict[str, Any]:
+        """Run Argus's Phase 2 attack swarm against an already-running app at
+        `url`. Actively exploits the target (SQLi, XSS, SSRF, auth bypass, IDOR,
+        ...) and returns every confirmed finding with a reproducible PoC.
+        `agents` is an optional comma-separated subset (e.g. "injector,xsshunter");
+        omit to run the full swarm.
+        """
+        from argus.llm.orchestrator import run_attack_async
+
+        # The MCP tool call already runs inside an event loop, so this awaits
+        # the async orchestrator directly rather than the sync asyncio.run()
+        # wrapper (which would fail with "cannot be called from a running
+        # event loop"). Still redirect stdout for defensive consistency with
+        # the other tools, even though the orchestrator itself prints nothing.
+        requested = [a.strip().lower() for a in agents.split(",")] if agents else None
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            findings, reports, _eps = await run_attack_async(url, requested_agents=requested)
+        return {
+            "target": url,
+            "findings": [f.to_dict() for f in findings],
+            "agents_run": [
+                {"agent": r.agent, "status": r.status, "requests_sent": r.requests_sent, "findings": r.findings}
+                for r in reports
+            ],
+        }
+
+    @server.tool()
+    def argus_fix(target: str, apply: bool = False) -> dict[str, Any]:
+        """Generate LLM-written patches for fixable findings in `target`. Needs an
+        LLM provider already configured (`argus setup`). Dry-run by default
+        (apply=False) — returns each proposed diff for review without writing
+        anything; apply=True validates and writes each patch to disk.
+        """
+        from argus.config import load_settings
+        from argus.fix import apply_fixes
+        from argus.llm.provider import get_provider
+        from argus.llm.reasoning import generate_fixes
+        from argus.pipeline import _do_scan
+        from argus.scanner import ingestion
+
+        settings = load_settings()
+        provider = get_provider(settings)
+        if provider is None:
+            return {"error": "No LLM provider configured — run `argus setup` first."}
+
+        result = _quiet(_do_scan, target, deep=False, depth=None, no_llm=True)
+        fixable = [f for f in result.findings if f.file]
+        if not fixable:
+            return {"fixes": [], "note": "No fixable (file-based) findings."}
+
+        ingested = ingestion.ingest(target)
+        try:
+            fixes = _quiet(generate_fixes, provider, ingested.root, fixable)
+            applied = _quiet(apply_fixes, ingested.root, fixes, apply=apply)
+        finally:
+            if ingested.cleanup:
+                shutil.rmtree(ingested.root, ignore_errors=True)
+        return {
+            "applied": apply,
+            "fixes": [
+                {"finding_id": a.finding_id, "file": a.file, "explanation": a.explanation,
+                 "diff": a.diff, "written": a.written}
+                for a in applied
+            ],
+        }
+
+    return server
+
+
+def run() -> None:
+    """Entry point for ``argus mcp-server`` — blocks, serving over stdio."""
+    server = build_server()
+    server.run()

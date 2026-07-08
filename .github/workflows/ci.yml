@@ -32,8 +32,9 @@ jobs:
           python -m pip install --upgrade pip
           # sandbox pulls in the docker Python SDK — ubuntu-latest runners have
           # a live Docker daemon, so test_sandbox.py's live tests actually run
-          # here rather than skipping.
-          pip install -e ".[dev,sandbox]"
+          # here rather than skipping. mcp exercises test_mcp_server.py the
+          # same way instead of pytest.importorskip-ing it.
+          pip install -e ".[dev,sandbox,mcp]"
 
       - name: Lint (ruff)
         run: ruff check argus tests

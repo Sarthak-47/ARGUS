@@ -271,6 +271,30 @@ def benchmark(
 
 
 # --------------------------------------------------------------------------- #
+# mcp-server  (expose scan/attack/fix as MCP tools for an editor agent)
+# --------------------------------------------------------------------------- #
+@app.command(name="mcp-server")
+def mcp_server() -> None:
+    """Serve Argus as an MCP server over stdio (argus_scan/argus_attack/argus_fix).
+
+    Lets an MCP-capable editor agent (Claude Code, Cursor, Copilot) run Argus
+    directly. Needs the optional 'mcp' extra: pip install 'argus-sec\\[mcp]'.
+    """
+    try:
+        from argus.mcp_server import run
+    except ImportError:
+        from argus.cli import output as out
+
+        out.error(
+            "The MCP server needs the optional 'mcp' extra — "
+            "pip install 'argus-sec\\[mcp]'."
+        )
+        raise typer.Exit(code=1)
+
+    run()
+
+
+# --------------------------------------------------------------------------- #
 # history
 # --------------------------------------------------------------------------- #
 @app.command()

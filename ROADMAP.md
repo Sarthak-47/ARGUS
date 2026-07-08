@@ -134,7 +134,30 @@ developers live.
   future expansion). `argus benchmark` + `.github/workflows/benchmark.yml`
   publish detection/unmatched rates on every release. **The credibility
   unlock** — building it already found and fixed a real gap (the demo target's
-  SQLi signature never actually matched Injector's patterns).
+  SQLi signature never actually matched Injector's patterns), and a real
+  ground-truth bug (a category mismatch on the missing-headers entries).
+  **First published numbers** (run against real Docker targets on GitHub's
+  runners, not simulated): `argus_demo` 100% (14/14 — the fully self-contained
+  case), `dvwa` 33% (2/6), `juice_shop` 14% (1/7), `vampi` 0% (0/5) — after
+  finding and fixing a ground-truth category bug the first run exposed.
+  Published as-is, not smoothed over — the three external misses are real,
+  understood gaps (below), which is exactly what a benchmark is supposed to
+  surface.
+  - **Follow-up A — JS-aware crawling.** Juice Shop is an Angular SPA; Argus's
+    crawler doesn't execute JS, so it can't discover API routes behind
+    client-side routing. DomXSSHunter already carries a headless-browser
+    dependency (opt-in, `--agents domxss`) — the natural next step is reusing
+    that browser to seed the crawl, not just to test for DOM XSS. *Medium-large.*
+  - **Follow-up B — CSRF-aware form login.** DVWA's login form requires a
+    rotating hidden `user_token` field scraped from the login page before POST;
+    the current `--auth` form-login (v0.3.1) only sends a fixed field dict, so
+    it can't get past DVWA's wall. Extend `AuthConfig`'s form-login to scrape a
+    named hidden field from a GET of the login page first. *Small-medium.*
+  - **Follow-up C — auto-discover a target's own OpenAPI spec.** VAmPI is
+    API-only (no HTML for a link-crawler to walk) but ships its own OpenAPI
+    spec. ReconBot could probe well-known spec paths (`/openapi.json`,
+    `/swagger.json`, `/.well-known/openapi.json`) and auto-feed anything found
+    into the same seeding path `--api-spec` (v0.3.2) already has. *Small.*
 - **v1.0.2 · Integrations.** DefectDojo + Jira export (findings → tickets);
   keep it optional and lightweight. *Small-medium each.*
 - **v1.0.3 · Docs site + hardening.** A real getting-started/docs site, an
@@ -157,10 +180,16 @@ habit. Build them in parallel with the milestones above — cheapest-first.
 - **D2 · "Scanned by Argus" README badge.** ✅ **Done.** A static shields.io
   badge with copy-pasteable markdown, documented in the README — free social
   proof and backlinks that compound forever.
-- **D3 · Argus as an MCP server.** Expose `scan` / `attack` / `fix` as MCP tools
-  so Copilot / Cursor / Claude Code can run Argus from inside the editor. MCP is
-  the defining 2026 distribution surface (GitHub shipped secret-scanning-over-MCP
-  this year). On-trend, high reach. *Medium.*
+- **D3 · Argus as an MCP server.** ✅ **Done.** `argus mcp-server` (optional
+  `argus-sec[mcp]` extra) exposes `argus_scan`/`argus_attack`/`argus_fix` as MCP
+  tools so Copilot/Cursor/Claude Code can run Argus from inside the editor.
+  Every tool redirects the engine's Rich console output away from stdout
+  (required — stdio *is* the JSON-RPC transport) and returns structured JSON.
+  Verified live through the real MCP `call_tool` protocol path: zero stdout
+  leakage, real findings returned, including a genuine async-nesting bug found
+  and fixed (`argus_attack` must `await` the orchestrator directly rather than
+  going through its sync `asyncio.run()` wrapper, since the tool call already
+  runs inside an event loop).
 - **D4 · GitHub App / PR bot.** One-click install that auto-scans PRs and posts
   inline comments (shares plumbing with v0.5.2). This is how a tool spreads
   through a team virally — one dev installs it, everyone sees Argus on every PR.
@@ -205,6 +234,7 @@ habit is a stronger growth engine than any amount of posting.
 | **P2** | BOLA/BFLA, image CVEs, PR comments, sandbox stacks | v0.3–0.5 | Depth once the spine exists |
 | **P2** | VEX, behavioral dep analysis, LLM taint-tracing, deeper MCP | v0.3–0.4 | On-trend detection depth |
 | **P2** | GitHub App, VS Code extension, integrations, docs | D4–D5, v1.0 | Reach + polish |
+| **P2** | JS-aware crawling, CSRF-aware login, auto-discover OpenAPI spec | v1.0.1 follow-ups | Real gaps the benchmark surfaced |
 
 ---
 

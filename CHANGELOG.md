@@ -6,6 +6,18 @@ All notable changes to Argus are documented here. Format loosely follows
 ## [Unreleased]
 
 ### Added
+- **Argus as an MCP server** (ROADMAP D3): `argus mcp-server` (new optional
+  `argus-sec[mcp]` extra) exposes `argus_scan`/`argus_attack`/`argus_fix` as
+  MCP tools, so an MCP-capable editor agent (Copilot/Cursor/Claude Code) can
+  run a real scan/attack/fix directly instead of shelling out and pasting
+  results back in. Every tool runs the engine with stdout redirected away
+  (required — the stdio transport *is* stdout, so any stray print would
+  corrupt the protocol) and returns structured JSON via `ScanResult.to_dict()`/
+  `Finding.to_dict()`. Verified live through the real MCP `call_tool` path:
+  zero stdout leakage, real findings returned against both a static target and
+  a live server (a real XSS confirmed via `argus_attack`) — this also caught
+  and fixed a genuine bug, `argus_attack` calling the sync `asyncio.run()`
+  wrapper from inside a tool call that's already running in an event loop.
 - **Benchmark suite** (ROADMAP v1.0.1): new `argus benchmark` command runs the
   full attack swarm against known-vulnerable apps — OWASP Juice Shop, DVWA,
   VAmPI, and Argus's own bundled demo target (the only case that needs no
@@ -17,7 +29,16 @@ All notable changes to Argus are documented here. Format loosely follows
   target's crafted SQL error text didn't match any of Injector's real-world
   error-based-SQLi signatures, so `argus demo`'s advertised
   `INJECTOR:SQLI-ERROR` output was never actually firing — now it does
-  (100% detection rate on the local case, verified live).
+  (100% detection rate on the local case, verified live). Triggering the
+  workflow against real Docker targets on GitHub's runners also caught a
+  ground-truth bug (a category mismatch on the missing-headers entries, fixed)
+  and surfaced three honest, understood gaps now tracked as concrete
+  follow-ups in ROADMAP.md: Juice Shop's Angular SPA needs JS-aware crawling,
+  DVWA's login needs a CSRF-token-scraping form login, and VAmPI (API-only,
+  no crawlable HTML) needs its own OpenAPI spec auto-discovered. First
+  published numbers, after that fix: `argus_demo` 100% (14/14), `dvwa` 33%
+  (2/6), `juice_shop` 14% (1/7), `vampi` 0% (0/5) — published as-is, not
+  smoothed over.
 - **"Scanned by Argus" badge** (ROADMAP D2): a static shields.io badge
   (`security: scanned by Argus`) other repos can drop into their own README —
   documented with copy-pasteable markdown right in ours. Honestly scoped: a
