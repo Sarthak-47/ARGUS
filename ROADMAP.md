@@ -179,9 +179,15 @@ developers live.
     call, nothing in the server-rendered HTML) — both genuinely discovered.
     `.github/workflows/benchmark.yml` now installs the `browser` extra plus
     Chromium so the real `juice_shop` benchmark case exercises this. **Confirmed
-    against the real target:** re-running the benchmark moved `juice_shop` from
-    14% (1/7) to **29% (2/7)**, findings up from 77 to 78 — SQL injection, which
-    Juice Shop only exposes behind Angular's client-side router, is now caught.
+    against the real target, with an honest caveat:** across three re-runs on
+    GitHub's shared runners, `juice_shop` scored 29% (2/7) twice and 14% (1/7)
+    once — the JS-aware crawl catches SQL injection (Juice Shop only exposes it
+    behind Angular's client-side router) when it wins the race against
+    Angular's bootstrap time within the 10s `networkidle` wait, and silently
+    falls back to the static-only result on a run where a busier shared runner
+    doesn't clear that window in time. A real, reproducible improvement in the
+    common case, not a guaranteed one on every run — published as observed,
+    not rounded up to the better number.
   - **Follow-up B — CSRF-aware form login.** ✅ **Done.** `AuthConfig`'s form
     login gained an optional `csrf_field`: Argus GETs the login page first,
     scrapes a named hidden input's value regardless of attribute order, and

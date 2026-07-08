@@ -236,7 +236,23 @@ class ReconBot(BaseAgent):
                         await browser_ctx.add_cookies(cookies)
                     page = await browser_ctx.new_page()
                     page.on("request", _on_request)
-                    await page.goto(base + "/", timeout=10000, wait_until="networkidle")
+                    try:
+                        await page.goto(base + "/", timeout=12000, wait_until="networkidle")
+                    except Exception:
+                        # "networkidle" never fires on a page with an open
+                        # websocket/long-poll, or a busy CI runner just needs
+                        # longer than the budget below — either way, the DOM
+                        # has very likely already rendered and any XHR/fetch
+                        # calls already fired by this point, so falling all
+                        # the way back to zero results here would throw away
+                        # real data over a wait-condition technicality. A
+                        # short extra `load` wait as a floor, then continue
+                        # with whatever the page has, is worth far more than
+                        # a clean-looking exception.
+                        try:
+                            await page.wait_for_load_state("load", timeout=3000)
+                        except Exception:
+                            pass
                     rendered_html = await page.content()
                 finally:
                     await browser.close()

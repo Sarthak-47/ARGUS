@@ -19,8 +19,10 @@ All notable changes to Argus are documented here. Format loosely follows
   call it fires — the Angular/React/Vue SPA gap that hid Juice Shop's
   client-routed surface from a regex-over-server-HTML crawl. Verified live
   against a real server whose only link and only API call exist purely
-  inside a `<script>` tag. Confirmed against the real target: the
-  `juice_shop` benchmark case moved from 14% (1/7) to **29% (2/7)**.
+  inside a `<script>` tag. Confirmed against the real target, with a caveat:
+  across three re-runs on GitHub's shared runners, `juice_shop` scored 29%
+  (2/7) twice and 14% (1/7) once — the crawl wins its race against Angular's
+  bootstrap time in the common case but can lose it on a busier runner.
 - **Behavioral dependency analysis** (ROADMAP v0.4.5): install-script
   analysis deepened beyond the original curl-piped-to-shell check — a
   download-then-execute two-step, a base64-decoded payload piped to a
