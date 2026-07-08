@@ -148,11 +148,14 @@ developers live.
     client-side routing. DomXSSHunter already carries a headless-browser
     dependency (opt-in, `--agents domxss`) — the natural next step is reusing
     that browser to seed the crawl, not just to test for DOM XSS. *Medium-large.*
-  - **Follow-up B — CSRF-aware form login.** DVWA's login form requires a
-    rotating hidden `user_token` field scraped from the login page before POST;
-    the current `--auth` form-login (v0.3.1) only sends a fixed field dict, so
-    it can't get past DVWA's wall. Extend `AuthConfig`'s form-login to scrape a
-    named hidden field from a GET of the login page first. *Small-medium.*
+  - **Follow-up B — CSRF-aware form login.** ✅ **Done.** `AuthConfig`'s form
+    login gained an optional `csrf_field`: Argus GETs the login page first,
+    scrapes a named hidden input's value regardless of attribute order, and
+    echoes it back in the POST body. Verified live against a real threaded
+    server that genuinely validates the token server-side (rejects a stale/
+    wrong one with 403) — not just a mock that always accepts. The benchmark's
+    `dvwa` case now wires this with DVWA's documented default credentials
+    (admin/password) plus the one-time DB-setup POST a fresh container needs.
   - **Follow-up C — auto-discover a target's own OpenAPI spec.** ✅ **Done.**
     ReconBot now probes well-known spec paths (`/openapi.json`,
     `/swagger.json`, `/api/openapi.json`, `/.well-known/openapi.json`, …) and,

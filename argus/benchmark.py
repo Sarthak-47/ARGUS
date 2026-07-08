@@ -67,6 +67,15 @@ class BenchmarkCase:
     image: str | None = None
     container_port: int | None = None
     ready_path: str = "/"
+    # A one-time POST needed before the target is usable at all (DVWA's fresh
+    # container has no database until this runs) — best-effort, errors ignored.
+    setup_path: str | None = None
+    setup_data: dict[str, str] | None = None
+    # Auth *parameters*, not a built AuthConfig — the login URL needs the
+    # container's dynamically-assigned host port, only known at run time.
+    auth_login_path: str | None = None
+    auth_data: dict[str, str] | None = None
+    auth_csrf_field: str | None = None
 
 
 @dataclass
@@ -225,8 +234,15 @@ CASES: dict[str, BenchmarkCase] = {
     ),
     "dvwa": BenchmarkCase(
         name="dvwa", description="Damn Vulnerable Web Application", kind="docker",
-        image="vulnerables/web-dvwa:latest", container_port=80, ready_path="/",
+        image="vulnerables/web-dvwa:latest", container_port=80, ready_path="/login.php",
         ground_truth=DVWA_GROUND_TRUTH,
+        # A fresh container has no database until this runs once.
+        setup_path="/setup.php", setup_data={"create_db": "Create / Reset Database"},
+        # DVWA's documented default credentials; its login form is
+        # CSRF-token-protected (roadmap v1.0.1 follow-up B).
+        auth_login_path="/login.php",
+        auth_data={"username": "admin", "password": "password", "Login": "Login"},
+        auth_csrf_field="user_token",
     ),
     "vampi": BenchmarkCase(
         name="vampi", description="VAmPI (Vulnerable API)", kind="docker",
@@ -234,6 +250,19 @@ CASES: dict[str, BenchmarkCase] = {
         ground_truth=VAMPI_GROUND_TRUTH,
     ),
 }
+
+
+def _run_setup(base_url: str, path: str, data: dict[str, str]) -> None:
+    """Best-effort one-time POST a fresh target needs before it's usable at
+    all (DVWA's DB init). Errors are swallowed — the target may already be
+    initialized, or a version mismatch might change the exact form; the
+    ready-path reachability check and the auth login are the real gates."""
+    import httpx
+
+    try:
+        httpx.post(base_url + path, data=data, timeout=15.0)
+    except httpx.HTTPError:
+        pass
 
 
 def _run_docker_target(case: BenchmarkCase, timeout: float = 90.0) -> list[Finding]:
@@ -263,7 +292,21 @@ def _run_docker_target(case: BenchmarkCase, timeout: float = 90.0) -> list[Findi
         base_url = f"http://127.0.0.1:{host_port}"
         if not _wait_until_reachable(base_url + case.ready_path, timeout=timeout):
             raise SandboxError(f"{case.name} never became reachable at {base_url} within {timeout:.0f}s")
-        findings, _reports, _eps = run_attack_sync(base_url, use_callback=False)
+
+        if case.setup_path:
+            _run_setup(base_url, case.setup_path, case.setup_data or {})
+
+        auth = None
+        if case.auth_login_path:
+            from argus.auth import AuthConfig
+
+            auth = AuthConfig(
+                login_url=base_url + case.auth_login_path,
+                login_data=dict(case.auth_data or {}),
+                csrf_field=case.auth_csrf_field,
+            )
+
+        findings, _reports, _eps = run_attack_sync(base_url, use_callback=False, auth=auth)
         return findings
     finally:
         try:

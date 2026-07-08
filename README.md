@@ -156,7 +156,10 @@ A `.argus-auth.toml` (auto-discovered in the working directory, or passed with
 `--auth`) supports a **bearer token**, arbitrary **headers**, session
 **cookies**, **HTTP basic**, a **form login** (reuses the session cookie it sets,
 or extracts a token from the JSON response), and **OAuth2 client-credentials**.
-See [`.argus-auth.example.toml`](.argus-auth.example.toml). Credentials are never
+The form login is **CSRF-aware** too — many real login forms (DVWA's included)
+embed a rotating hidden token that must be echoed back; set `csrf_field` and
+Argus scrapes it from the login page first. See
+[`.argus-auth.example.toml`](.argus-auth.example.toml). Credentials are never
 echoed into a captured proof-of-concept. (Keep `.argus-auth.toml` out of git.)
 
 Add a **second identity** with `--auth-b <file>` (ideally a low-privilege account)

@@ -6,6 +6,16 @@ All notable changes to Argus are documented here. Format loosely follows
 ## [Unreleased]
 
 ### Added
+- **CSRF-aware form login** (ROADMAP v1.0.1 follow-up B): `AuthConfig`'s form
+  login gained an optional `csrf_field` — Argus GETs the login page first,
+  scrapes a named hidden input's value (regardless of attribute order), and
+  echoes it back in the POST body. Closes a real gap the benchmark found: DVWA's
+  login form requires a rotating `user_token` field that the previous
+  fixed-field-dict POST could never satisfy. Verified live against a real
+  threaded server that genuinely validates the token server-side (rejects a
+  stale/wrong one), not just a mock. The benchmark's `dvwa` case now wires this
+  with DVWA's documented default credentials plus the one-time DB-setup POST a
+  fresh container needs.
 - **Auto-discover a target's own OpenAPI spec** (ROADMAP v1.0.1 follow-up C):
   ReconBot now probes well-known spec paths (`/openapi.json`, `/swagger.json`,
   `/api/openapi.json`, `/.well-known/openapi.json`, …) and, on a hit, parses it

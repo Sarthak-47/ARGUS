@@ -10,7 +10,10 @@ Supported, cheapest-first:
   - static credentials: a bearer token / arbitrary headers, session cookies,
     or HTTP basic auth;
   - a **form login** — POST credentials to a login URL and reuse the session
-    cookie it sets (or extract a token from the JSON response → Bearer);
+    cookie it sets (or extract a token from the JSON response → Bearer).
+    Optionally CSRF-aware: many real login forms (DVWA's included) embed a
+    rotating hidden token that must be echoed back or the POST is rejected —
+    set ``csrf_field`` and Argus GETs the login page first to scrape it;
   - **OAuth2 client-credentials** — fetch an access token and use it as Bearer.
 
 Config comes from a ``.argus-auth.toml`` (see ``argus attack --auth <file>``),
@@ -21,6 +24,7 @@ Authorization/Cookie headers this module sets.
 
 from __future__ import annotations
 
+import re
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -46,6 +50,7 @@ class AuthConfig:
     login_json: bool = False
     login_data: dict[str, str] = field(default_factory=dict)
     token_json_path: str | None = None
+    csrf_field: str | None = None
     # oauth2 client-credentials
     oauth_token_url: str | None = None
     oauth_client_id: str | None = None
@@ -79,6 +84,7 @@ class AuthConfig:
             login_json=bool(login.get("json", False)),
             login_data={str(k): str(v) for k, v in (login.get("data") or {}).items()},
             token_json_path=login.get("token_json_path"),
+            csrf_field=login.get("csrf_field"),
             oauth_token_url=oauth.get("token_url"),
             oauth_client_id=oauth.get("client_id"),
             oauth_client_secret=oauth.get("client_secret"),
@@ -131,7 +137,23 @@ class AuthConfig:
         return ", ".join(notes) if notes else "none"
 
     async def _form_login(self, client: httpx.AsyncClient) -> str | None:
-        kwargs: dict[str, Any] = {"json": self.login_data} if self.login_json else {"data": self.login_data}
+        data = dict(self.login_data)
+        if self.csrf_field:
+            try:
+                page = await client.get(self.login_url)
+            except httpx.HTTPError as exc:
+                raise AuthError(
+                    f"Could not GET the login page at {self.login_url} to scrape a CSRF token: {exc}"
+                ) from exc
+            token = _extract_hidden_value(page.text or "", self.csrf_field)
+            if token is None:
+                raise AuthError(
+                    f"Login page at {self.login_url} has no hidden input named "
+                    f"'{self.csrf_field}' — check the field name."
+                )
+            data[self.csrf_field] = token
+
+        kwargs: dict[str, Any] = {"json": data} if self.login_json else {"data": data}
         try:
             resp = await client.request(self.login_method, self.login_url, **kwargs)
         except httpx.HTTPError as exc:
@@ -166,6 +188,26 @@ class AuthConfig:
         if not token:
             raise AuthError("OAuth2 response had no access_token.")
         return str(token)
+
+
+_INPUT_TAG = re.compile(r"<input\b[^>]*>", re.IGNORECASE)
+_ATTR_NAME = re.compile(r"""\bname\s*=\s*['"]([^'"]+)['"]""", re.IGNORECASE)
+_ATTR_VALUE = re.compile(r"""\bvalue\s*=\s*['"]([^'"]*)['"]""", re.IGNORECASE)
+
+
+def _extract_hidden_value(html: str, field_name: str) -> str | None:
+    """Find ``<input ... name="field_name" ... value="X" ...>`` and return X,
+    regardless of attribute order — real-world login forms vary (DVWA puts
+    type/name/value in one order, other apps in another)."""
+    for tag_match in _INPUT_TAG.finditer(html):
+        tag = tag_match.group(0)
+        name_m = _ATTR_NAME.search(tag)
+        if not name_m or name_m.group(1) != field_name:
+            continue
+        value_m = _ATTR_VALUE.search(tag)
+        if value_m:
+            return value_m.group(1)
+    return None
 
 
 def _safe_json(resp: httpx.Response) -> Any:

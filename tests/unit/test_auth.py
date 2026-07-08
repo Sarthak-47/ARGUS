@@ -7,7 +7,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from argus.auth import AuthConfig, AuthError, load_auth
+from argus.auth import AuthConfig, AuthError, _extract_hidden_value, load_auth
 
 
 def _client(handler) -> httpx.AsyncClient:
@@ -177,3 +177,108 @@ def test_swarm_sends_auth_on_every_request():
     assert seen, "the swarm made no requests"
     assert all(a == "Bearer SECRET_SESSION_TOKEN" for a in seen), \
         f"some requests were unauthenticated: {[a for a in seen if a != 'Bearer SECRET_SESSION_TOKEN']}"
+
+
+# ----- CSRF-aware form login (roadmap v1.0.1 follow-up B) -----
+
+def test_extract_hidden_value_finds_named_input_any_attribute_order():
+    html = '<input type="hidden" name="user_token" value="abc123">'
+    assert _extract_hidden_value(html, "user_token") == "abc123"
+    # value before name -- real-world forms vary in attribute order
+    html2 = '<input value="xyz789" type="hidden" name="csrf">'
+    assert _extract_hidden_value(html2, "csrf") == "xyz789"
+
+
+def test_extract_hidden_value_ignores_other_inputs():
+    html = '<input name="username" value="admin"><input name="user_token" value="tok1">'
+    assert _extract_hidden_value(html, "user_token") == "tok1"
+
+
+def test_extract_hidden_value_none_when_absent():
+    assert _extract_hidden_value("<input name='other' value='x'>", "user_token") is None
+
+
+async def test_csrf_form_login_scrapes_token_before_posting():
+    login_page = '<form><input type="hidden" name="user_token" value="ROTATING123"></form>'
+    posted = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            return httpx.Response(200, text=login_page)
+        posted.update(dict(x.split("=") for x in request.content.decode().split("&")))
+        return httpx.Response(200, headers={"set-cookie": "PHPSESSID=abc; Path=/"})
+
+    cfg = AuthConfig.from_dict({
+        "login": {"url": "http://dvwa/login.php", "csrf_field": "user_token",
+                  "data": {"username": "admin", "password": "password"}}
+    })
+    async with _client(handler) as client:
+        await cfg.apply(client)
+
+    assert posted.get("user_token") == "ROTATING123"
+    assert posted.get("username") == "admin"
+
+
+async def test_csrf_form_login_rejects_missing_field():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="<html>no hidden field here</html>")
+
+    cfg = AuthConfig.from_dict({
+        "login": {"url": "http://dvwa/login.php", "csrf_field": "user_token", "data": {"u": "a"}}
+    })
+    async with _client(handler) as client:
+        with pytest.raises(AuthError, match="no hidden input"):
+            await cfg.apply(client)
+
+
+async def test_csrf_form_login_wrong_token_rejected_by_server():
+    """Live proof against a real threaded server that actually validates the
+    CSRF token server-side -- mirroring DVWA's real behavior (a stale/guessed
+    token is rejected), not just a mock that always accepts the POST."""
+    import http.server
+    import socketserver
+    import threading
+    import urllib.parse
+
+    real_token = "TOK-" + "9f8e7d6c"
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
+            self.wfile.write(
+                f'<form><input type="hidden" name="user_token" value="{real_token}">'
+                f'</form>'.encode()
+            )
+
+        def do_POST(self):
+            length = int(self.headers.get("Content-Length", 0) or 0)
+            body = self.rfile.read(length).decode()
+            fields = dict(urllib.parse.parse_qsl(body))
+            if fields.get("user_token") == real_token:
+                self.send_response(200)
+                self.send_header("Set-Cookie", "PHPSESSID=loggedin; Path=/")
+            else:
+                self.send_response(403)
+            self.end_headers()
+
+        def log_message(self, *a):
+            pass
+
+    class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
+        daemon_threads = True
+
+    srv = Server(("127.0.0.1", 0), Handler)
+    port = srv.server_address[1]
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        cfg = AuthConfig.from_dict({
+            "login": {"url": f"http://127.0.0.1:{port}/login.php", "csrf_field": "user_token",
+                      "data": {"username": "admin", "password": "password"}}
+        })
+        async with httpx.AsyncClient() as client:
+            await cfg.apply(client)  # must not raise -- server accepted the scraped token
+            assert client.cookies.get("PHPSESSID") == "loggedin"
+    finally:
+        srv.shutdown()

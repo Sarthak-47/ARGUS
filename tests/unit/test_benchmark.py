@@ -180,3 +180,67 @@ def test_docker_cases_registered_with_images():
         assert case.image
         assert case.container_port
         assert len(case.ground_truth) > 0
+
+
+def test_dvwa_case_has_setup_and_auth_wired():
+    dvwa = CASES["dvwa"]
+    assert dvwa.setup_path == "/setup.php"
+    assert dvwa.auth_login_path == "/login.php"
+    assert dvwa.auth_data.get("username") == "admin"
+    assert dvwa.auth_csrf_field == "user_token"
+
+
+def test_run_setup_swallows_errors(monkeypatch):
+    import httpx
+
+    from argus.benchmark import _run_setup
+
+    def fail(*a, **kw):
+        raise httpx.ConnectError("nope")
+
+    monkeypatch.setattr(httpx, "post", fail)
+    _run_setup("http://nope", "/setup.php", {"x": "y"})  # must not raise
+
+
+def test_docker_target_wires_csrf_aware_auth(monkeypatch):
+    """The full _run_docker_target flow, with Docker and the network mocked:
+    proves setup runs, an AuthConfig is built with the right params, and it's
+    passed into run_attack_sync -- without needing a real DVWA container."""
+    from argus.benchmark import CASES, _run_docker_target
+
+    setup_calls = []
+    attack_calls = []
+
+    class FakeContainer:
+        def remove(self, force=True):
+            pass
+
+    class FakeContainers:
+        def run(self, *a, **kw):
+            return FakeContainer()
+
+    class FakeClient:
+        containers = FakeContainers()
+
+    monkeypatch.setattr("docker.from_env", lambda: FakeClient())
+    monkeypatch.setattr("argus.sandbox.docker_manager._wait_until_reachable", lambda url, timeout: True)
+    monkeypatch.setattr(
+        "argus.benchmark._run_setup",
+        lambda base, path, data: setup_calls.append((path, data)),
+    )
+
+    def fake_attack_sync(base_url, use_callback=False, auth=None):
+        attack_calls.append(auth)
+        return [], [], []
+
+    monkeypatch.setattr("argus.llm.orchestrator.run_attack_sync", fake_attack_sync)
+
+    _run_docker_target(CASES["dvwa"])
+
+    assert setup_calls and setup_calls[0][0] == "/setup.php"
+    assert len(attack_calls) == 1
+    auth = attack_calls[0]
+    assert auth is not None
+    assert auth.login_url.endswith("/login.php")
+    assert auth.csrf_field == "user_token"
+    assert auth.login_data["username"] == "admin"

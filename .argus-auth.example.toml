@@ -36,6 +36,10 @@
 # method = "POST"
 # json = true                 # send the body as JSON (omit/false = form-encoded)
 # token_json_path = "token"   # optional — extract a bearer token from the response
+# csrf_field = "user_token"   # optional — many real login forms (DVWA's included) embed a
+#                              # rotating hidden token. Set the input's `name` here and Argus
+#                              # GETs the login page first to scrape its `value`, then echoes
+#                              # it back in the POST body under this same field name.
 # [login.data]
 # email = "admin@example.com"
 # password = "s3cret"
