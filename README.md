@@ -263,7 +263,9 @@ Nobody else combines all six. That's the gap Argus owns.
 - ✅ **Phase 2 — Attack swarm** (`argus attack`): **18 agents** (13 original + MCPSecurityAgent,
   PromptInjectionAgent, BusinessLogicAgent, AuthzTester, and the opt-in DomXSSHunter),
   orchestration loop,
-  Docker auto-sandboxing when no `--url` is given, callback server for blind detection,
+  Docker auto-sandboxing when no `--url` is given (Django, Flask, FastAPI, Rails, Node/Express/
+  Next/Vite, or a `docker-compose.yml` with a published port — falls back to `--url` otherwise),
+  callback server for blind detection,
   **exploit chaining** (compounds confirmed findings into attack paths — e.g. XSS + a
   script-readable session cookie → account takeover, or clickjacking + a missing CSRF token →
   forced state change), deduplicated findings, a persistent

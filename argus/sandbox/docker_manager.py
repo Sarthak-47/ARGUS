@@ -89,8 +89,24 @@ class Sandbox:
         self._network = None
         self._container = None
         self._image_id: str | None = None
+        self._compose_file: Path | None = None  # set only when running via docker compose
 
     def start(self, timeout: float = 60.0) -> str:
+        dockerfile_info = dockerfile_gen.find_existing_dockerfile(self.root) or dockerfile_gen.generate_dockerfile(self.root)
+        if dockerfile_info is None:
+            # No single-container path — fall back to a docker-compose stack if
+            # the repo has one with an explicitly published port. Multi-service
+            # repos (a separate frontend/backend, a DB sidecar, …) are exactly
+            # what a single generated Dockerfile can't represent.
+            compose_info = dockerfile_gen.compose_target(self.root)
+            if compose_info is not None:
+                return self._start_compose(compose_info, timeout)
+            raise SandboxError(
+                "Couldn't determine how to run this repo automatically (no Dockerfile, no "
+                "docker-compose file with a published port, and the stack isn't one Argus "
+                "can confidently guess a start command for). Start it yourself and use --url instead."
+            )
+
         try:
             import docker
             from docker.errors import APIError, BuildError, DockerException
@@ -99,13 +115,6 @@ class Sandbox:
                 "The 'docker' Python package isn't installed — pip install 'argus-sec[sandbox]'."
             ) from exc
 
-        dockerfile_info = dockerfile_gen.find_existing_dockerfile(self.root) or dockerfile_gen.generate_dockerfile(self.root)
-        if dockerfile_info is None:
-            raise SandboxError(
-                "Couldn't determine how to run this repo automatically (no Dockerfile, "
-                "and the stack isn't one Argus can confidently guess a start command for). "
-                "Start it yourself and use --url instead."
-            )
         content_or_name, container_port = dockerfile_info
         generated = content_or_name != "Dockerfile"
 
@@ -162,7 +171,56 @@ class Sandbox:
             )
         return base_url
 
+    def _start_compose(self, compose_info: tuple[Path, int], timeout: float) -> str:
+        import subprocess
+
+        compose_file, host_port = compose_info
+        if not self._compose_available():
+            raise SandboxError(
+                "Found a docker-compose file, but the 'docker compose' plugin isn't "
+                "available. Start the stack yourself and use --url instead."
+            )
+        self._compose_file = compose_file
+        try:
+            subprocess.run(
+                ["docker", "compose", "-f", str(compose_file), "up", "-d", "--build"],
+                cwd=str(self.root), capture_output=True, text=True, timeout=300, check=True,
+            )
+        except subprocess.CalledProcessError as exc:
+            raise SandboxError(f"docker compose up failed: {(exc.stderr or exc.stdout or '').strip()[:500]}") from exc
+        except subprocess.SubprocessError as exc:
+            raise SandboxError(f"docker compose up failed: {exc}") from exc
+
+        base_url = f"http://127.0.0.1:{host_port}"
+        if not _wait_until_reachable(base_url, timeout=timeout):
+            raise SandboxError(
+                f"The compose stack never became reachable at {base_url} within "
+                f"{timeout:.0f}s (check the compose file's build/service definitions)."
+            )
+        return base_url
+
+    @staticmethod
+    def _compose_available() -> bool:
+        import subprocess
+
+        try:
+            proc = subprocess.run(["docker", "compose", "version"], capture_output=True, text=True, timeout=8)
+            return proc.returncode == 0
+        except (subprocess.SubprocessError, OSError):
+            return False
+
     def stop(self) -> None:
+        if self._compose_file is not None:
+            import subprocess
+
+            try:
+                subprocess.run(
+                    ["docker", "compose", "-f", str(self._compose_file), "down", "-v"],
+                    cwd=str(self.root), capture_output=True, text=True, timeout=120,
+                )
+            except (subprocess.SubprocessError, OSError):
+                pass
+            return
         if self._container is not None:
             try:
                 self._container.remove(force=True)

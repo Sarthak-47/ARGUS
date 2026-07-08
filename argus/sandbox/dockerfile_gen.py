@@ -1,10 +1,14 @@
 """Auto-generates a minimal Dockerfile for the handful of stacks Argus can
-confidently guess a start command for.
+confidently guess a start command for, plus detection of an existing
+docker-compose file with an explicitly published port.
 
 Deliberately conservative: a wrong guess produces a container that silently
 never starts, which for a security tool means an honest target gets reported
 as "zero findings" instead of "couldn't sandbox this" — a dangerous false
 negative. Better to recognize fewer stacks correctly than more stacks wrong.
+Every probe here either finds an unambiguous, near-universal convention (a
+framework's own entry-point file, an explicit `ports:` mapping) or declines —
+never a best-effort guess at an entrypoint filename.
 """
 
 from __future__ import annotations
@@ -12,6 +16,8 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+
+_COMPOSE_NAMES = ("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml")
 
 
 def find_existing_dockerfile(root: Path) -> tuple[str, int] | None:
@@ -35,11 +41,18 @@ def generate_dockerfile(root: Path) -> tuple[str, int] | None:
     """Returns (dockerfile_content, container_port), or None if the stack
     can't be confidently determined — caller should fall back to ``--url``.
     """
-    for probe in (_try_django, _try_node):
+    for probe in (_try_django, _try_flask, _try_fastapi, _try_rails, _try_node):
         result = probe(root)
         if result is not None:
             return result
     return None
+
+
+def _read_text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return ""
 
 
 def _try_django(root: Path) -> tuple[str, int] | None:
@@ -61,28 +74,191 @@ def _try_django(root: Path) -> tuple[str, int] | None:
     return dockerfile, 8000
 
 
+def _try_flask(root: Path) -> tuple[str, int] | None:
+    req = root / "requirements.txt"
+    if not req.exists():
+        return None
+    req_text = _read_text(req).lower()
+    if not re.search(r"^\s*flask\b", req_text, re.MULTILINE):
+        return None
+    # Find the module that instantiates a Flask app — the near-universal
+    # `Flask(__name__)` pattern — rather than guessing a filename.
+    entry = _find_module_matching(root, re.compile(r"\bFlask\s*\("))
+    if entry is None:
+        return None
+    module = entry.relative_to(root).with_suffix("").as_posix().replace("/", ".")
+    dockerfile = (
+        "FROM python:3.12-slim\n"
+        "WORKDIR /app\n"
+        "COPY . .\n"
+        "RUN pip install --no-cache-dir -r requirements.txt\n"
+        "ENV PYTHONUNBUFFERED=1 FLASK_APP=" + module + "\n"
+        "EXPOSE 5000\n"
+        'CMD ["flask", "run", "--host=0.0.0.0", "--port=5000"]\n'
+    )
+    return dockerfile, 5000
+
+
+def _try_fastapi(root: Path) -> tuple[str, int] | None:
+    req = root / "requirements.txt"
+    if not req.exists():
+        return None
+    req_text = _read_text(req).lower()
+    if "fastapi" not in req_text or "uvicorn" not in req_text:
+        return None
+    entry = _find_module_matching(root, re.compile(r"\bFastAPI\s*\("))
+    if entry is None:
+        return None
+    module = entry.relative_to(root).with_suffix("").as_posix().replace("/", ".")
+    var = _fastapi_app_var(entry) or "app"
+    dockerfile = (
+        "FROM python:3.12-slim\n"
+        "WORKDIR /app\n"
+        "COPY . .\n"
+        "RUN pip install --no-cache-dir -r requirements.txt\n"
+        "ENV PYTHONUNBUFFERED=1\n"
+        "EXPOSE 8000\n"
+        f'CMD ["uvicorn", "{module}:{var}", "--host", "0.0.0.0", "--port", "8000"]\n'
+    )
+    return dockerfile, 8000
+
+
+def _fastapi_app_var(entry: Path) -> str | None:
+    m = re.search(r"(\w+)\s*=\s*FastAPI\s*\(", _read_text(entry))
+    return m.group(1) if m else None
+
+
+def _find_module_matching(root: Path, pattern: re.Pattern, max_files: int = 200) -> Path | None:
+    """The shallowest Python file (repo root first, then one level down) whose
+    content matches ``pattern`` — deliberately shallow so it doesn't wander
+    into vendored/test code and misidentify the app's real entry point."""
+    candidates: list[Path] = []
+    for depth_glob in ("*.py", "*/*.py"):
+        candidates.extend(sorted(root.glob(depth_glob)))
+        if len(candidates) > max_files:
+            break
+    skip_dirs = {"tests", "test", "venv", ".venv", "node_modules", "migrations"}
+    for path in candidates[:max_files]:
+        if set(path.parts) & skip_dirs:
+            continue
+        if pattern.search(_read_text(path)):
+            return path
+    return None
+
+
+def _try_rails(root: Path) -> tuple[str, int] | None:
+    gemfile = root / "Gemfile"
+    if not gemfile.exists() or not (root / "config.ru").exists():
+        return None
+    if not re.search(r"^\s*gem\s+['\"]rails['\"]", _read_text(gemfile), re.MULTILINE):
+        return None
+    dockerfile = (
+        "FROM ruby:3.3-slim\n"
+        "WORKDIR /app\n"
+        "RUN apt-get update -qq && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*\n"
+        "COPY . .\n"
+        "RUN bundle install\n"
+        "ENV RAILS_ENV=development\n"
+        "EXPOSE 3000\n"
+        'CMD ["bundle", "exec", "rails", "server", "-b", "0.0.0.0"]\n'
+    )
+    return dockerfile, 3000
+
+
+# Dev-server frameworks confident enough to run via their own dev command when
+# no production "build"+"start" pair exists — each binds and serves immediately,
+# unlike a generic "dev" script which could mean anything.
+_DEV_SERVER_DEPS = {"next": "next dev", "vite": "vite --host", "react-scripts": "react-scripts start"}
+
+
 def _try_node(root: Path) -> tuple[str, int] | None:
     pkg = root / "package.json"
     if not pkg.exists():
         return None
     try:
-        data = json.loads(pkg.read_text(encoding="utf-8", errors="ignore"))
+        data = json.loads(_read_text(pkg))
     except (OSError, ValueError):
         return None
     if not isinstance(data, dict):
         return None
-    scripts = data.get("scripts")
-    # Only trust repos that define their own "start" script — guessing an
-    # entrypoint file (index.js? server.js? src/main.js?) is too unreliable.
-    if not isinstance(scripts, dict) or "start" not in scripts:
-        return None
+    scripts = data.get("scripts") if isinstance(data.get("scripts"), dict) else {}
+    deps = {**(data.get("dependencies") or {}), **(data.get("devDependencies") or {})}
+
+    if "start" in scripts:
+        # A production start script often needs a build first (Next.js/Vite
+        # apps ship "build" + "start"); run it when present, harmless no-op
+        # otherwise (most "start" scripts don't need a preceding build).
+        build_step = "RUN npm run build\n" if "build" in scripts else ""
+        cmd = "npm start"
+    else:
+        framework = next((f for f in _DEV_SERVER_DEPS if f in deps), None)
+        if framework is None:
+            return None
+        build_step = ""
+        cmd = _DEV_SERVER_DEPS[framework]
+
     dockerfile = (
         "FROM node:20-slim\n"
         "WORKDIR /app\n"
         "COPY . .\n"
         "RUN npm install\n"
-        "ENV PORT=3000\n"
+        f"{build_step}"
+        "ENV PORT=3000 HOST=0.0.0.0\n"
         "EXPOSE 3000\n"
-        'CMD ["npm", "start"]\n'
+        f'CMD ["sh", "-c", "{cmd}"]\n'
     )
     return dockerfile, 3000
+
+
+def find_compose_file(root: Path) -> Path | None:
+    for name in _COMPOSE_NAMES:
+        p = root / name
+        if p.exists():
+            return p
+    return None
+
+
+def _compose_host_port(port_spec) -> int | None:
+    """Extract the host-facing port from one compose `ports:` entry, or None if
+    it doesn't publish to the host (e.g. a bare container-only port)."""
+    if isinstance(port_spec, dict):
+        published = port_spec.get("published")
+        try:
+            return int(published) if published else None
+        except (TypeError, ValueError):
+            return None
+    if isinstance(port_spec, int):
+        return None  # a bare int is container-only, not published to the host
+    if isinstance(port_spec, str):
+        parts = port_spec.split(":")
+        if len(parts) < 2:
+            return None  # "8000" alone — container-only
+        try:
+            return int(parts[-2])  # "host:container" or "bindip:host:container"
+        except ValueError:
+            return None
+    return None
+
+
+def compose_target(root: Path) -> tuple[Path, int] | None:
+    """(compose_file, host_port) for the first service with an explicit
+    host-published port, or None — never guesses an unpublished port."""
+    path = find_compose_file(root)
+    if path is None:
+        return None
+    try:
+        import yaml
+
+        data = yaml.safe_load(_read_text(path)) or {}
+    except Exception:
+        return None
+    if not isinstance(data, dict):
+        return None
+    for svc in (data.get("services") or {}).values():
+        if not isinstance(svc, dict):
+            continue
+        for spec in svc.get("ports") or []:
+            port = _compose_host_port(spec)
+            if port:
+                return path, port
+    return None

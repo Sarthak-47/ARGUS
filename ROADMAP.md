@@ -117,10 +117,15 @@ developers live.
   comment via the REST API — zero extra setup in GitHub Actions, idempotent
   (fingerprinted, never double-posts), degrades gracefully for lines outside
   the diff. *GitHub Advanced Security parity.*
-- **v0.5.3 · Broaden auto-sandbox stack detection.** The DBMS repo couldn't be
-  auto-run (no Dockerfile, unguessable start). Add confident start-command
-  detection for Flask/FastAPI, Express/Next, Rails, and `docker-compose up`, so
-  `argus audit <repo>` runs Phase 2 for far more repos. *Engine work; medium.*
+- **v0.5.3 · Broaden auto-sandbox stack detection.** ✅ **Done.** Added Flask,
+  FastAPI, and Rails detection (each via an unambiguous framework convention,
+  never a filename guess); Node now builds before start when a `build` script
+  exists and falls back to a dev-server command (next/vite/react-scripts) when
+  there's no production start script; and a `docker-compose.yml` with an
+  explicitly published port is now a supported sandbox path (`docker compose up
+  -d --build` / `down -v`) for multi-service repos a single Dockerfile can't
+  represent. Verified: 29 dockerfile_gen tests + 7 compose-logic tests
+  (subprocess mocked, no real Docker daemon needed).
 
 ## Milestone v1.0 — Prove it, then ship it
 

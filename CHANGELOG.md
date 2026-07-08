@@ -6,6 +6,20 @@ All notable changes to Argus are documented here. Format loosely follows
 ## [Unreleased]
 
 ### Added
+- **Broader auto-sandbox stack detection** (ROADMAP v0.5.3): `argus attack`/`audit`
+  against a bare repo (no `--url`) now recognizes Flask (via its `Flask(__name__)`
+  instantiation), FastAPI (`FastAPI()` + uvicorn), and Rails (`Gemfile` + `config.ru`)
+  in addition to the existing Django/Node detection — each still via an
+  unambiguous, near-universal convention, never a filename guess. Node detection
+  broadened too: a `build` step now runs before `start` when the repo declares one
+  (fixes Next.js/Vite apps that need `next build`/`vite build` first), and a
+  dev-server fallback (`next dev` / `vite --host` / `react-scripts start`) covers
+  repos with only a dev script. New: **docker-compose support** — when no single
+  Dockerfile matches, a `docker-compose.yml`/`compose.yaml` with an explicitly
+  published port (never an unpublished/guessed one) is brought up via
+  `docker compose up -d --build` and torn down with `down -v`, so multi-service
+  repos (a separate frontend/backend, a DB sidecar) can run Phase 2 automatically
+  too.
 - **Inline PR review comments** (ROADMAP v0.5.2): the GitHub Action gained a
   `pr-comments` input (and a new `argus pr-comment` command) that posts each new
   finding as an inline review comment right on the changed line — not just
