@@ -187,7 +187,7 @@ def _run_local_demo() -> list[Finding]:
 # Docker-based cases — well-known vulnerable apps with documented findings
 # --------------------------------------------------------------------------- #
 JUICE_SHOP_GROUND_TRUTH = [
-    GroundTruthEntry("Missing/weak security headers", category="headers"),
+    GroundTruthEntry("Missing/weak security headers", category="misconfig"),
     GroundTruthEntry("Permissive CORS configuration", detector_prefix="headerpoker"),
     GroundTruthEntry("GraphQL/API introspection or schema exposure", detector_prefix="graphqlagent"),
     GroundTruthEntry("Reflected or stored XSS", detector_prefix="xsshunter"),
@@ -202,7 +202,7 @@ DVWA_GROUND_TRUTH = [
     GroundTruthEntry("Command injection", category="injection"),
     GroundTruthEntry("CSRF on a state-changing form", detector_prefix="csrfhunter"),
     GroundTruthEntry("Path/file traversal or inclusion", detector_prefix="fileattacker"),
-    GroundTruthEntry("Missing security headers", category="headers"),
+    GroundTruthEntry("Missing security headers", category="misconfig"),
 ]
 
 VAMPI_GROUND_TRUTH = [
