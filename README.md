@@ -50,7 +50,7 @@ Risk Score 98/100  [CRITICAL]
 | Phase | What it does |
 |---|---|
 | **1 · Static Analysis** | Reads the codebase without running it: built-in rules, dependency CVEs (`npm/pip audit`), secret detection (regex + Shannon entropy + git history), then an LLM layer that validates, explains and re-rates each finding for *your* code. |
-| **2 · Attack Agent** | Points a swarm of **17 specialised agents** at the running app — orchestrated in a loop, with an out-of-band callback server to confirm *blind* vulnerabilities, and every confirmed finding carries a runnable proof-of-concept (curl command + real request/response), not just a description. |
+| **2 · Attack Agent** | Points a swarm of **18 specialised agents** at the running app — orchestrated in a loop, with an out-of-band callback server to confirm *blind* vulnerabilities, and every confirmed finding carries a runnable proof-of-concept (curl command + real request/response), not just a description. |
 
 ### The attack swarm
 
@@ -152,6 +152,13 @@ or extracts a token from the JSON response), and **OAuth2 client-credentials**.
 See [`.argus-auth.example.toml`](.argus-auth.example.toml). Credentials are never
 echoed into a captured proof-of-concept. (Keep `.argus-auth.toml` out of git.)
 
+Add a **second identity** with `--auth-b <file>` (ideally a low-privilege account)
+and Argus tests **broken object- and function-level authorization** (BOLA/BFLA —
+the #1 API risk): it flags any endpoint that rejects anonymous access but that a
+*different* authenticated user, or an ordinary user hitting an admin route, can
+still reach. Only that "protected-from-anonymous yet reachable-cross-user"
+pattern is reported, so public endpoints don't cause false positives.
+
 ### Feed it your API spec
 
 Modern APIs are stateful and spec-defined — a link-following crawler misses most
@@ -219,8 +226,9 @@ Nobody else combines all six. That's the gap Argus owns.
   analysis (typosquats, unpinned versions, install-script abuse), secret detection, LLM reasoning,
   reports (HTML/JSON/Markdown/SARIF/PDF), CycloneDX SBOM export, and OWASP ASVS / PCI-DSS tags
   per finding.
-- ✅ **Phase 2 — Attack swarm** (`argus attack`): **17 agents** (13 original + MCPSecurityAgent,
-  PromptInjectionAgent, BusinessLogicAgent, and the opt-in DomXSSHunter), orchestration loop,
+- ✅ **Phase 2 — Attack swarm** (`argus attack`): **18 agents** (13 original + MCPSecurityAgent,
+  PromptInjectionAgent, BusinessLogicAgent, AuthzTester, and the opt-in DomXSSHunter),
+  orchestration loop,
   Docker auto-sandboxing when no `--url` is given, callback server for blind detection,
   **exploit chaining** (compounds confirmed findings into attack paths — e.g. XSS + a
   script-readable session cookie → account takeover, or clickjacking + a missing CSRF token →

@@ -14,6 +14,7 @@ import asyncio
 import httpx
 
 from argus.agents.authbreaker import AuthBreaker
+from argus.agents.authztester import AuthzTester
 from argus.agents.base import AgentReport, AttackContext
 from argus.agents.businesslogic import BusinessLogicAgent
 from argus.agents.crawlerbot import CrawlerBot
@@ -41,6 +42,7 @@ AGENT_REGISTRY = {
     "injector": Injector,
     "authbreaker": AuthBreaker,
     "idorhunter": IDORHunter,
+    "authztester": AuthzTester,
     "xsshunter": XSSHunter,
     "ssrfprober": SSRFProber,
     "headerpoker": HeaderPoker,
@@ -63,7 +65,7 @@ AGENT_REGISTRY = {
 # DomXSSHunter is deliberately NOT in this list — it needs the optional `browser`
 # extra (Playwright + a Chromium download) and only runs via --agents domxss.
 _DEFAULT_ORDER = [
-    "crawlerbot", "injector", "authbreaker", "idorhunter", "xsshunter",
+    "crawlerbot", "injector", "authbreaker", "idorhunter", "authztester", "xsshunter",
     "ssrfprober", "headerpoker", "csrfhunter", "fileattacker", "graphqlagent",
     "websocketagent", "mcpsecurity", "promptinjection", "businesslogic",
     "fuzzer", "racecondition",
@@ -96,6 +98,7 @@ async def run_attack_async(
     on_event=None,
     seed_endpoints=None,
     auth=None,
+    identity_b=None,
 ) -> tuple[list[Finding], list[AgentReport], list]:
     """Run recon + selected agents against ``base_url``.
 
@@ -130,6 +133,8 @@ async def run_attack_async(
                 callback=callback,
                 provider=provider,
                 on_event=on_event,
+                identity_a=auth,
+                identity_b=identity_b,
             )
 
             # 0a) Authenticate the shared client, if configured — every agent

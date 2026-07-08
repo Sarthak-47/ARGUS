@@ -166,12 +166,13 @@ def attack(
     url: Optional[str] = typer.Option(None, "--url", help="Attack an already-running app at this URL."),
     agents: Optional[str] = typer.Option(None, "--agents", help="Comma-separated agent subset, e.g. injector,authbreaker."),
     auth: Optional[str] = typer.Option(None, "--auth", help="Path to a .argus-auth.toml so agents attack the logged-in surface (auto-discovered in the working dir if present)."),
+    auth_b: Optional[str] = typer.Option(None, "--auth-b", help="A second identity's auth file — enables BOLA/BFLA cross-user authorization testing (ideally a low-privilege account)."),
     api_spec: Optional[str] = typer.Option(None, "--api-spec", help="OpenAPI/Swagger/Postman/GraphQL spec (file or URL) to seed the attack surface."),
 ) -> None:
     """Phase 2 — attack agent. Actively exploit a running app."""
     from argus.pipeline import run_attack
 
-    run_attack(target=target, url=url, agents=agents, auth=auth, api_spec=api_spec)
+    run_attack(target=target, url=url, agents=agents, auth=auth, auth_b=auth_b, api_spec=api_spec)
 
 
 # --------------------------------------------------------------------------- #
@@ -183,12 +184,13 @@ def audit(
     fix: bool = typer.Option(False, "--fix", help="Suggest fixes after the audit."),
     agents: Optional[str] = typer.Option(None, "--agents", help="Comma-separated agent subset."),
     auth: Optional[str] = typer.Option(None, "--auth", help="Path to a .argus-auth.toml so Phase 2 attacks the logged-in surface."),
+    auth_b: Optional[str] = typer.Option(None, "--auth-b", help="A second identity's auth file — enables BOLA/BFLA cross-user authorization testing."),
     api_spec: Optional[str] = typer.Option(None, "--api-spec", help="OpenAPI/Swagger/Postman/GraphQL spec (file or URL) to seed the attack surface."),
 ) -> None:
     """Full pipeline — Phase 1 static analysis then Phase 2 attack."""
     from argus.pipeline import run_audit
 
-    run_audit(target, fix=fix, agents=agents, auth=auth, api_spec=api_spec)
+    run_audit(target, fix=fix, agents=agents, auth=auth, auth_b=auth_b, api_spec=api_spec)
 
 
 # --------------------------------------------------------------------------- #

@@ -27,6 +27,7 @@ _CWE_MAP: dict[str, tuple[str, str, str]] = {
     "94": ("V5.2.5", "6.2.4", "Code / template injection"),
     "95": ("V5.2.4", "6.2.4", "Code injection / eval"),
     "200": ("V7.4.1", "3.3.1", "Information exposure"),
+    "285": ("V4.1.3", "7.2.1", "Improper authorization (BFLA)"),
     "290": ("V2.2.1", "8.3.1", "Authentication bypass"),
     "295": ("V9.2.1", "4.2.1", "Certificate validation"),
     "306": ("V4.1.1", "8.3.1", "Missing authentication"),

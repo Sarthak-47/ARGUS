@@ -58,9 +58,16 @@ class AttackContext:
         callback=None,
         provider=None,
         on_event: Callable[[str, str, str], None] | None = None,
+        identity_a=None,
+        identity_b=None,
     ):
         self.base_url = base_url.rstrip("/")
         self.client = client
+        # Two authenticated identities enable cross-user authorization testing
+        # (BOLA/BFLA). ``identity_a`` is the session already applied to ``client``;
+        # ``identity_b`` is a second, ideally lower-privilege, account.
+        self.identity_a = identity_a
+        self.identity_b = identity_b
         self.endpoints: dict[str, Endpoint] = {}
         self.findings: list[Finding] = []
         self.prior_findings = prior_findings or []

@@ -6,6 +6,14 @@ All notable changes to Argus are documented here. Format loosely follows
 ## [Unreleased]
 
 ### Added
+- **BOLA/BFLA authorization testing** (ROADMAP v0.3.3): a new **AuthzTester** agent
+  (18th) tests broken object- and function-level authorization — the #1 API risk —
+  using a second identity supplied with `--auth-b <file>`. It compares three actors
+  per endpoint (anonymous, identity A, identity B) and flags only the
+  "protected-from-anonymous yet reachable-cross-user" pattern: an object a second
+  authenticated user can read (BOLA, CWE-639), or a privileged route an ordinary
+  user can reach (BFLA, CWE-285). Verified against both a vulnerable and a
+  correctly-authorized app — zero findings on the latter (low false-positive).
 - **API schema ingestion** (ROADMAP v0.3.2): `argus attack`/`audit --api-spec
   <file|url>` seeds the attack surface straight from an **OpenAPI 3.x**, **Swagger
   2.0**, **Postman v2** collection, or **GraphQL introspection** dump — so the

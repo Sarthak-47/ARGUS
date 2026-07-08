@@ -58,7 +58,7 @@ function detectorToAgent(detector?: string): string {
     fuzzer: "Fuzzer", racecondition: "RaceCondition", graphqlagent: "GraphQLAgent",
     websocketagent: "WebSocketAgent", idorhunter: "IDORHunter",
     mcpsecurity: "MCPSecurity", promptinjection: "PromptInjection", businesslogic: "BusinessLogic",
-    domxss: "DomXSSHunter",
+    domxss: "DomXSSHunter", authztester: "AuthzTester",
   };
   const head = d.split(":")[0];
   if (map[head]) return map[head];

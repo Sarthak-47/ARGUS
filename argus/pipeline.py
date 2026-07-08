@@ -339,6 +339,7 @@ def run_attack(
     agents: str | None = None,
     *,
     auth: str | None = None,
+    auth_b: str | None = None,
     api_spec: str | None = None,
     banner: bool = True,
 ) -> ScanResult | None:
@@ -348,10 +349,12 @@ def run_attack(
     from argus.sandbox.docker_manager import Sandbox, SandboxError, availability_note, docker_available
     from argus.state import load_result, save_result
 
-    # Resolve an authenticated session (explicit --auth file, or an
-    # auto-discovered .argus-auth.toml) up front so a bad config fails fast.
+    # Resolve the authenticated session(s) up front so a bad config fails fast.
+    # ``auth`` (identity A) also auto-discovers .argus-auth.toml; ``auth_b`` (a
+    # second identity for BOLA/BFLA testing) is explicit-only.
     try:
         auth_cfg = load_auth(auth)
+        auth_b_cfg = load_auth(auth_b, auto=False)
     except AuthError as exc:
         out.banner() if banner else None
         out.error(str(exc))
@@ -433,12 +436,14 @@ def run_attack(
 
         if auth_cfg is not None:
             out.info("Authenticated session configured — agents will attack the logged-in surface.")
+        if auth_b_cfg is not None:
+            out.info("Second identity configured — BOLA/BFLA cross-user authorization testing enabled.")
 
         try:
             findings, reports, endpoints = run_attack_sync(
                 base_url, requested_agents=requested, prior_findings=prior_findings,
                 provider=provider, on_event=feed, seed_endpoints=seed or None,
-                auth=auth_cfg,
+                auth=auth_cfg, identity_b=auth_b_cfg,
             )
         except AuthError as exc:
             out.error(f"Authentication failed — aborting attack: {exc}")
@@ -489,7 +494,8 @@ def _attack_summary(reports) -> None:
 
 
 def run_audit(target: str, fix: bool = False, agents: str | None = None,
-              auth: str | None = None, api_spec: str | None = None) -> None:
+              auth: str | None = None, auth_b: str | None = None,
+              api_spec: str | None = None) -> None:
     from argus.sandbox.docker_manager import docker_available
 
     out.banner()
@@ -500,7 +506,8 @@ def run_audit(target: str, fix: bool = False, agents: str | None = None,
     out.console.print()
 
     if docker_available():
-        run_attack(target=target, agents=agents, auth=auth, api_spec=api_spec, banner=False)
+        run_attack(target=target, agents=agents, auth=auth, auth_b=auth_b,
+                   api_spec=api_spec, banner=False)
     else:
         out.info("Phase 1 complete. Phase 2 needs Docker to sandbox the target automatically — "
                  "point Argus at a running instance instead:")

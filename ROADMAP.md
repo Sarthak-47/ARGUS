@@ -54,10 +54,11 @@ reach; almost every real app hides its interesting surface behind a login.
   the surface from OpenAPI 3.x / Swagger 2.0 / Postman v2 / GraphQL introspection;
   paths resolve against the target URL and compose with the surface inventory.
   Verified: the swarm attacks a spec-only endpoint with no inbound links.
-- **v0.3.3 · BOLA/BFLA with real auth.** With v0.3.1 landed, extend IDORHunter
-  into proper object-level (BOLA) and function-level (BFLA) authorization
-  testing across two real identities — the #1 API risk (OWASP API Top 10).
-  *Engine work; medium, depends on v0.3.1.*
+- **v0.3.3 · BOLA/BFLA with real auth.** ✅ **Done.** New AuthzTester agent +
+  `--auth-b` second identity. Compares anonymous / identity-A / identity-B per
+  endpoint and flags only the protected-from-anonymous-yet-reachable-cross-user
+  pattern — BOLA (CWE-639) and BFLA (CWE-285). Verified to fire on a vulnerable
+  app and stay silent on a correctly-authorized one.
 - **v0.3.4 · Deeper MCP-security scanning.** MCP security is the hottest niche
   of 2026 (tool poisoning, context drift, insecure transports, prompt-template
   abuse). Argus already ships an MCPSecurityAgent — extend it to own the "MCP
