@@ -87,7 +87,7 @@ argus audit <repo-url>                    # Phase 1 + Phase 2
 argus fix <path>                          # generate patches for fixable findings (dry-run)
 argus fix <path> --apply                  # write the patches to disk
 argus fix <path> --apply --pr             # + commit to a branch, push, and open a GitHub PR
-argus report --format html                # export the last scan (html|json|markdown|sarif|sbom|jira|pdf)
+argus report --format html                # export the last scan (html|json|markdown|sarif|sbom|vex|jira|pdf)
 argus history                             # risk-score trend across past scans
 argus compare                             # what's new/fixed since the last scan
 argus suppress "<finding title>"          # mark a finding ignored — stops it recurring
@@ -152,6 +152,13 @@ outside a `pull_request` event, so it's safe to leave on unconditionally.
   CSV*) — one issue per finding (Summary, Description with evidence/fix/CWE/
   compliance, Priority mapped from severity, Labels). No Jira API or
   credentials needed; it's a manual upload.
+- **VEX**: `argus report --format vex` writes `vex.cdx.json`, a CycloneDX 1.5
+  VEX document — a per-CVE exploitability statement (`exploitable` /
+  `not_affected`) for every dependency finding, driven by the same
+  reachability analysis that already downgrades unimported packages: a
+  vulnerable package never imported in your first-party code is
+  `not_affected` (`code_not_reachable`), consumable by any VEX-aware scanner
+  or supply-chain dashboard alongside the plain SBOM (`--format sbom`).
 
 ## Attack behind a login (authenticated scanning)
 

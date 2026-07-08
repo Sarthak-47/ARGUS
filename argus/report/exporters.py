@@ -101,6 +101,71 @@ def to_sbom(result: ScanResult) -> str:
     }, indent=2)
 
 
+def to_vex(result: ScanResult) -> str:
+    """CycloneDX 1.5 VEX document (roadmap v0.4.4) — per-CVE exploitability
+    statements riding on the reachability analysis (v0.4.2) already computes:
+    a vulnerable package never imported in first-party code is ``not_affected``
+    (justification ``code_not_reachable``); one that is imported (or whose
+    reachability couldn't be determined) is ``exploitable``. Matches each
+    dependency finding to its SBOM component by (ecosystem, package name) —
+    not exact version — since the audited/resolved version (npm audit's
+    lockfile-pinned version) and the declared manifest version SBOM components
+    use can legitimately differ."""
+    import uuid
+
+    sbom_by_key = {
+        (c["ecosystem"], c["name"].lower()): c for c in result.sbom_components
+    }
+    _ECOSYSTEM = {"npm-audit": "npm", "pip-audit": "pypi"}
+
+    vulnerabilities = []
+    for f in result.findings:
+        pkg = f.metadata.get("package")
+        if f.category != "dependency" or not pkg:
+            continue
+        ecosystem = _ECOSYSTEM.get(f.detector, "unknown")
+        component = sbom_by_key.get((ecosystem, str(pkg).lower()))
+        if component:
+            bom_ref = f"{component['ecosystem']}:{component['name']}@{component['version']}"
+        else:
+            version = f.metadata.get("version", "unknown")
+            bom_ref = f"{ecosystem}:{pkg}@{version}"
+
+        vid = f.metadata.get("id") or f"argus-{ecosystem}-{pkg}".lower()
+        reachable = f.metadata.get("reachable")
+        analysis = (
+            {"state": "not_affected", "justification": "code_not_reachable",
+             "detail": "Argus's import-level reachability analysis found no reference "
+                       "to this package in the scanned first-party code."}
+            if reachable is False else
+            {"state": "exploitable",
+             "detail": "Package is imported in the scanned first-party code, or "
+                       "reachability could not be determined."}
+        )
+        vulnerabilities.append({
+            "bom-ref": f"vuln-{vid}",
+            "id": vid,
+            "source": {"name": f.detector or "argus"},
+            "ratings": [{"source": {"name": "Argus"}, "severity": f.severity.value.lower()}],
+            "description": f.description or f.title,
+            "affects": [{"ref": bom_ref}],
+            "analysis": analysis,
+        })
+
+    return json.dumps({
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.5",
+        "serialNumber": f"urn:uuid:{uuid.uuid4()}",
+        "version": 1,
+        "metadata": {
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "tools": [{"vendor": "Sarthak-47", "name": "Argus", "version": __import__("argus").__version__}],
+            "component": {"type": "application", "name": result.target},
+        },
+        "vulnerabilities": vulnerabilities,
+    }, indent=2)
+
+
 _SARIF_LEVEL = {
     "CRITICAL": "error", "HIGH": "error", "MEDIUM": "warning", "LOW": "note", "INFO": "note",
 }
@@ -280,6 +345,10 @@ def export(result: ScanResult, fmt: str, output_dir: str) -> Path:
     if fmt == "sbom":
         path = out / "sbom.cdx.json"
         path.write_text(to_sbom(result), encoding="utf-8")
+        return path
+    if fmt == "vex":
+        path = out / "vex.cdx.json"
+        path.write_text(to_vex(result), encoding="utf-8")
         return path
     if fmt in ("md", "markdown"):
         path = out / "report.md"

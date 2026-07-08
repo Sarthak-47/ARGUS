@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from argus.models import Finding, ScanResult, Severity
-from argus.report.exporters import to_html, to_json, to_markdown, to_sarif, to_jira_csv, export
+from argus.report.exporters import to_html, to_json, to_markdown, to_sarif, to_jira_csv, to_vex, export
 from argus.state import save_result, load_result, load_history, history_path
 
 
@@ -129,7 +129,8 @@ def test_export_writes_each_format(tmp_path):
     r = _sample()
     for fmt, name in [("html", "index.html"), ("json", "report.json"),
                       ("markdown", "report.md"), ("sarif", "argus.sarif"),
-                      ("sbom", "sbom.cdx.json"), ("jira", "jira-import.csv")]:
+                      ("sbom", "sbom.cdx.json"), ("vex", "vex.cdx.json"),
+                      ("jira", "jira-import.csv")]:
         path = export(r, fmt, str(tmp_path / fmt))
         assert path.exists() and path.name == name
 
@@ -173,6 +174,54 @@ def test_to_jira_csv_escapes_commas_and_quotes_safely():
                   category="c", description="Line one,\nline two with \"quotes\""))
     rows = list(csv.reader(io.StringIO(to_jira_csv(r))))
     assert 'Issue, with "quotes" and, commas' in rows[1][0]
+
+
+def _sample_with_deps() -> ScanResult:
+    r = ScanResult(target="github.com/user/app", phase="scan")
+    r.sbom_components = [
+        {"name": "lodash", "version": "4.17.21", "ecosystem": "npm"},
+        {"name": "requests", "version": "2.31.0", "ecosystem": "pypi"},
+    ]
+    r.add(Finding(
+        title="Vulnerable dependency: lodash", severity=Severity.HIGH,
+        category="dependency", detector="npm-audit", description="Prototype pollution.",
+        metadata={"package": "lodash", "reachable": True},
+    ))
+    r.add(Finding(
+        title="Vulnerable dependency: requests 2.31.0", severity=Severity.CRITICAL,
+        category="dependency", detector="pip-audit", description="SSRF via redirects.",
+        metadata={"package": "requests", "version": "2.31.0", "id": "GHSA-xxxx", "reachable": False},
+    ))
+    return r
+
+
+def test_to_vex_is_valid_cyclonedx():
+    data = json.loads(to_vex(_sample_with_deps()))
+    assert data["bomFormat"] == "CycloneDX"
+    assert data["specVersion"] == "1.5"
+    assert len(data["vulnerabilities"]) == 2
+
+
+def test_to_vex_reachable_dependency_marked_exploitable():
+    data = json.loads(to_vex(_sample_with_deps()))
+    lodash_vuln = next(v for v in data["vulnerabilities"] if "lodash" in v["affects"][0]["ref"])
+    assert lodash_vuln["analysis"]["state"] == "exploitable"
+    assert lodash_vuln["affects"][0]["ref"] == "npm:lodash@4.17.21"
+
+
+def test_to_vex_unreachable_dependency_marked_not_affected():
+    data = json.loads(to_vex(_sample_with_deps()))
+    req_vuln = next(v for v in data["vulnerabilities"] if "requests" in v["affects"][0]["ref"])
+    assert req_vuln["analysis"]["state"] == "not_affected"
+    assert req_vuln["analysis"]["justification"] == "code_not_reachable"
+    assert req_vuln["id"] == "GHSA-xxxx"
+    assert req_vuln["affects"][0]["ref"] == "pypi:requests@2.31.0"
+
+
+def test_to_vex_ignores_non_dependency_findings():
+    r = _sample()  # SQLi + crypto findings, no dependency category
+    data = json.loads(to_vex(r))
+    assert data["vulnerabilities"] == []
 
 
 def test_export_pdf_falls_back_to_html_without_weasyprint(tmp_path):

@@ -88,10 +88,14 @@ way to lose a user; the market's answer is reachability + smarter filtering.
   via Trivy when installed (multi-stage / digest-pinned / stage-alias aware,
   ignores `scratch`); graceful skip-with-note otherwise. Verified: extraction +
   Trivy-JSON parsing + the no-Trivy skip path.
-- **v0.4.4 · VEX output.** Emit a CycloneDX VEX document alongside the SBOM —
-  per-CVE exploitability statements (affected / not-affected / under-investigation),
-  driven by the reachability analysis (v0.4.2). A 2026 supply-chain must-have and
-  a natural extension of the SBOM Argus already produces. *Engine work; medium.*
+- **v0.4.4 · VEX output.** ✅ **Done.** `argus report --format vex` writes a
+  CycloneDX 1.5 VEX document (`vex.cdx.json`) alongside the plain SBOM — one
+  exploitability statement per dependency finding, `exploitable` or
+  `not_affected`/`code_not_reachable`, driven directly by the reachability
+  analysis v0.4.2 already computes. Matches each finding to its SBOM component
+  by (ecosystem, package name) rather than exact version, since the
+  auditor-resolved version (npm audit's lockfile-pinned version) and the
+  declared-manifest version the SBOM uses can legitimately differ.
 - **v0.4.5 · Behavioral dependency analysis.** Beyond CVE lookup: score each
   dependency the way Socket does — install-script inspection, network-call and
   filesystem-access profiling, obfuscation detection — to catch a *malicious*

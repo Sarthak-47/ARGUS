@@ -3,6 +3,15 @@
 All notable changes to Argus are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Added
+- **VEX output** (ROADMAP v0.4.4): `argus report --format vex` writes a
+  CycloneDX 1.5 VEX document (`vex.cdx.json`) — a per-dependency-finding
+  exploitability statement (`exploitable` / `not_affected` with
+  `code_not_reachable` justification) driven by the existing reachability
+  analysis (v0.4.2), consumable alongside the plain `--format sbom`.
+
 ## [1.0.0] — 2026-07-08
 
 ### Added
