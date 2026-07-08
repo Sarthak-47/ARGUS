@@ -129,11 +129,12 @@ developers live.
 
 ## Milestone v1.0 — Prove it, then ship it
 
-- **v1.0.1 · Benchmark suite + published numbers.** Run Argus against a pinned
-  set of deliberately-vulnerable apps (OWASP Juice Shop, DVWA, WebGoat, VAmPI,
-  NodeGoat) in CI; publish detection rate and false-positive rate per category,
-  refreshed on release. **This is the credibility unlock** — it's exactly how
-  XBOW/Horizon3 earn trust, and Argus can't claim "1.0" without it.
+- **v1.0.1 · Benchmark suite + published numbers.** ✅ **Done** (Juice Shop,
+  DVWA, VAmPI + the local demo case; WebGoat/NodeGoat are good candidates for a
+  future expansion). `argus benchmark` + `.github/workflows/benchmark.yml`
+  publish detection/unmatched rates on every release. **The credibility
+  unlock** — building it already found and fixed a real gap (the demo target's
+  SQLi signature never actually matched Injector's patterns).
 - **v1.0.2 · Integrations.** DefectDojo + Jira export (findings → tickets);
   keep it optional and lightweight. *Small-medium each.*
 - **v1.0.3 · Docs site + hardening.** A real getting-started/docs site, an

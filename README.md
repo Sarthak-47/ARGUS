@@ -306,6 +306,25 @@ Nobody else combines all six. That's the gap Argus owns.
 *Semgrep is optional and layered in when available — it has no native Windows build, so Argus's
 own rules carry the scan there (use the Docker image for full Semgrep).*
 
+## Proof, not vibes — the benchmark suite
+
+Every scanner claims to catch things. Argus measures it: `argus benchmark` runs
+the full attack swarm against known-vulnerable apps — OWASP Juice Shop, DVWA,
+VAmPI, plus Argus's own bundled demo target — and reports a real detection rate
+against a hand-curated ground truth of each app's documented vulnerabilities
+(scoped to what Argus's detectors actually target, not a full CVE dump).
+
+```bash
+argus benchmark --case argus_demo   # runs locally, no Docker needed
+argus benchmark                     # the full suite (juice_shop/dvwa/vampi need Docker)
+```
+
+The [`benchmark.yml`](.github/workflows/benchmark.yml) GitHub Action runs the
+full suite (Docker cases included) on every release and publishes the results
+as a job summary + artifact — building this suite already caught and fixed a
+real gap: `argus demo`'s advertised `INJECTOR:SQLI-ERROR` output wasn't
+actually firing until the benchmark's ground truth exposed it.
+
 ## Roadmap
 
 Where Argus is headed next — the path from v0.2.0 to a benchmark-proven 1.0

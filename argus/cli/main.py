@@ -225,6 +225,52 @@ def pr_comment() -> None:
 
 
 # --------------------------------------------------------------------------- #
+# benchmark  (detection-rate proof against known-vulnerable apps)
+# --------------------------------------------------------------------------- #
+@app.command()
+def benchmark(
+    case: Optional[str] = typer.Option(
+        None, "--case", help="Run a single case by name (argus_demo|juice_shop|dvwa|vampi). Omit to run all."
+    ),
+    fmt: str = typer.Option("markdown", "--format", help="markdown | json"),
+    output: Optional[str] = typer.Option(None, "--output", "-o", help="Write the report to this file instead of stdout."),
+) -> None:
+    """Run Argus against known-vulnerable apps and report a real detection rate.
+
+    `argus_demo` needs no Docker (runs against the bundled in-process target);
+    juice_shop/dvwa/vampi pull and attack real, well-known vulnerable images.
+    """
+    import json as _json
+
+    from argus.benchmark import CASES, render_markdown, run_suite
+    from argus.cli import output as out
+
+    names = [case] if case else None
+    if case and case not in CASES:
+        out.error(f"Unknown case '{case}'. Choose from: {', '.join(CASES)}")
+        raise typer.Exit(code=1)
+
+    out.banner()
+    out.rule("BENCHMARK")
+    results = run_suite(names)
+
+    text = (
+        _json.dumps([r.to_dict() for r in results], indent=2)
+        if fmt == "json" else render_markdown(results)
+    )
+    if output:
+        from pathlib import Path
+
+        Path(output).write_text(text, encoding="utf-8")
+        out.success(f"Report written → [wheat1]{output}[/]")
+    else:
+        out.console.print(text)
+
+    if any(r.error for r in results):
+        raise typer.Exit(code=1)
+
+
+# --------------------------------------------------------------------------- #
 # history
 # --------------------------------------------------------------------------- #
 @app.command()

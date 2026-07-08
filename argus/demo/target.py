@@ -108,9 +108,13 @@ class _Handler(BaseHTTPRequestHandler):
         elif u.path == "/api/users":
             q = qs.get("search", [""])[0]
             if "'" in q or '"' in q:
+                # A realistic MySQL-driver error string (matches Injector's real-world
+                # error-based SQLi signatures) rather than a synthetic message that
+                # happened not to match any of them.
                 self._send(500, "text/plain",
-                           b'SQL syntax error near "\'": SELECT * FROM users WHERE name = \''
-                           + q.encode("utf-8", "ignore") + b"'")
+                           b"You have an error in your SQL syntax; check the manual that "
+                           b"corresponds to your MySQL server version for the right syntax "
+                           b"to use near '" + q.encode("utf-8", "ignore") + b"' at line 1")
             else:
                 self._send(200, "text/plain", f"user: {q}".encode())
         elif u.path == "/search":

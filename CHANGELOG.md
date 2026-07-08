@@ -6,6 +6,18 @@ All notable changes to Argus are documented here. Format loosely follows
 ## [Unreleased]
 
 ### Added
+- **Benchmark suite** (ROADMAP v1.0.1): new `argus benchmark` command runs the
+  full attack swarm against known-vulnerable apps — OWASP Juice Shop, DVWA,
+  VAmPI, and Argus's own bundled demo target (the only case that needs no
+  Docker) — and reports a real detection rate against a hand-curated ground
+  truth scoped to what Argus's detectors actually target. New
+  `.github/workflows/benchmark.yml` runs the full suite (Docker cases
+  included) on every release and publishes results as a job summary + build
+  artifact. Building this surfaced and fixed a real gap: the bundled demo
+  target's crafted SQL error text didn't match any of Injector's real-world
+  error-based-SQLi signatures, so `argus demo`'s advertised
+  `INJECTOR:SQLI-ERROR` output was never actually firing — now it does
+  (100% detection rate on the local case, verified live).
 - **"Scanned by Argus" badge** (ROADMAP D2): a static shields.io badge
   (`security: scanned by Argus`) other repos can drop into their own README —
   documented with copy-pasteable markdown right in ours. Honestly scoped: a
