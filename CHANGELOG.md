@@ -13,7 +13,9 @@ All notable changes to Argus are documented here. Format loosely follows
   no flag needed. Closes a real gap the benchmark suite found: an API-only
   target with no crawlable HTML (like VAmPI) previously had its whole surface
   invisible to the swarm. Verified live: with zero flags, the swarm discovered
-  and attacked an endpoint that existed *only* in a spec.
+  and attacked an endpoint that existed *only* in a spec. Confirmed against the
+  real target too — re-running the benchmark suite moved `vampi` from 0% (0/5)
+  to **20% (1/5)**, with total findings up from 3 to 11.
 
 ## [0.6.0] — 2026-07-08
 

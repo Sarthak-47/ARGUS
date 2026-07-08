@@ -347,12 +347,14 @@ silently hiding a real detection.
 First published numbers, run against real Docker targets on GitHub's own
 runners — not smoothed over: `argus_demo` **100%** (14/14 — the fully
 self-contained case), `dvwa` **33%** (2/6), `juice_shop` **14%** (1/7), `vampi`
-**0%** (0/5). The three external misses are honest, understood gaps — Juice
-Shop is an Angular SPA (Argus's crawler doesn't execute JS yet), DVWA's login
-needs a CSRF-token-scraping form login Argus doesn't do yet, and VAmPI is
-API-only with no crawlable HTML — tracked as concrete follow-ups in
+**20%** (1/5, up from 0% once ReconBot started auto-discovering VAmPI's own
+OpenAPI spec — see below). The remaining misses are honest, understood gaps —
+Juice Shop is an Angular SPA (Argus's crawler doesn't execute JS yet) and
+DVWA's login needs a CSRF-token-scraping form login Argus doesn't do yet —
+tracked as concrete follow-ups in
 [ROADMAP.md](ROADMAP.md#milestone-v10--prove-it-then-ship-it). That's the
-point of a benchmark: it tells you what's actually true, not what sounds good.
+point of a benchmark: it tells you what's actually true, not what sounds good,
+and improving on it live is the point of publishing it at all.
 
 ## Roadmap
 

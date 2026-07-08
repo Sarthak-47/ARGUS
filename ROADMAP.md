@@ -160,6 +160,8 @@ developers live.
     every endpoint it declares — no flag needed. Verified live: with zero
     flags, the swarm discovered and attacked an endpoint that existed *only*
     in a spec (no HTML link anywhere), the exact VAmPI-style gap this closes.
+    Confirmed against the real target: re-running the benchmark moved `vampi`
+    from 0% (0/5) to **20% (1/5)**, findings up from 3 to 11.
 - **v1.0.2 · Integrations.** DefectDojo + Jira export (findings → tickets);
   keep it optional and lightweight. *Small-medium each.*
 - **v1.0.3 · Docs site + hardening.** A real getting-started/docs site, an
