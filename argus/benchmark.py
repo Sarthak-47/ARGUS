@@ -76,6 +76,11 @@ class BenchmarkCase:
     auth_login_path: str | None = None
     auth_data: dict[str, str] | None = None
     auth_csrf_field: str | None = None
+    # An extra request some apps need right after login (DVWA's per-session
+    # security level defaults to "impossible" — all vulnerable pages patched —
+    # until this runs on the same authenticated session).
+    post_login_path: str | None = None
+    post_login_data: dict[str, str] | None = None
 
 
 @dataclass
@@ -243,6 +248,11 @@ CASES: dict[str, BenchmarkCase] = {
         auth_login_path="/login.php",
         auth_data={"username": "admin", "password": "password", "Login": "Login"},
         auth_csrf_field="user_token",
+        # DVWA's vulnerable pages are patched at "impossible" difficulty by
+        # default for a fresh session; this lowers it so the real bug classes
+        # are actually reachable to attack.
+        post_login_path="/security.php",
+        post_login_data={"security": "low", "seclev_submit": "Submit"},
     ),
     "vampi": BenchmarkCase(
         name="vampi", description="VAmPI (Vulnerable API)", kind="docker",
@@ -304,6 +314,8 @@ def _run_docker_target(case: BenchmarkCase, timeout: float = 90.0) -> list[Findi
                 login_url=base_url + case.auth_login_path,
                 login_data=dict(case.auth_data or {}),
                 csrf_field=case.auth_csrf_field,
+                post_login_url=(base_url + case.post_login_path) if case.post_login_path else None,
+                post_login_data=dict(case.post_login_data or {}),
             )
 
         findings, _reports, _eps = run_attack_sync(base_url, use_callback=False, auth=auth)

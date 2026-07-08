@@ -156,6 +156,12 @@ developers live.
     wrong one with 403) — not just a mock that always accepts. The benchmark's
     `dvwa` case now wires this with DVWA's documented default credentials
     (admin/password) plus the one-time DB-setup POST a fresh container needs.
+    First real-target run stayed flat (login alone wasn't the whole story —
+    DVWA's vulnerable pages are patched at "impossible" difficulty per-session
+    until you separately POST to `/security.php`), so `AuthConfig` gained a
+    general **post-login step** (`post_login_url`/`post_login_data`, runs on
+    the same session after login — useful for any app with a similar
+    unlock-after-login pattern, not just DVWA) and the benchmark wires it.
   - **Follow-up C — auto-discover a target's own OpenAPI spec.** ✅ **Done.**
     ReconBot now probes well-known spec paths (`/openapi.json`,
     `/swagger.json`, `/api/openapi.json`, `/.well-known/openapi.json`, …) and,
@@ -165,8 +171,12 @@ developers live.
     in a spec (no HTML link anywhere), the exact VAmPI-style gap this closes.
     Confirmed against the real target: re-running the benchmark moved `vampi`
     from 0% (0/5) to **20% (1/5)**, findings up from 3 to 11.
-- **v1.0.2 · Integrations.** DefectDojo + Jira export (findings → tickets);
-  keep it optional and lightweight. *Small-medium each.*
+- **v1.0.2 · Integrations.** ✅ **Done.** DefectDojo needed no new code — its
+  built-in **SARIF** import type already accepts Argus's existing
+  `--format sarif` output. New `argus report --format jira` writes a
+  Jira-importable CSV (one issue per finding, mapped Summary/Description/
+  Priority/Labels) for Jira's built-in CSV importer — no API/credentials
+  needed. Verified live via the CLI against a real scan.
 - **v1.0.3 · Docs site + hardening.** A real getting-started/docs site, an
   auth-scanning tutorial, expanded error handling, and a pass over performance
   (parallelism in the attack loop). *Docs + polish.*

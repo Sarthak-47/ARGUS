@@ -87,7 +87,7 @@ argus audit <repo-url>                    # Phase 1 + Phase 2
 argus fix <path>                          # generate patches for fixable findings (dry-run)
 argus fix <path> --apply                  # write the patches to disk
 argus fix <path> --apply --pr             # + commit to a branch, push, and open a GitHub PR
-argus report --format html                # export the last scan (html|json|markdown|sarif|sbom|pdf)
+argus report --format html                # export the last scan (html|json|markdown|sarif|sbom|jira|pdf)
 argus history                             # risk-score trend across past scans
 argus compare                             # what's new/fixed since the last scan
 argus suppress "<finding title>"          # mark a finding ignored — stops it recurring
@@ -141,6 +141,17 @@ Want findings inline on the PR itself, not just in the Security tab? Add `pr-com
 `permissions: pull-requests: write` on the job) and Argus posts each new finding as a review comment
 right on the changed line — idempotent, so re-runs on the same commit don't double-post. A no-op
 outside a `pull_request` event, so it's safe to leave on unconditionally.
+
+## Send findings to DefectDojo or Jira
+
+- **DefectDojo**: no new format needed — `argus scan --format sarif` (already
+  built for GitHub code scanning) is DefectDojo-compatible as-is via its
+  built-in **SARIF** import type.
+- **Jira**: `argus report --format jira` writes `jira-import.csv`, ready for
+  Jira's built-in CSV importer (*Project settings → External System Import →
+  CSV*) — one issue per finding (Summary, Description with evidence/fix/CWE/
+  compliance, Priority mapped from severity, Labels). No Jira API or
+  credentials needed; it's a manual upload.
 
 ## Attack behind a login (authenticated scanning)
 

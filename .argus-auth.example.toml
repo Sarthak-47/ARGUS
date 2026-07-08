@@ -40,9 +40,16 @@
 #                              # rotating hidden token. Set the input's `name` here and Argus
 #                              # GETs the login page first to scrape its `value`, then echoes
 #                              # it back in the POST body under this same field name.
+# post_login_url = "http://localhost:3000/security.php"   # optional — some apps need one
+# post_login_method = "POST"                                # more request before the session
+#                                                             # is fully usable (a security-level
+#                                                             # toggle, a tenant/org picker). Runs
+#                                                             # on the same authenticated session.
 # [login.data]
 # email = "admin@example.com"
 # password = "s3cret"
+# [login.post_login_data]
+# security = "low"
 
 # --- OAuth2 client-credentials ------------------------------------------------
 # [oauth2]

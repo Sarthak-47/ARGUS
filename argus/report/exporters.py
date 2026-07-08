@@ -1,13 +1,20 @@
-"""Export a ScanResult to HTML, JSON, Markdown, or PDF.
+"""Export a ScanResult to HTML, JSON, Markdown, PDF, SARIF, SBOM, or a Jira
+CSV import file.
 
 HTML uses a Jinja2 template carrying the 'carved in stone' Argus branding. JSON is
 the raw machine-readable model. Markdown suits GitHub issues/PRs. PDF is best-effort:
 it renders only if an HTML->PDF backend (weasyprint) is installed, otherwise it
 falls back to HTML with a clear note.
+
+DefectDojo integration (roadmap v1.0.2) needs no new format: DefectDojo has a
+built-in "SARIF" import type, so `argus scan --format sarif` (already built for
+GitHub code scanning) is DefectDojo-compatible as-is — see the README.
 """
 
 from __future__ import annotations
 
+import csv
+import io
 import json
 import time
 from pathlib import Path
@@ -221,6 +228,41 @@ def to_markdown(result: ScanResult) -> str:
     return "\n".join(lines)
 
 
+_JIRA_PRIORITY = {"CRITICAL": "Highest", "HIGH": "High", "MEDIUM": "Medium", "LOW": "Low", "INFO": "Lowest"}
+
+
+def to_jira_csv(result: ScanResult) -> str:
+    """A CSV importable via Jira's built-in CSV importer (Project settings ->
+    External System Import -> CSV) — one row per finding, mapped to the
+    standard fields Jira's importer recognizes out of the box: Summary,
+    Description, Priority, Labels, Issue Type. No Jira API/credentials needed;
+    the import is a manual upload, so this is a real integration Argus can
+    produce without ever touching a live Jira instance.
+    """
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["Summary", "Description", "Priority", "Labels", "Issue Type"])
+    for f in result.sorted_findings():
+        summary = f"[Argus] {f.title} ({f.location})"
+        desc_parts = []
+        if f.description:
+            desc_parts.append(f.description)
+        if f.evidence:
+            desc_parts.append(f"Evidence: {f.evidence}")
+        if f.fix:
+            desc_parts.append(f"Suggested fix: {f.fix}")
+        if f.cwe:
+            desc_parts.append(f"CWE: {f.cwe}")
+        if f.compliance:
+            desc_parts.append(f"Compliance: {f.compliance['asvs']} / {f.compliance['pci_dss']}")
+        labels = "argus " + f.category.replace(" ", "-") if f.category else "argus"
+        writer.writerow([
+            summary, "\n".join(desc_parts), _JIRA_PRIORITY.get(f.severity.value, "Medium"),
+            labels, "Bug",
+        ])
+    return buf.getvalue()
+
+
 def export(result: ScanResult, fmt: str, output_dir: str) -> Path:
     """Write the report in ``fmt`` to ``output_dir``. Returns the file path."""
     fmt = fmt.lower()
@@ -242,6 +284,10 @@ def export(result: ScanResult, fmt: str, output_dir: str) -> Path:
     if fmt in ("md", "markdown"):
         path = out / "report.md"
         path.write_text(to_markdown(result), encoding="utf-8")
+        return path
+    if fmt == "jira":
+        path = out / "jira-import.csv"
+        path.write_text(to_jira_csv(result), encoding="utf-8")
         return path
     if fmt == "pdf":
         html = to_html(result)

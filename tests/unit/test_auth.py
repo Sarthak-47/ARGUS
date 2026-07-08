@@ -282,3 +282,100 @@ async def test_csrf_form_login_wrong_token_rejected_by_server():
             assert client.cookies.get("PHPSESSID") == "loggedin"
     finally:
         srv.shutdown()
+
+
+# ----- post-login step (unlocks DVWA-style security-level gating) -----
+
+async def test_post_login_step_runs_after_login():
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append((request.method, request.url.path))
+        if request.url.path == "/login":
+            return httpx.Response(200, headers={"set-cookie": "session=abc; Path=/"})
+        return httpx.Response(200)
+
+    cfg = AuthConfig.from_dict({
+        "login": {"url": "http://app/login", "data": {"u": "a"},
+                  "post_login_url": "http://app/security.php", "post_login_data": {"security": "low"}}
+    })
+    async with _client(handler) as client:
+        summary = await cfg.apply(client)
+
+    assert ("POST", "/login") in calls
+    assert ("POST", "/security.php") in calls
+    assert "post-login step" in summary
+
+
+async def test_post_login_step_failure_raises():
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/login":
+            return httpx.Response(200)
+        return httpx.Response(500)
+
+    cfg = AuthConfig.from_dict({
+        "login": {"url": "http://app/login", "data": {"u": "a"}, "post_login_url": "http://app/security.php"}
+    })
+    async with _client(handler) as client:
+        with pytest.raises(AuthError, match="Post-login"):
+            await cfg.apply(client)
+
+
+async def test_post_login_step_shares_session_with_login():
+    """Live proof: a real server that gates a resource behind BOTH a login
+    cookie AND a post-login 'unlock' flag stored in that same session --
+    mirrors DVWA's security-level pattern (per-session state set in a request
+    after login, on the same client)."""
+    import http.server
+    import socketserver
+    import threading
+
+    unlocked_sessions = set()
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == "/vulnerable-page":
+                cookie = self.headers.get("Cookie", "")
+                if "session=abc" in cookie and "abc" in unlocked_sessions:
+                    self.send_response(200)
+                else:
+                    self.send_response(403)  # still "impossible" difficulty
+                self.end_headers()
+            else:
+                self.send_response(404)
+                self.end_headers()
+
+        def do_POST(self):
+            length = int(self.headers.get("Content-Length", 0) or 0)
+            self.rfile.read(length)
+            if self.path == "/login":
+                self.send_response(200)
+                self.send_header("Set-Cookie", "session=abc; Path=/")
+            elif self.path == "/security.php":
+                unlocked_sessions.add("abc")
+                self.send_response(200)
+            else:
+                self.send_response(404)
+            self.end_headers()
+
+        def log_message(self, *a):
+            pass
+
+    class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
+        daemon_threads = True
+
+    srv = Server(("127.0.0.1", 0), Handler)
+    port = srv.server_address[1]
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        base = f"http://127.0.0.1:{port}"
+        cfg = AuthConfig.from_dict({
+            "login": {"url": f"{base}/login", "data": {"u": "a"},
+                      "post_login_url": f"{base}/security.php", "post_login_data": {"security": "low"}}
+        })
+        async with httpx.AsyncClient() as client:
+            await cfg.apply(client)
+            resp = await client.get(f"{base}/vulnerable-page")
+            assert resp.status_code == 200, "post-login step should have unlocked the page"
+    finally:
+        srv.shutdown()

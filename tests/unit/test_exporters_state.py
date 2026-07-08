@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from argus.models import Finding, ScanResult, Severity
-from argus.report.exporters import to_html, to_json, to_markdown, to_sarif, export
+from argus.report.exporters import to_html, to_json, to_markdown, to_sarif, to_jira_csv, export
 from argus.state import save_result, load_result, load_history, history_path
 
 
@@ -129,9 +129,50 @@ def test_export_writes_each_format(tmp_path):
     r = _sample()
     for fmt, name in [("html", "index.html"), ("json", "report.json"),
                       ("markdown", "report.md"), ("sarif", "argus.sarif"),
-                      ("sbom", "sbom.cdx.json")]:
+                      ("sbom", "sbom.cdx.json"), ("jira", "jira-import.csv")]:
         path = export(r, fmt, str(tmp_path / fmt))
         assert path.exists() and path.name == name
+
+
+def test_to_jira_csv_has_expected_columns_and_rows():
+    import csv
+    import io
+
+    text = to_jira_csv(_sample())
+    rows = list(csv.reader(io.StringIO(text)))
+    assert rows[0] == ["Summary", "Description", "Priority", "Labels", "Issue Type"]
+    assert len(rows) == 3  # header + 2 findings
+    summaries = [r[0] for r in rows[1:]]
+    assert any("SQL injection in /users" in s for s in summaries)
+
+
+def test_to_jira_csv_maps_severity_to_priority():
+    import csv
+    import io
+
+    rows = list(csv.reader(io.StringIO(to_jira_csv(_sample()))))
+    by_summary = {r[0]: r for r in rows[1:]}
+    critical_row = next(r for s, r in by_summary.items() if "SQL injection" in s)
+    medium_row = next(r for s, r in by_summary.items() if "Weak hash" in s)
+    assert critical_row[2] == "Highest"
+    assert medium_row[2] == "Medium"
+
+
+def test_to_jira_csv_includes_fix_and_cwe_in_description():
+    rows_text = to_jira_csv(_sample())
+    assert "Use parameterised queries." in rows_text
+    assert "CWE-89" in rows_text
+
+
+def test_to_jira_csv_escapes_commas_and_quotes_safely():
+    import csv
+    import io
+
+    r = ScanResult(target="t", phase="scan")
+    r.add(Finding(title='Issue, with "quotes" and, commas', severity=Severity.HIGH,
+                  category="c", description="Line one,\nline two with \"quotes\""))
+    rows = list(csv.reader(io.StringIO(to_jira_csv(r))))
+    assert 'Issue, with "quotes" and, commas' in rows[1][0]
 
 
 def test_export_pdf_falls_back_to_html_without_weasyprint(tmp_path):

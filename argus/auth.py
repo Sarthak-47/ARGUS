@@ -13,7 +13,10 @@ Supported, cheapest-first:
     cookie it sets (or extract a token from the JSON response → Bearer).
     Optionally CSRF-aware: many real login forms (DVWA's included) embed a
     rotating hidden token that must be echoed back or the POST is rejected —
-    set ``csrf_field`` and Argus GETs the login page first to scrape it;
+    set ``csrf_field`` and Argus GETs the login page first to scrape it. Some
+    apps need one more request after login before the session is fully usable
+    (DVWA's per-session security level, a tenant/org picker) — set
+    ``post_login_url``/``post_login_data`` and it runs on the same session;
   - **OAuth2 client-credentials** — fetch an access token and use it as Bearer.
 
 Config comes from a ``.argus-auth.toml`` (see ``argus attack --auth <file>``),
@@ -51,6 +54,14 @@ class AuthConfig:
     login_data: dict[str, str] = field(default_factory=dict)
     token_json_path: str | None = None
     csrf_field: str | None = None
+    # optional post-login step — some apps need one more request before the
+    # session is fully usable (e.g. DVWA's security level defaults to
+    # "impossible" per-session until you POST to lower it; other apps need a
+    # tenant/org selection). Runs on the same client, after login/oauth, so
+    # session cookies already apply.
+    post_login_url: str | None = None
+    post_login_method: str = "POST"
+    post_login_data: dict[str, str] = field(default_factory=dict)
     # oauth2 client-credentials
     oauth_token_url: str | None = None
     oauth_client_id: str | None = None
@@ -85,6 +96,9 @@ class AuthConfig:
             login_data={str(k): str(v) for k, v in (login.get("data") or {}).items()},
             token_json_path=login.get("token_json_path"),
             csrf_field=login.get("csrf_field"),
+            post_login_url=login.get("post_login_url"),
+            post_login_method=str(login.get("post_login_method", "POST")).upper(),
+            post_login_data={str(k): str(v) for k, v in (login.get("post_login_data") or {}).items()},
             oauth_token_url=oauth.get("token_url"),
             oauth_client_id=oauth.get("client_id"),
             oauth_client_secret=oauth.get("client_secret"),
@@ -134,7 +148,23 @@ class AuthConfig:
 
         if token:
             client.headers["Authorization"] = f"Bearer {token}"
+
+        if self.post_login_url:
+            await self._post_login(client)
+            notes.append("post-login step")
+
         return ", ".join(notes) if notes else "none"
+
+    async def _post_login(self, client: httpx.AsyncClient) -> None:
+        """An extra request some apps need right after login before the
+        session is fully usable (DVWA's per-session security level, a
+        tenant/org picker, ...). Runs on the same authenticated client."""
+        try:
+            resp = await client.request(self.post_login_method, self.post_login_url, data=self.post_login_data)
+        except httpx.HTTPError as exc:
+            raise AuthError(f"Post-login request to {self.post_login_url} failed: {exc}") from exc
+        if resp.status_code >= 400:
+            raise AuthError(f"Post-login request to {self.post_login_url} returned HTTP {resp.status_code}.")
 
     async def _form_login(self, client: httpx.AsyncClient) -> str | None:
         data = dict(self.login_data)

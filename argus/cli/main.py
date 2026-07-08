@@ -80,7 +80,7 @@ def scan(
     deep: bool = typer.Option(False, "--deep", help="Full LLM free-form review of high-risk files."),
     depth: Optional[str] = typer.Option(None, "--depth", help="quick | standard | deep"),
     no_llm: bool = typer.Option(False, "--no-llm", help="Deterministic scan only, skip the LLM layer."),
-    fmt: Optional[str] = typer.Option(None, "--format", help="Also export a report: html|json|pdf|markdown|sarif|sbom."),
+    fmt: Optional[str] = typer.Option(None, "--format", help="Also export a report: html|json|pdf|markdown|sarif|sbom|jira."),
     fail_on: Optional[str] = typer.Option(
         None, "--fail-on", help="Exit non-zero if a finding at/above this severity exists: critical|high|medium|low."
     ),
@@ -199,7 +199,7 @@ def audit(
 # --------------------------------------------------------------------------- #
 @app.command()
 def report(
-    fmt: str = typer.Option("html", "--format", help="html | json | pdf | markdown | sarif | sbom"),
+    fmt: str = typer.Option("html", "--format", help="html | json | pdf | markdown | sarif | sbom | jira"),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Output directory."),
 ) -> None:
     """Export the most recent scan result in the chosen format."""

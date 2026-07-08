@@ -6,6 +6,21 @@ All notable changes to Argus are documented here. Format loosely follows
 ## [Unreleased]
 
 ### Added
+- **Integrations** (ROADMAP v1.0.2): DefectDojo needed no new code — its
+  built-in SARIF import type already accepts `argus scan --format sarif`.
+  New `argus report --format jira` writes a Jira-importable CSV (one issue per
+  finding: Summary, Description with evidence/fix/CWE/compliance, Priority
+  mapped from severity, Labels) for Jira's built-in CSV importer — no API
+  token or live Jira instance needed.
+- **Post-login step for authenticated sessions**: `AuthConfig` gained
+  `post_login_url`/`post_login_data` — an optional extra request that runs on
+  the same session right after login, for apps that need one more step before
+  the session is fully usable (a security-level toggle, a tenant/org picker).
+  Found necessary while closing the CSRF-login gap below: DVWA's login alone
+  wasn't enough, since its vulnerable pages stay patched at "impossible"
+  difficulty per-session until a separate POST to `/security.php`. Verified
+  live against a real server whose gated resource only unlocks after both the
+  login *and* the post-login step complete on the same session.
 - **CSRF-aware form login** (ROADMAP v1.0.1 follow-up B): `AuthConfig`'s form
   login gained an optional `csrf_field` — Argus GETs the login page first,
   scrapes a named hidden input's value (regardless of attribute order), and

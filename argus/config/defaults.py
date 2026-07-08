@@ -63,7 +63,7 @@ ATTACK_AGENTS = {
 }
 
 DEPTH_LEVELS = ("quick", "standard", "deep")
-REPORT_FORMATS = ("html", "json", "pdf", "markdown", "sarif", "sbom")
+REPORT_FORMATS = ("html", "json", "pdf", "markdown", "sarif", "sbom", "jira")
 
 # ---- Default config (written to ~/.argus/config.toml on first run) ----
 DEFAULT_CONFIG: dict = {
