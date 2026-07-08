@@ -6,6 +6,14 @@ All notable changes to Argus are documented here. Format loosely follows
 ## [Unreleased]
 
 ### Added
+- **JS-aware crawling** (ROADMAP v1.0.1 follow-up A): ReconBot now reuses
+  DomXSSHunter's optional Playwright dependency to render the root page in a
+  real headless browser (no flag needed, silently skipped when the `browser`
+  extra isn't installed) and mine both the post-JS DOM and every XHR/fetch
+  call it fires — the Angular/React/Vue SPA gap that hid Juice Shop's
+  client-routed surface from a regex-over-server-HTML crawl. Verified live
+  against a real server whose only link and only API call exist purely
+  inside a `<script>` tag.
 - **VEX output** (ROADMAP v0.4.4): `argus report --format vex` writes a
   CycloneDX 1.5 VEX document (`vex.cdx.json`) — a per-dependency-finding
   exploitability statement (`exploitable` / `not_affected` with

@@ -15,6 +15,11 @@ from urllib.parse import urljoin, urlparse, parse_qs
 from argus.agents.base import AgentReport, AttackContext, BaseAgent, Endpoint, build_http_poc, gather_limited
 from argus.models import Finding, Severity
 
+try:
+    from playwright.async_api import async_playwright
+except ImportError:  # pragma: no cover - exercised only when the extra isn't installed
+    async_playwright = None
+
 _LINK_RE = re.compile(r"""(?:href|src)\s*=\s*['"]([^'"#]+)['"]""", re.IGNORECASE)
 # Two groups: (1) the opening <form ...> tag's attributes, (2) the inner content
 # (for input discovery). A form's action/method live in the opening tag, not the
@@ -92,6 +97,7 @@ class ReconBot(BaseAgent):
                 self._extract(ctx, base, resp.text or "")
 
         await self._probe_common(ctx, base)
+        await self._js_crawl(ctx, base)
 
         report.requests_sent = ctx.requests_sent
         report.findings = len(ctx.findings)
@@ -196,6 +202,55 @@ class ReconBot(BaseAgent):
             [probe(p, label, sev) for p, label, sev in _COMMON_PATHS],
             limit=ctx.semaphore._value or 8,
         )
+
+    async def _js_crawl(self, ctx: AttackContext, base: str) -> None:
+        """JS-aware crawl (roadmap v1.0.1 follow-up A): a regex-over-server-HTML
+        crawl is blind to a client-rendered SPA (Angular/React/Vue) — its real
+        markup and its XHR/fetch calls to the API only exist after JS runs.
+        Reuses DomXSSHunter's optional Playwright dependency: silently skipped,
+        zero cost, when it isn't installed (same graceful-degrade pattern as
+        Semgrep/domxss); auto-runs otherwise, no extra flag needed, mirroring
+        the zero-flag OpenAPI auto-discovery (follow-up C)."""
+        if async_playwright is None:
+            return
+
+        requests_seen: list[tuple[str, str, list[str]]] = []
+
+        def _on_request(request) -> None:
+            if request.resource_type not in ("xhr", "fetch"):
+                return
+            if not self._same_origin(base, request.url):
+                return
+            parsed = urlparse(request.url)
+            params = list(parse_qs(parsed.query).keys())
+            requests_seen.append((request.method, request.url.split("?")[0], params))
+
+        rendered_html = ""
+        try:
+            async with async_playwright() as pw:
+                browser = await pw.chromium.launch()
+                try:
+                    browser_ctx = await browser.new_context(extra_http_headers=dict(ctx.client.headers))
+                    cookies = [{"name": n, "value": v, "url": base} for n, v in ctx.client.cookies.items()]
+                    if cookies:
+                        await browser_ctx.add_cookies(cookies)
+                    page = await browser_ctx.new_page()
+                    page.on("request", _on_request)
+                    await page.goto(base + "/", timeout=10000, wait_until="networkidle")
+                    rendered_html = await page.content()
+                finally:
+                    await browser.close()
+        except Exception:
+            ctx.emit(self.name, "JS-aware crawl skipped (headless browser error)")
+            return
+
+        js_links = self._extract(ctx, base, rendered_html) if rendered_html else []
+        for method, url, params in requests_seen:
+            ctx.add_endpoint(Endpoint(url=url, method=method, params=params, source="js-xhr"))
+
+        if js_links or requests_seen:
+            ctx.emit(self.name, f"JS-aware crawl: {len(js_links)} link(s) in the rendered DOM, "
+                                 f"{len(requests_seen)} XHR/fetch call(s) invisible to a static crawl")
 
     def _seed_from_spec(self, ctx: AttackContext, base: str, path: str, body_full: str) -> None:
         """A common-path probe hit what might be an OpenAPI/Swagger spec — try

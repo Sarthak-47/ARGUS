@@ -73,6 +73,12 @@ Opt-in: **`DomXSSHunter`** — a real headless-browser agent (`--agents domxss`)
 XSS in React/Vue/Next apps the HTTP-only agents can't see. Needs `pip install
 'argus-sec[browser]' && playwright install chromium`.
 
+The same browser dependency also upgrades ReconBot itself: when installed, ReconBot renders the
+root page in a real headless browser (no flag needed) and mines both the post-JS DOM and every
+XHR/fetch call it fires — the endpoints an Angular/React/Vue SPA's client-side router and API
+calls hide from a regex-over-server-HTML crawl. Silently skipped, zero cost, when the `browser`
+extra isn't installed.
+
 ## Install & use
 
 ```bash

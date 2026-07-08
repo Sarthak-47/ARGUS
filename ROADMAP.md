@@ -147,11 +147,21 @@ developers live.
   Published as-is, not smoothed over — the three external misses are real,
   understood gaps (below), which is exactly what a benchmark is supposed to
   surface.
-  - **Follow-up A — JS-aware crawling.** Juice Shop is an Angular SPA; Argus's
-    crawler doesn't execute JS, so it can't discover API routes behind
-    client-side routing. DomXSSHunter already carries a headless-browser
-    dependency (opt-in, `--agents domxss`) — the natural next step is reusing
-    that browser to seed the crawl, not just to test for DOM XSS. *Medium-large.*
+  - **Follow-up A — JS-aware crawling.** ✅ **Done.** ReconBot now reuses
+    DomXSSHunter's optional Playwright dependency: when installed (`pip
+    install 'argus-sec[browser]'`), it renders the root page in a real
+    headless browser (no flag needed — same zero-flag philosophy as follow-up
+    C's OpenAPI auto-discovery) and mines both the post-JS DOM (for links/
+    forms that only exist after client-side rendering) and every XHR/fetch
+    call it observes firing during load — the exact Angular/React/Vue SPA gap
+    that left Juice Shop's client-routed surface invisible to a regex-over-
+    server-HTML crawl. Silently skipped, zero cost, when the `browser` extra
+    isn't installed — same graceful-degrade pattern as Semgrep/domxss.
+    Verified live against a real threaded server whose only link and only API
+    endpoint exist purely inside a `<script>` tag (a DOM write + a `fetch()`
+    call, nothing in the server-rendered HTML) — both genuinely discovered.
+    `.github/workflows/benchmark.yml` now installs the `browser` extra plus
+    Chromium so the real `juice_shop` benchmark case exercises this.
   - **Follow-up B — CSRF-aware form login.** ✅ **Done.** `AuthConfig`'s form
     login gained an optional `csrf_field`: Argus GETs the login page first,
     scrapes a named hidden input's value regardless of attribute order, and

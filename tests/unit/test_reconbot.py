@@ -11,6 +11,8 @@ list (attack agents would probe a POST-only endpoint with GET and get a 404).
 from __future__ import annotations
 
 import json
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import httpx
 import pytest
@@ -120,3 +122,88 @@ def test_seed_from_spec_adds_endpoints_and_emits_event():
     ReconBot()._seed_from_spec(ctx, "http://t", "/api/openapi.json", body_full=_openapi_spec())
     assert "GET http://t/api/hidden-only-in-spec" in ctx.endpoints
     assert any("auto-discovered API spec" in e for e in events)
+
+
+# ----- JS-aware crawling (roadmap v1.0.1 follow-up A) -----
+# Skipped entirely if the optional `browser` extra (playwright) isn't
+# installed — same graceful-degrade pattern test_domxss.py uses.
+
+pytest.importorskip("playwright")
+
+_SPA_PAGE = b"""<!doctype html><html><body>
+<div id="app"></div>
+<script>
+  document.getElementById('app').innerHTML = '<a href="/js-only-link">hidden</a>';
+  fetch('/api/js-only-endpoint?id=1');
+</script>
+</body></html>"""
+
+
+class _SPAHandler(BaseHTTPRequestHandler):
+    def log_message(self, *a):
+        return
+
+    def do_GET(self):  # noqa: N802
+        if self.path == "/" or self.path == "":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
+            self.wfile.write(_SPA_PAGE)
+            return
+        if self.path.startswith("/api/js-only-endpoint"):
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b"{}")
+            return
+        self.send_response(404)
+        self.end_headers()
+
+
+@pytest.fixture
+def spa_server():
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), _SPAHandler)
+    port = srv.server_address[1]
+    t = threading.Thread(target=srv.serve_forever, daemon=True)
+    t.start()
+    yield f"http://127.0.0.1:{port}"
+    srv.shutdown()
+    srv.server_close()
+
+
+@pytest.mark.asyncio
+async def test_js_crawl_finds_link_only_in_rendered_dom(spa_server):
+    """The core follow-up A case: a link that only exists after JS runs
+    (Angular/React/Vue-style client rendering) — invisible to the static
+    regex-over-server-HTML crawl, caught by rendering in a real browser."""
+    async with httpx.AsyncClient() as client:
+        ctx = AttackContext(spa_server, client=client)
+        await ReconBot().run(ctx)
+
+    urls = {ep.url for ep in ctx.endpoint_list()}
+    assert f"{spa_server}/js-only-link" in urls
+
+
+@pytest.mark.asyncio
+async def test_js_crawl_finds_xhr_call_invisible_to_static_crawl(spa_server):
+    """The Juice Shop / VAmPI-style gap: an API call the SPA fires via
+    fetch/XHR after load, with no href/src anywhere in the server-rendered
+    HTML for a static crawl to ever find."""
+    async with httpx.AsyncClient() as client:
+        ctx = AttackContext(spa_server, client=client)
+        await ReconBot().run(ctx)
+
+    xhr_endpoints = [ep for ep in ctx.endpoint_list() if ep.source == "js-xhr"]
+    assert any(ep.url.endswith("/api/js-only-endpoint") and "id" in ep.params for ep in xhr_endpoints)
+
+
+@pytest.mark.asyncio
+async def test_js_crawl_skips_cleanly_when_playwright_unavailable(monkeypatch):
+    monkeypatch.setattr("argus.agents.reconbot.async_playwright", None)
+    async with httpx.AsyncClient() as client:
+        ctx = AttackContext("http://t", client=client)
+        events = []
+        ctx._on_event = lambda agent, text, sev="ok": events.append(text)
+        await ReconBot()._js_crawl(ctx, "http://t")
+    # no browser-error note, no crash — a silent, zero-cost no-op
+    assert not any("JS-aware crawl" in e for e in events)

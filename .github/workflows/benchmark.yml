@@ -26,10 +26,11 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Install package (with sandbox extra for Docker cases)
+      - name: Install package (with sandbox + browser extras for Docker cases and JS-aware crawling)
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,sandbox]"
+          pip install -e ".[dev,sandbox,browser]"
+          python -m playwright install --with-deps chromium
 
       - name: Run benchmark suite
         run: |
