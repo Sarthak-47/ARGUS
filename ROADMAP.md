@@ -83,9 +83,11 @@ way to lose a user; the market's answer is reachability + smarter filtering.
   marked reachable. Import-level pass over Python + JS/TS with dist→import
   aliases. Verified: an imported CVE stays CRITICAL, an unimported one drops to
   HIGH with the note.
-- **v0.4.3 · Container image CVE scanning.** Complement the existing Dockerfile
-  IaC linter with a real image-layer CVE scan (Trivy-style) when a built image
-  or base is present. *Engine work; medium.*
+- **v0.4.3 · Container image CVE scanning.** ✅ **Done.** `argus scan` extracts
+  base image(s) from the repo's Dockerfile(s) and scans them for OS-package CVEs
+  via Trivy when installed (multi-stage / digest-pinned / stage-alias aware,
+  ignores `scratch`); graceful skip-with-note otherwise. Verified: extraction +
+  Trivy-JSON parsing + the no-Trivy skip path.
 - **v0.4.4 · VEX output.** Emit a CycloneDX VEX document alongside the SBOM —
   per-CVE exploitability statements (affected / not-affected / under-investigation),
   driven by the reachability analysis (v0.4.2). A 2026 supply-chain must-have and

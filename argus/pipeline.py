@@ -22,7 +22,9 @@ from argus.models import Finding, ScanResult
 
 def _do_scan(target: str, deep: bool, depth: str | None, no_llm: bool) -> ScanResult:
     from argus.sbom import collect_packages
-    from argus.scanner import dependencies, iac, ingestion, rules_builtin, secrets, semgrep_runner, supplychain
+    from argus.scanner import (
+        dependencies, iac, image_cve, ingestion, rules_builtin, secrets, semgrep_runner, supplychain,
+    )
 
     settings = load_settings()
     result = ScanResult(target=target, phase="scan")
@@ -77,6 +79,12 @@ def _do_scan(target: str, deep: bool, depth: str | None, no_llm: bool) -> ScanRe
         out.step("Checking container/IaC config…")
         iac_findings, _ = iac.scan_iac(root)
         result.extend(iac_findings)
+
+        # 4e) Base-image OS CVEs (Trivy, if installed) -------------------------
+        img_findings, img_notes = image_cve.scan_container_images(root)
+        result.extend(img_findings)
+        for note in img_notes:
+            out.info(note)
 
         # 5) Secret detection --------------------------------------------------
         out.step("Scanning for secrets (regex + entropy)…")

@@ -6,6 +6,13 @@ All notable changes to Argus are documented here. Format loosely follows
 ## [Unreleased]
 
 ### Added
+- **Container base-image CVE scanning** (ROADMAP v0.4.3): `argus scan` now extracts
+  the base image(s) from a repo's Dockerfile(s) and, when Trivy is installed, scans
+  them for OS-package CVEs (openssl/zlib/etc. baked into an old `python:`/`node:`
+  base) — complementing the existing Dockerfile *lint* and the language dependency
+  audit. Handles multi-stage builds, digest-pinned and stage-alias FROMs, and
+  ignores `scratch`. Graceful like the npm/pip auditors: a skipped step with a note
+  when Trivy isn't present, never an error.
 - **SCA reachability analysis** (ROADMAP v0.4.2): a vulnerable dependency that
   isn't actually imported anywhere in the first-party code is now downgraded one
   severity and annotated "likely transitive/unused", so real, reachable CVEs
