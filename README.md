@@ -86,6 +86,7 @@ argus attack --url http://localhost:3000  # Phase 2 — attack a running app
 argus audit <repo-url>                    # Phase 1 + Phase 2
 argus fix <path>                          # generate patches for fixable findings (dry-run)
 argus fix <path> --apply                  # write the patches to disk
+argus fix <path> --apply --pr             # + commit to a branch, push, and open a GitHub PR
 argus report --format html                # export the last scan (html|json|markdown|sarif|sbom|pdf)
 argus history                             # risk-score trend across past scans
 argus compare                             # what's new/fixed since the last scan
@@ -190,6 +191,33 @@ repos:
 Then `pre-commit install`. It runs the deterministic passes only (secrets +
 built-in rules) — no LLM, no network — so it's fast enough for every commit.
 Standalone: `argus precommit` scans your currently-staged files.
+
+## Auto-fix pull requests
+
+`argus fix --apply` already writes safe, reverified patches to disk. Add `--pr`
+and it goes one step further: commits them to a new branch, pushes it, and opens
+a real GitHub pull request with each finding's explanation in the description —
+so remediation lands where developers actually work, not in a local diff nobody
+sees.
+
+```bash
+argus fix <path> --apply --pr
+```
+
+This touches real, shared state (a branch and a PR), so it's opt-in and requires
+you to already have GitHub authentication set up — Argus never tries to obtain
+credentials on your behalf. Either works:
+
+- **`gh` CLI** (recommended): `gh auth login`, then just run the command above.
+- **A token**: set `GH_TOKEN` or `GITHUB_TOKEN` in your environment. Create one at
+  [github.com/settings/tokens](https://github.com/settings/tokens) → *Generate new
+  token (classic)* → scope **`repo`** (or, for a fine-grained token, **Contents:
+  Read & write** + **Pull requests: Read & write** on the target repo) → copy it
+  once, then `export GH_TOKEN=ghp_...` (or set it in CI as a secret).
+
+Your working tree must be clean before running `--pr` — a pre-existing dirty
+state would otherwise get swept into the fix commit, so Argus refuses rather
+than guess what's yours and what's the patch.
 
 ## Desktop GUI
 

@@ -526,12 +526,16 @@ def run_audit(target: str, fix: bool = False, agents: str | None = None,
         run_fix(target, apply=False)
 
 
-def run_fix(target: str, *, apply: bool = False) -> None:
+def run_fix(target: str, *, apply: bool = False, pr: bool = False) -> None:
     """Generate (and optionally apply) minimal patches for fixable findings.
 
     Fixable = findings with a ``file`` (Phase-2/HTTP findings have no source file
     to patch). Requires an LLM provider — there's no deterministic way to write a
     correct code patch. Dry-run by default; ``apply=True`` writes patches to disk.
+
+    ``pr=True`` (requires ``apply=True``) commits the applied, reverified fixes
+    to a new branch, pushes it, and opens a real GitHub pull request — see
+    ``argus/fixpr.py`` for the safety gates (clean working tree, explicit auth).
     """
     from argus.config import load_settings
     from argus.fix import apply_fixes
@@ -541,6 +545,26 @@ def run_fix(target: str, *, apply: bool = False) -> None:
 
     out.banner()
     out.rule(f"AUTO-FIX — {target}")
+
+    if pr and not apply:
+        out.error("--pr requires --apply (a pull request needs the fixes actually applied).")
+        raise typer.Exit(code=1)
+
+    repo = None
+    if pr:
+        from argus.fixpr import PrError, ensure_clean_repo, github_auth_available
+
+        if not github_auth_available():
+            out.error(
+                "No GitHub authentication found — --pr needs the `gh` CLI logged in "
+                "([wheat1]gh auth login[/]) or a GH_TOKEN/GITHUB_TOKEN environment variable."
+            )
+            raise typer.Exit(code=1)
+        try:
+            repo = ensure_clean_repo(Path(target).expanduser())
+        except PrError as exc:
+            out.error(str(exc))
+            raise typer.Exit(code=1)
 
     result = _do_scan(target, deep=False, depth=None, no_llm=True)
     fixable = [f for f in result.findings if f.file]
@@ -591,6 +615,10 @@ def run_fix(target: str, *, apply: bool = False) -> None:
             out.success(f"Applied {len(written)} fix(es).")
             if written:
                 _reverify_fixes(target, fixable, written)
+            if pr and written:
+                _open_fix_pr(repo, ingested.root, written)
+            elif pr:
+                out.warn("Nothing was written — no pull request to open.")
         else:
             out.info(f"{len(applied)} fix(es) previewed above (dry-run). Re-run with --apply to write them.")
     finally:
@@ -625,3 +653,24 @@ def _reverify_fixes(target: str, original_findings: list[Finding], written) -> N
         table.add_row(fx.file, original.title, status)
     out.console.print()
     out.console.print(table)
+
+
+def _open_fix_pr(repo, root: Path, written) -> None:
+    """Commit the applied, reverified fixes to a new branch, push it, and open a
+    real GitHub pull request. ``repo`` is the pre-validated clean-tree Repo from
+    ``ensure_clean_repo`` (called before any patch was applied)."""
+    from argus.fixpr import PrError, commit_and_push_fixes, open_pull_request
+
+    out.step("Committing fixes to a new branch and opening a pull request…")
+    try:
+        base = repo.active_branch.name
+        branch = commit_and_push_fixes(repo, written)
+    except PrError as exc:
+        out.error(str(exc))
+        raise typer.Exit(code=1)
+
+    result = open_pull_request(root, branch, base, written)
+    if result.url:
+        out.success(f"Opened pull request: [wheat1]{result.url}[/]")
+    else:
+        out.warn(result.note)

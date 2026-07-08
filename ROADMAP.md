@@ -107,11 +107,11 @@ way to lose a user; the market's answer is reachability + smarter filtering.
 Argus already generates and reverifies fixes; 1.0 needs to *deliver* them where
 developers live.
 
-- **v0.5.1 · Auto-fix pull requests.** Turn `argus fix --apply` into a real
-  GitHub PR: branch, commit the reverified patch, open a PR with the finding +
-  PoC + before/after. (This is the deferred UPGRADE.md #5 — now a 1.0 goal;
-  needs a token, so opt-in and clearly scoped.) *Aikido AI AutoFix / Snyk.*
-  *Engine + GH API; medium.*
+- **v0.5.1 · Auto-fix pull requests.** ✅ **Done.** `argus fix --apply --pr`
+  commits reverified patches to a new branch, pushes it, and opens a real GitHub
+  PR via the `gh` CLI. Opt-in, requires explicit GitHub auth (`gh auth login` or
+  `GH_TOKEN`/`GITHUB_TOKEN`), refuses on a dirty tree/detached HEAD/no origin.
+  Verified end-to-end against a throwaway local remote. *Aikido AI AutoFix / Snyk.*
 - **v0.5.2 · PR review comments.** In CI (diff-aware mode), post each new finding
   as an inline GitHub PR comment instead of only a SARIF upload. *GitHub Advanced
   Security parity.* *Action work; small-medium.*

@@ -53,11 +53,12 @@ def setup() -> None:
 def fix(
     target: str = typer.Argument(..., help="Repo path to fix (local paths only for --apply)."),
     apply: bool = typer.Option(False, "--apply", help="Write patches to disk. Default is dry-run (preview only)."),
+    pr: bool = typer.Option(False, "--pr", help="With --apply: commit the fixes to a new branch, push it, and open a GitHub pull request. Needs `gh auth login` or a GH_TOKEN/GITHUB_TOKEN env var, and a clean working tree."),
 ) -> None:
     """Generate LLM-written patches for fixable findings; preview or apply them."""
     from argus.pipeline import run_fix
 
-    run_fix(target, apply=apply)
+    run_fix(target, apply=apply, pr=pr)
 
 
 @app.command()

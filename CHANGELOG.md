@@ -6,6 +6,17 @@ All notable changes to Argus are documented here. Format loosely follows
 ## [Unreleased]
 
 ### Added
+- **Auto-fix pull requests** (ROADMAP v0.5.1): `argus fix <path> --apply --pr`
+  takes the already-validated, reverified patches one step further — commits
+  them to a new `argus/auto-fix-<ts>` branch, pushes it, and opens a real
+  GitHub pull request (via the `gh` CLI) with each finding's explanation in the
+  description. Opt-in and gated: requires `gh auth login` or a `GH_TOKEN`/
+  `GITHUB_TOKEN` env var (Argus never tries to acquire credentials itself), and
+  refuses on a dirty working tree, a detached HEAD, or a repo with no `origin`
+  remote, so nothing but the fix itself ends up in the branch. Verified
+  end-to-end (real static scan → mocked LLM patch → apply → reverify → commit →
+  push) against a throwaway local "remote" — never GitHub — plus the individual
+  safety-gate refusals.
 - **Container base-image CVE scanning** (ROADMAP v0.4.3): `argus scan` now extracts
   the base image(s) from a repo's Dockerfile(s) and, when Trivy is installed, scans
   them for OS-package CVEs (openssl/zlib/etc. baked into an old `python:`/`node:`

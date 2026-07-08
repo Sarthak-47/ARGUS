@@ -8,7 +8,7 @@ import typer
 import pytest
 
 import argus.pipeline as pipeline
-from argus.pipeline import run_scan, run_attack, export_last, _export, _reverify_fixes
+from argus.pipeline import run_scan, run_attack, run_fix, export_last, _export, _reverify_fixes
 from argus.compare import finding_signature
 from argus.models import Finding, ScanResult
 from argus.fix import AppliedFix
@@ -228,3 +228,95 @@ def test_reverify_reports_still_detected_when_finding_persists(monkeypatch, caps
     _reverify_fixes("some/repo", [original], [applied])
 
     assert "still detected" in capsys.readouterr().out.lower()
+
+
+def test_run_fix_apply_pr_end_to_end(tmp_path, monkeypatch):
+    """Full run_fix(apply=True, pr=True) pipeline: real static scan finds a real
+    vulnerability, a mocked LLM proposes a real patch, it's applied + reverified,
+    then committed and pushed to a throwaway local 'origin' (never GitHub)."""
+    from git import Repo
+
+    from argus.llm.reasoning import FixResult
+
+    # A throwaway bare "remote" — commit_and_push_fixes pushes here, not GitHub.
+    bare = tmp_path / "origin.git"
+    Repo.init(str(bare), bare=True)
+
+    work = tmp_path / "work"
+    work.mkdir()
+    vulnerable = "import os\ndef r(c):\n    os.system('ping ' + c)\n"
+    (work / "app.py").write_text(vulnerable, encoding="utf-8")
+
+    repo = Repo.init(str(work))
+    repo.config_writer().set_value("user", "email", "t@t.co").release()
+    repo.config_writer().set_value("user", "name", "t").release()
+    repo.index.add(["app.py"])
+    repo.index.commit("initial")
+    repo.create_remote("origin", str(bare))
+    repo.git.push("--set-upstream", "origin", repo.active_branch.name)
+
+    fixed = "import os\ndef r(c):\n    subprocess.run(['ping', c])\n"
+    diff = (
+        "--- a/app.py\n+++ b/app.py\n@@ -1,3 +1,3 @@\n"
+        " import os\n"
+        " def r(c):\n"
+        "-    os.system('ping ' + c)\n"
+        "+    subprocess.run(['ping', c])\n"
+    )
+
+    class _FakeProvider:
+        name = "fake"
+        model = "fake-model"
+
+    monkeypatch.setattr("argus.llm.provider.get_provider", lambda settings: _FakeProvider())
+    monkeypatch.setattr(
+        "argus.llm.reasoning.generate_fixes",
+        lambda provider, root, findings, on_progress=None: [
+            FixResult(finding_id=findings[0].id, file="app.py", diff=diff, explanation="use subprocess.run")
+        ] if findings else [],
+    )
+    monkeypatch.setenv("GH_TOKEN", "fake-token-for-auth-check-only")
+    monkeypatch.setattr("argus.fixpr.shutil.which", lambda name: None if name == "gh" else "/usr/bin/" + name)
+
+    run_fix(str(work), apply=True, pr=True)
+
+    assert (work / "app.py").read_text(encoding="utf-8") == fixed
+    # A new branch was created, committed, and pushed to the throwaway remote.
+    assert repo.active_branch.name.startswith("argus/auto-fix-")
+    remote_branches = [r.name for r in repo.remotes.origin.refs]
+    assert f"origin/{repo.active_branch.name}" in remote_branches
+
+
+def test_run_fix_pr_without_apply_exits_cleanly(tmp_path, capsys):
+    with pytest.raises(typer.Exit) as exc_info:
+        run_fix(str(tmp_path), apply=False, pr=True)
+    assert exc_info.value.exit_code == 1
+    assert "--pr requires --apply" in capsys.readouterr().out.lower()
+
+
+def test_run_fix_pr_without_github_auth_exits_cleanly(tmp_path, monkeypatch, capsys):
+    monkeypatch.delenv("GH_TOKEN", raising=False)
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.setattr("argus.fixpr.shutil.which", lambda _: None)
+    with pytest.raises(typer.Exit) as exc_info:
+        run_fix(str(tmp_path), apply=True, pr=True)
+    assert exc_info.value.exit_code == 1
+    assert "no github authentication" in capsys.readouterr().out.lower()
+
+
+def test_run_fix_pr_dirty_repo_exits_cleanly(tmp_path, monkeypatch, capsys):
+    from git import Repo
+
+    repo = Repo.init(str(tmp_path))
+    repo.config_writer().set_value("user", "email", "t@t.co").release()
+    repo.config_writer().set_value("user", "name", "t").release()
+    (tmp_path / "app.py").write_text("x = 1\n", encoding="utf-8")
+    repo.index.add(["app.py"])
+    repo.index.commit("initial")
+    (tmp_path / "app.py").write_text("x = 2\n", encoding="utf-8")  # now dirty
+
+    monkeypatch.setenv("GH_TOKEN", "fake-token")
+    with pytest.raises(typer.Exit) as exc_info:
+        run_fix(str(tmp_path), apply=True, pr=True)
+    assert exc_info.value.exit_code == 1
+    assert "uncommitted changes" in capsys.readouterr().out.lower()
