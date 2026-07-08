@@ -6,6 +6,16 @@ All notable changes to Argus are documented here. Format loosely follows
 ## [Unreleased]
 
 ### Added
+- **Deeper MCP-security scanning** (ROADMAP v0.3.4): MCPSecurityAgent now goes
+  past "is a server exposed" to inspect the exposed catalog — it flags **tool
+  poisoning** (instruction-override text hidden in a tool description that can
+  hijack any agent reading the catalog, CWE-94), classifies **dangerous
+  capabilities** on unauthenticated tools (shell/exec, arbitrary file access,
+  outbound-network/SSRF, database, code-eval — CWE-306), and enumerates
+  **resources/ and prompts/** catalogs (disclosure of filesystem roots / prompt
+  templates). Verified against a mock MCP server: a poisoned, shell-capable tool
+  and exposed resources/prompts are flagged, while a benign server only trips the
+  disclosure finding.
 - **BOLA/BFLA authorization testing** (ROADMAP v0.3.3): a new **AuthzTester** agent
   (18th) tests broken object- and function-level authorization — the #1 API risk —
   using a second identity supplied with `--auth-b <file>`. It compares three actors

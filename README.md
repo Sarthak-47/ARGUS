@@ -57,7 +57,8 @@ Risk Score 98/100  [CRITICAL]
 `ReconBot` · `CrawlerBot` · `Injector` (SQLi/NoSQL/command) · `AuthBreaker` (JWT/session/MFA) ·
 `IDORHunter` · `XSSHunter` · `SSRFProber` · `HeaderPoker` (CORS) · `CSRFHunter` · `FileAttacker`
 (upload/traversal) · `Fuzzer` · `RaceCondition` · `GraphQLAgent` · `WebSocketAgent` ·
-`MCPSecurityAgent` (exposed MCP servers & AI-infra leaks) · `PromptInjectionAgent` (probes the
+`MCPSecurityAgent` (exposed MCP servers & AI-infra leaks — incl. tool poisoning,
+dangerous-capability tools, and resource/prompt disclosure) · `PromptInjectionAgent` (probes the
 app's own chatbot/AI features for prompt injection — sends a unique canary token wrapped in an
 instruction-override payload and only reports a finding if that exact token comes back verbatim,
 proving untrusted input reached the model without isolation from system instructions) ·

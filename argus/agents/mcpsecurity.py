@@ -12,6 +12,7 @@ using the same patterns as the static secret scanner.
 from __future__ import annotations
 
 import json
+import re
 
 from argus.agents.base import AgentReport, AttackContext, BaseAgent, build_http_poc
 from argus.models import Finding, Severity
@@ -23,6 +24,32 @@ _JSON_RPC_PATHS = ["/mcp", "/api/mcp", "/.well-known/mcp"]
 _SSE_PATHS = ["/sse", "/mcp/sse"]
 
 _TOOLS_LIST_REQUEST = {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
+_RESOURCES_LIST_REQUEST = {"jsonrpc": "2.0", "id": 2, "method": "resources/list"}
+_PROMPTS_LIST_REQUEST = {"jsonrpc": "2.0", "id": 3, "method": "prompts/list"}
+
+# "Tool poisoning": instruction-override text hidden in a tool description or a
+# prompt template, so an agent reading the catalog is silently hijacked. This is
+# the signature MCP attack — a plain capability description should never contain
+# imperative overrides or hidden pseudo-tags.
+_POISON_RE = re.compile(
+    r"(?i)("
+    r"ignore\s+(?:all\s+|the\s+|previous\s+|above\s+|prior\s+)*instructions"
+    r"|disregard\s+(?:all\s+|the\s+|previous\s+)"
+    r"|<\s*(?:important|system|secret|instructions?|ignore)\s*>"
+    r"|do\s+not\s+(?:tell|inform|mention|reveal)"
+    r"|without\s+(?:telling|informing|notifying)\s+the\s+user"
+    r"|exfiltrat|\bBEGIN\s+SYSTEM\b|you\s+must\s+(?:always|never)"
+    r")"
+)
+
+# Capability keywords that make an *unauthenticated* tool especially dangerous.
+_CAPABILITIES: list[tuple[str, re.Pattern]] = [
+    ("command/shell execution", re.compile(r"(?i)\b(shell|exec|command|subprocess|bash|/bin/sh|run_?command|system)\b")),
+    ("arbitrary file access", re.compile(r"(?i)\b(read_?file|write_?file|delete_?file|filesystem|\bfs\b|directory|read_?path)\b")),
+    ("outbound network / SSRF", re.compile(r"(?i)\b(fetch|http_?request|curl|download|get_?url|proxy)\b")),
+    ("database access", re.compile(r"(?i)\b(sql|query|database|\bdb\b|execute_?sql)\b")),
+    ("code evaluation", re.compile(r"(?i)\b(eval|exec_?code|python_?exec|run_?code)\b")),
+]
 
 
 def _looks_like_tool_list(body: dict) -> list[dict] | None:
@@ -80,6 +107,9 @@ class MCPSecurityAgent(BaseAgent):
                     confidence="high",
                     poc=build_http_poc("POST", url, resp, body=json.dumps(_TOOLS_LIST_REQUEST)),
                 ))
+                # Deeper analysis of the exposed catalog, plus resources/prompts.
+                self._analyze_tools(ctx, url, tools)
+                await self._probe_resources(ctx, url)
 
         for path in _SSE_PATHS:
             url = base + path
@@ -114,6 +144,101 @@ class MCPSecurityAgent(BaseAgent):
         report.status = "complete"
         ctx.emit(self.name, "sweep complete", "ok")
         return report
+
+    def _analyze_tools(self, ctx: AttackContext, url: str, tools: list[dict]) -> None:
+        """Flag tool poisoning (hidden instructions) and dangerous capabilities."""
+        for tool in tools:
+            if not isinstance(tool, dict):
+                continue
+            name = str(tool.get("name", "?"))
+            desc = str(tool.get("description", ""))
+            schema_text = json.dumps(tool.get("inputSchema", ""))
+
+            # Tool poisoning — instruction-override text in the description.
+            if _POISON_RE.search(desc):
+                ctx.report(Finding(
+                    title="MCP tool description contains hidden instructions (tool poisoning)",
+                    severity=Severity.HIGH,
+                    category="ai-infra",
+                    detector="mcpsecurity:tool-poisoning",
+                    endpoint=f"POST {url}",
+                    evidence=f"tool '{name}' description embeds instruction-override text: "
+                             f"{desc.strip()[:160]}",
+                    description="An MCP tool's description contains hidden instructions rather than a "
+                                "plain capability description. An agent that ingests this catalog can be "
+                                "silently hijacked (prompt injection / tool poisoning) into leaking data "
+                                "or misusing other tools.",
+                    exploit="Publish a poisoned tool description so any agent listing tools executes the "
+                            "embedded instructions.",
+                    fix="Treat tool metadata as untrusted input; sanitize/curate tool descriptions and "
+                        "isolate them from the model's instruction context.",
+                    cwe="CWE-94",
+                    cvss=8.1,
+                    confidence="high",
+                ))
+
+            # Dangerous capability exposed without authentication.
+            haystack = f"{name} {desc} {schema_text}"
+            for label, pat in _CAPABILITIES:
+                if pat.search(haystack):
+                    ctx.report(Finding(
+                        title=f"Unauthenticated MCP tool with dangerous capability ({label})",
+                        severity=Severity.HIGH,
+                        category="ai-infra",
+                        detector="mcpsecurity:dangerous-tool",
+                        endpoint=f"POST {url}",
+                        evidence=f"tool '{name}' exposes {label} with no authentication",
+                        description=f"An unauthenticated MCP server exposes a tool ('{name}') offering "
+                                    f"{label}. Anyone reaching the endpoint can invoke it directly, "
+                                    f"bypassing the intended client and its guardrails.",
+                        exploit=f"Call the '{name}' tool directly to obtain {label}.",
+                        fix="Require authentication on the MCP transport and least-privilege the tools it "
+                            "exposes; never expose shell/file/network tools to unauthenticated callers.",
+                        cwe="CWE-306",
+                        cvss=8.6,
+                        confidence="medium",
+                    ))
+                    break  # one capability finding per tool is enough
+
+    async def _probe_resources(self, ctx: AttackContext, url: str) -> None:
+        """Enumerate resources/ and prompts/ on a known-open JSON-RPC endpoint."""
+        for label, request, key, detector in (
+            ("resource", _RESOURCES_LIST_REQUEST, "resources", "mcpsecurity:resources"),
+            ("prompt", _PROMPTS_LIST_REQUEST, "prompts", "mcpsecurity:prompts"),
+        ):
+            resp = await self.post(ctx, url, json=request, headers={"Content-Type": "application/json"})
+            if resp is None or resp.status_code >= 400:
+                continue
+            self._check_leaked_secrets(ctx, "POST", url, resp)
+            try:
+                body = resp.json()
+            except ValueError:
+                continue
+            items = None
+            result = body.get("result") if isinstance(body, dict) else None
+            if isinstance(result, dict) and isinstance(result.get(key), list):
+                items = result[key]
+            elif isinstance(body, dict) and isinstance(body.get(key), list):
+                items = body[key]
+            if not items:
+                continue
+            names = ", ".join(str(i.get("uri") or i.get("name", "?")) for i in items[:8] if isinstance(i, dict))
+            ctx.report(Finding(
+                title=f"Unauthenticated MCP server exposes {label} definitions",
+                severity=Severity.MEDIUM,
+                category="ai-infra",
+                detector=detector,
+                endpoint=f"POST {url}",
+                evidence=f"{label}s/list returned {len(items)} {label}(s) with no authentication: {names}",
+                description=f"An MCP server discloses its {label} catalog without authentication, "
+                            f"revealing {label}s (and any filesystem roots/URIs they reference) to any "
+                            f"client that can reach the endpoint.",
+                exploit=f"Enumerate {label}s to map exposed data/prompt templates, then read them directly.",
+                fix="Require authentication on the MCP transport before serving resource/prompt catalogs.",
+                cwe="CWE-306",
+                confidence="medium",
+                poc=build_http_poc("POST", url, resp, body=json.dumps(request)),
+            ))
 
     def _check_leaked_secrets(self, ctx: AttackContext, method: str, url: str, resp) -> None:
         """Scan a successful response body for leaked provider credentials."""

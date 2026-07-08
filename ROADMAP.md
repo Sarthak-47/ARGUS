@@ -59,12 +59,12 @@ reach; almost every real app hides its interesting surface behind a login.
   endpoint and flags only the protected-from-anonymous-yet-reachable-cross-user
   pattern — BOLA (CWE-639) and BFLA (CWE-285). Verified to fire on a vulnerable
   app and stay silent on a correctly-authorized one.
-- **v0.3.4 · Deeper MCP-security scanning.** MCP security is the hottest niche
-  of 2026 (tool poisoning, context drift, insecure transports, prompt-template
-  abuse). Argus already ships an MCPSecurityAgent — extend it to own the "MCP
-  security" search term: enumerate a server's tool catalog/resources/roots and
-  test for command injection, path traversal, SSRF and unsafe shell calls in
-  exposed tools. *Engine work; medium.*
+- **v0.3.4 · Deeper MCP-security scanning.** ✅ **Done.** MCPSecurityAgent now
+  inspects the exposed catalog: **tool poisoning** (hidden instructions in tool
+  descriptions, CWE-94), **dangerous-capability** classification on
+  unauthenticated tools (shell/file/network/db/eval, CWE-306), and
+  **resources/prompts** enumeration. Verified to flag a poisoned, shell-capable
+  server and stay quiet (disclosure-only) on a benign one.
 
 ## Milestone v0.4 — Trust the output (cut noise, prove reachability)
 
