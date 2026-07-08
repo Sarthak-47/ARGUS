@@ -37,7 +37,17 @@ _COMMON_PATHS = [
     ("/graphql", "GraphQL endpoint", Severity.INFO),
     ("/swagger.json", "Swagger/OpenAPI spec", Severity.LOW),
     ("/api/swagger.json", "Swagger/OpenAPI spec", Severity.LOW),
+    ("/openapi.json", "Swagger/OpenAPI spec", Severity.LOW),
+    ("/api/openapi.json", "Swagger/OpenAPI spec", Severity.LOW),
+    ("/.well-known/openapi.json", "Swagger/OpenAPI spec", Severity.LOW),
+    ("/v1/openapi.json", "Swagger/OpenAPI spec", Severity.LOW),
 ]
+
+# Paths worth trying to parse as an actual API spec (not just flagging that
+# something answered) — feeds the same endpoint-seeding path `--api-spec`
+# uses (roadmap v1.0.1 follow-up C), so an API-only target like VAmPI, whose
+# whole surface a link-crawler can never see, still gets tested.
+_SPEC_PATHS = {p for p, label, _ in _COMMON_PATHS if "OpenAPI" in label}
 
 _SECURITY_HEADERS = [
     "content-security-policy", "x-frame-options", "strict-transport-security",
@@ -165,6 +175,8 @@ class ReconBot(BaseAgent):
                 return
             if path == "/graphql":
                 ctx.recon["graphql"] = True
+            if path in _SPEC_PATHS:
+                self._seed_from_spec(ctx, base, path, body_full=resp.text or "")
             if sev is Severity.INFO:
                 return
             ctx.report(Finding(
@@ -184,3 +196,18 @@ class ReconBot(BaseAgent):
             [probe(p, label, sev) for p, label, sev in _COMMON_PATHS],
             limit=ctx.semaphore._value or 8,
         )
+
+    def _seed_from_spec(self, ctx: AttackContext, base: str, path: str, body_full: str) -> None:
+        """A common-path probe hit what might be an OpenAPI/Swagger spec — try
+        parsing it and seed every endpoint it declares. Silent no-op if it
+        wasn't actually a spec (e.g. a 200 HTML error page)."""
+        from argus.apispec import ApiSpecError, parse_spec_text
+
+        try:
+            endpoints, note = parse_spec_text(body_full, base)
+        except ApiSpecError:
+            return
+        for ep in endpoints:
+            ctx.add_endpoint(ep)
+        if endpoints:
+            ctx.emit(self.name, f"auto-discovered API spec at {path} — {note}")

@@ -38,6 +38,13 @@ def load_endpoints(source: str, base_url: str) -> tuple[list[Endpoint], str]:
     Returns (endpoints, human-note). Raises :class:`ApiSpecError` on failure.
     """
     raw = _read_source(source)
+    return parse_spec_text(raw, base_url)
+
+
+def parse_spec_text(raw: str, base_url: str) -> tuple[list[Endpoint], str]:
+    """Like :func:`load_endpoints` but takes the spec's raw text directly —
+    for a caller (ReconBot's spec auto-discovery) that already fetched the
+    response body and shouldn't re-fetch it."""
     data = _parse(raw)
     if not isinstance(data, dict):
         raise ApiSpecError("Spec did not parse to an object.")

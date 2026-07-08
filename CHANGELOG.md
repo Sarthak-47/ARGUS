@@ -5,6 +5,16 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+### Added
+- **Auto-discover a target's own OpenAPI spec** (ROADMAP v1.0.1 follow-up C):
+  ReconBot now probes well-known spec paths (`/openapi.json`, `/swagger.json`,
+  `/api/openapi.json`, `/.well-known/openapi.json`, …) and, on a hit, parses it
+  through the same engine `--api-spec` uses and seeds every declared endpoint —
+  no flag needed. Closes a real gap the benchmark suite found: an API-only
+  target with no crawlable HTML (like VAmPI) previously had its whole surface
+  invisible to the swarm. Verified live: with zero flags, the swarm discovered
+  and attacked an endpoint that existed *only* in a spec.
+
 ## [0.6.0] — 2026-07-08
 
 ### Added

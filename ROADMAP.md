@@ -153,11 +153,13 @@ developers live.
     the current `--auth` form-login (v0.3.1) only sends a fixed field dict, so
     it can't get past DVWA's wall. Extend `AuthConfig`'s form-login to scrape a
     named hidden field from a GET of the login page first. *Small-medium.*
-  - **Follow-up C — auto-discover a target's own OpenAPI spec.** VAmPI is
-    API-only (no HTML for a link-crawler to walk) but ships its own OpenAPI
-    spec. ReconBot could probe well-known spec paths (`/openapi.json`,
-    `/swagger.json`, `/.well-known/openapi.json`) and auto-feed anything found
-    into the same seeding path `--api-spec` (v0.3.2) already has. *Small.*
+  - **Follow-up C — auto-discover a target's own OpenAPI spec.** ✅ **Done.**
+    ReconBot now probes well-known spec paths (`/openapi.json`,
+    `/swagger.json`, `/api/openapi.json`, `/.well-known/openapi.json`, …) and,
+    on a hit, parses it through the same engine `--api-spec` uses and seeds
+    every endpoint it declares — no flag needed. Verified live: with zero
+    flags, the swarm discovered and attacked an endpoint that existed *only*
+    in a spec (no HTML link anywhere), the exact VAmPI-style gap this closes.
 - **v1.0.2 · Integrations.** DefectDojo + Jira export (findings → tickets);
   keep it optional and lightweight. *Small-medium each.*
 - **v1.0.3 · Docs site + hardening.** A real getting-started/docs site, an

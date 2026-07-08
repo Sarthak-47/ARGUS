@@ -179,6 +179,11 @@ Accepts **OpenAPI 3.x**, **Swagger 2.0**, **Postman v2** collections, and a
 **GraphQL introspection** dump — as a file or URL. Spec paths are resolved against
 your target's URL, so a spec written for production still points at localhost.
 
+No flag? ReconBot also **auto-discovers** a spec on its own — it probes the usual
+paths (`/openapi.json`, `/swagger.json`, `/.well-known/openapi.json`, …) and
+seeds anything it finds, so an API-only target with no crawlable HTML still gets
+its full surface tested.
+
 ## Show it off — the "Scanned by Argus" badge
 
 Running Argus on your repo? Let people know — drop this in your own README:
