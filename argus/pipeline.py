@@ -20,7 +20,7 @@ from argus.config.defaults import REPORT_FORMATS
 from argus.models import Finding, ScanResult
 
 
-def _do_scan(target: str, deep: bool, depth: str | None, no_llm: bool) -> ScanResult:
+def _do_scan(target: str, deep: bool, depth: str | None, no_llm: bool, taint: bool = False) -> ScanResult:
     from argus.sbom import collect_packages
     from argus.scanner import (
         dependencies, iac, image_cve, ingestion, rules_builtin, secrets, semgrep_runner, supplychain,
@@ -96,7 +96,7 @@ def _do_scan(target: str, deep: bool, depth: str | None, no_llm: bool) -> ScanRe
 
         # 7) LLM reasoning -----------------------------------------------------
         if not no_llm:
-            _run_llm(settings, root, result, deep)
+            _run_llm(settings, root, result, deep, taint)
         else:
             out.info("LLM layer skipped (--no-llm).")
 
@@ -108,9 +108,9 @@ def _do_scan(target: str, deep: bool, depth: str | None, no_llm: bool) -> ScanRe
     return result
 
 
-def _run_llm(settings, root: Path, result: ScanResult, deep: bool) -> None:
+def _run_llm(settings, root: Path, result: ScanResult, deep: bool, taint: bool = False) -> None:
     from argus.llm.provider import get_provider
-    from argus.llm.reasoning import enrich_findings, freeform_review
+    from argus.llm.reasoning import enrich_findings, freeform_review, taint_trace
 
     provider = get_provider(settings)
     if provider is None:
@@ -138,6 +138,13 @@ def _run_llm(settings, root: Path, result: ScanResult, deep: bool) -> None:
             result.extend(extra)
             out.success(f"Deep review surfaced {len(extra)} additional finding(s).")
 
+    if taint and result.codebase_map and result.codebase_map.high_risk_files:
+        out.step("Tracing taint flows (source → sink) in high-risk files…")
+        tainted = taint_trace(provider, root, result.codebase_map.high_risk_files)
+        if tainted:
+            result.extend(tainted)
+            out.success(f"Taint tracing confirmed {len(tainted)} complete source-to-sink flow(s).")
+
 
 def run_scan(
     target: str,
@@ -145,6 +152,7 @@ def run_scan(
     deep: bool = False,
     depth: str | None = None,
     no_llm: bool = False,
+    taint: bool = False,
     export_format: str | None = None,
     fail_on: str | None = None,
     policy: str | None = None,
@@ -158,7 +166,7 @@ def run_scan(
 
     out.banner()
     out.rule(f"STATIC SCAN — {target}")
-    result = _do_scan(target, deep=deep, depth=depth, no_llm=no_llm)
+    result = _do_scan(target, deep=deep, depth=depth, no_llm=no_llm, taint=taint)
     result.findings, suppressed_count = apply_suppressions(target, result.findings)
     if suppressed_count:
         out.info(f"{suppressed_count} finding(s) suppressed (ignored) — "

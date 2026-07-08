@@ -18,9 +18,11 @@ from argus.llm.prompts import (
     ENRICH_SYSTEM,
     FIX_SYSTEM,
     FREEFORM_SYSTEM,
+    TAINT_SYSTEM,
     build_enrich_user,
     build_fix_user,
     build_freeform_user,
+    build_taint_user,
 )
 from argus.llm.provider import BaseProvider, LLMError
 from argus.models import Finding, Severity
@@ -145,6 +147,64 @@ def freeform_review(
                 fix=str(item.get("fix", "")).strip(),
                 confidence="medium",
                 metadata={"llm_review": True},
+            ))
+    return out
+
+
+def taint_trace(
+    provider: BaseProvider,
+    root: Path,
+    high_risk_files: list[str],
+    *,
+    max_files: int = 8,
+    on_progress=None,
+) -> list[Finding]:
+    """LLM taint-tracing mode (roadmap v0.4.6): trace full source-to-sink call
+    chains within each file, reported only when the whole path is visible —
+    a VulnHuntr-style pass, and a natural extension of :func:`freeform_review`
+    that plays directly to Argus's LLM-reasoning strength rather than a
+    pattern match. Same file-scoped, best-effort resilience as the other
+    reasoning passes: a parse/LLM error on one file skips it, not the run."""
+    out: list[Finding] = []
+    targets = high_risk_files[:max_files]
+    for i, rel in enumerate(targets):
+        if on_progress:
+            on_progress(i + 1, len(targets))
+        full = root / rel
+        try:
+            code = full.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        if not code.strip():
+            continue
+        try:
+            res = provider.complete(TAINT_SYSTEM, build_taint_user(rel, code), json_mode=True)
+        except LLMError:
+            continue
+        parsed = _extract_json(res.text, array=True)
+        if not isinstance(parsed, list):
+            continue
+        for item in parsed:
+            if not isinstance(item, dict) or not item.get("title") or not item.get("sink"):
+                continue
+            chain = item.get("call_chain")
+            chain_list = [str(h) for h in chain] if isinstance(chain, list) else []
+            evidence_parts = [f"source: {item.get('source', '?')}", f"sink: {item['sink']}"]
+            if chain_list:
+                evidence_parts.append("chain: " + " -> ".join(chain_list))
+            out.append(Finding(
+                title=str(item["title"])[:120],
+                severity=Severity.coerce(item.get("severity", "HIGH")),
+                category="taint-trace",
+                detector="llm-taint",
+                file=rel,
+                line=item.get("line") if isinstance(item.get("line"), int) else None,
+                evidence=" | ".join(evidence_parts),
+                description=str(item.get("explanation", "")).strip(),
+                exploit=str(item.get("exploit", "")).strip(),
+                fix=str(item.get("fix", "")).strip(),
+                confidence="medium",
+                metadata={"llm_taint": True, "call_chain": chain_list},
             ))
     return out
 

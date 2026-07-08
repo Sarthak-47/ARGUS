@@ -6,6 +6,12 @@ All notable changes to Argus are documented here. Format loosely follows
 ## [Unreleased]
 
 ### Added
+- **LLM taint-tracing mode** (ROADMAP v0.4.6): new `argus scan --taint` traces
+  full source-to-sink call chains within each high-risk file (a VulnHuntr-
+  style pass), reporting a finding only when the whole chain — source, every
+  intermediate hop, and the sink — is visible; a partial chain is dropped
+  rather than guessed. A natural extension of the existing `--deep`
+  free-form review pass.
 - **JS-aware crawling** (ROADMAP v1.0.1 follow-up A): ReconBot now reuses
   DomXSSHunter's optional Playwright dependency to render the root page in a
   real headless browser (no flag needed, silently skipped when the `browser`

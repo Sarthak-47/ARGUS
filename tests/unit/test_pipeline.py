@@ -8,9 +8,9 @@ import typer
 import pytest
 
 import argus.pipeline as pipeline
-from argus.pipeline import run_scan, run_attack, run_fix, run_pr_comment, export_last, _export, _reverify_fixes
+from argus.pipeline import run_scan, run_attack, run_fix, run_pr_comment, export_last, _export, _reverify_fixes, _run_llm
 from argus.compare import finding_signature
-from argus.models import Finding, ScanResult
+from argus.models import CodebaseMap, Finding, ScanResult, Severity
 from argus.fix import AppliedFix
 
 
@@ -355,3 +355,49 @@ def test_run_pr_comment_posts_findings_from_last_scan(capsys, monkeypatch):
     monkeypatch.setattr("argus.prcomments.post_review_comments", fake_post)
     run_pr_comment()
     assert "posted 1 comment" in capsys.readouterr().out.lower()
+
+
+# ----- LLM taint-tracing mode (roadmap v0.4.6) -----
+
+def test_run_llm_taint_flag_calls_taint_trace_and_extends_findings(tmp_path, monkeypatch, capsys):
+    class _FakeProvider:
+        name = "fake"
+        model = "fake-model"
+
+    result = ScanResult(target="t", phase="scan")
+    result.codebase_map = CodebaseMap(root=str(tmp_path), high_risk_files=["auth.py"])
+
+    tainted = Finding(title="Tainted flow", severity=Severity.CRITICAL, category="taint-trace",
+                       detector="llm-taint", file="auth.py", line=5)
+
+    calls = []
+    monkeypatch.setattr("argus.llm.provider.get_provider", lambda settings: _FakeProvider())
+    monkeypatch.setattr("argus.llm.reasoning.enrich_findings", lambda *a, **k: ([], 0))
+    monkeypatch.setattr(
+        "argus.llm.reasoning.taint_trace",
+        lambda provider, root, files, **k: (calls.append(files) or [tainted]),
+    )
+
+    _run_llm(object(), tmp_path, result, deep=False, taint=True)
+
+    assert calls == [["auth.py"]]
+    assert tainted in result.findings
+    assert "1 complete source-to-sink" in capsys.readouterr().out
+
+
+def test_run_llm_taint_flag_off_does_not_call_taint_trace(tmp_path, monkeypatch):
+    class _FakeProvider:
+        name = "fake"
+        model = "fake-model"
+
+    result = ScanResult(target="t", phase="scan")
+    result.codebase_map = CodebaseMap(root=str(tmp_path), high_risk_files=["auth.py"])
+
+    called = []
+    monkeypatch.setattr("argus.llm.provider.get_provider", lambda settings: _FakeProvider())
+    monkeypatch.setattr("argus.llm.reasoning.enrich_findings", lambda *a, **k: ([], 0))
+    monkeypatch.setattr("argus.llm.reasoning.taint_trace", lambda *a, **k: called.append(1) or [])
+
+    _run_llm(object(), tmp_path, result, deep=False, taint=False)
+
+    assert called == []

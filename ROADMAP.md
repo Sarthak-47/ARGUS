@@ -110,10 +110,18 @@ way to lose a user; the market's answer is reachability + smarter filtering.
   just `pre`/`postinstall`. Verified: each new check fires on a crafted
   malicious pattern and stays silent on benign scripts (e.g. `node-gyp
   rebuild`).
-- **v0.4.6 · LLM taint-tracing mode.** A VulnHuntr-style pass that traces full
-  call chains from user input to a dangerous sink (SQLi/SSRF/XSS/IDOR/RCE/LFI),
-  reported only when the whole path is present. Plays directly to Argus's
-  LLM-reasoning strength and makes for a compelling demo. *Engine work; medium-large.*
+- **v0.4.6 · LLM taint-tracing mode.** ✅ **Done.** New `argus scan --taint`:
+  a VulnHuntr-style pass over each high-risk file that asks the LLM to trace
+  the full path from an untrusted input source to a dangerous sink
+  (SQLi/SSRF/command-injection/deserialization/eval/...), reported only when
+  the *entire* chain — source, every intermediate hop, and the sink — is
+  visible in the code shown; a partial chain (a sink with no visible source,
+  or vice versa) is explicitly instructed to be dropped rather than guessed.
+  A natural extension of the existing `freeform_review` (`--deep`) pass, and
+  plays directly to Argus's LLM-reasoning strength rather than a pattern
+  match. File-scoped (not a full interprocedural call graph) to stay
+  tractable — same scope discipline as the reachability analysis (v0.4.2).
+  Findings carry the resolved call chain in `metadata.call_chain`.
 
 ## Milestone v0.5 — Close the loop (CI-native remediation)
 

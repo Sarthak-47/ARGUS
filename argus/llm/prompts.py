@@ -109,6 +109,46 @@ pattern to use instead, so the assistant regenerates the function correctly. Do 
 """
 
 
+TAINT_SYSTEM = (
+    "You are Argus performing taint-flow analysis on a source file — a VulnHuntr-style pass that "
+    "traces the full path from an untrusted input source (an HTTP request parameter/header/body "
+    "field, a file read, an environment variable, a message-queue payload) through every "
+    "intermediate function call, to a dangerous sink (SQL/NoSQL query execution, shell/process "
+    "execution, deserialization, file path construction, template rendering, eval, an outbound "
+    "HTTP request built from tainted data, etc.). Report a finding ONLY when you can point to the "
+    "complete chain — the exact source, every hop the tainted value passes through unsanitized, "
+    "and the exact sink — within the code you were shown. If you can only see part of the chain "
+    "(e.g. a sink with no visible source, or a source that dead-ends before reaching anything "
+    "dangerous), do not report it: a partial chain is exactly the kind of speculative guess this "
+    "pass exists to avoid. Respond ONLY with valid JSON."
+)
+
+TAINT_INSTRUCTIONS = """\
+Return a JSON array of confirmed taint flows. Each element:
+{
+  "title": string,               // e.g. "Tainted request param reaches os.system via build_cmd()"
+  "severity": "CRITICAL" | "HIGH" | "MEDIUM" | "LOW",
+  "source": string,              // where the untrusted input enters, with line number
+  "sink": string,                // the dangerous operation it reaches, with line number
+  "call_chain": [string],        // ordered list of each function/hop the tainted value passes through
+  "line": number | null,         // the sink's line number
+  "explanation": string,         // why the whole path is unsanitized
+  "exploit": string,
+  "fix": string
+}
+Return [] if no complete source-to-sink chain exists in this file. No prose outside the JSON array.
+"""
+
+
+def build_taint_user(rel_path: str, code: str) -> str:
+    return (
+        TAINT_INSTRUCTIONS
+        + f"\n\nFILE: {rel_path}\n```\n"
+        + code[:8000]
+        + "\n```\n"
+    )
+
+
 BIZLOGIC_SYSTEM = (
     "You are Argus, testing a live web application for BUSINESS LOGIC vulnerabilities — the class "
     "of bugs pattern scanners and generic attack agents miss because nothing is syntactically wrong, "
