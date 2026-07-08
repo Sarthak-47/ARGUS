@@ -5,6 +5,8 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-07-08
+
 ### Added
 - **Broader auto-sandbox stack detection** (ROADMAP v0.5.3): `argus attack`/`audit`
   against a bare repo (no `--url`) now recognizes Flask (via its `Flask(__name__)`
@@ -282,7 +284,8 @@ Initial tagged release.
   universal `.dmg`, Linux `.deb`/`.rpm`/`.AppImage`).
 - Local-first LLM support (Ollama) plus BYOK providers (Groq, Gemini, Claude, OpenRouter).
 
-[Unreleased]: https://github.com/Sarthak-47/ARGUS/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/Sarthak-47/ARGUS/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/Sarthak-47/ARGUS/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/Sarthak-47/ARGUS/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Sarthak-47/ARGUS/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Sarthak-47/ARGUS/compare/v0.1.1...v0.2.0
