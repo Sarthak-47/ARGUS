@@ -140,7 +140,7 @@ gated on (survives line-number shifts, needs no git — unlike `--diff-base`).
 
 Most real apps hide their interesting surface behind a login, so an
 unauthenticated scan only sees the doormat. Give Argus a session and the whole
-17-agent swarm — including ReconBot's crawl — acts as the logged-in user:
+18-agent swarm — including ReconBot's crawl — acts as the logged-in user:
 
 ```bash
 argus attack --url http://localhost:3000 --auth .argus-auth.toml
@@ -182,7 +182,7 @@ an obvious vulnerable pattern *before* it ever lands in git history. Add to your
 ```yaml
 repos:
   - repo: https://github.com/Sarthak-47/ARGUS
-    rev: v0.3.0
+    rev: v0.4.0
     hooks:
       - id: argus            # blocks on HIGH+ findings (use `argus-strict` for MEDIUM+)
 ```
@@ -246,7 +246,7 @@ Nobody else combines all six. That's the gap Argus owns.
   CodeView, Settings) rendering real engine data, including captured PoCs.
 - ✅ **Desktop shell**: Tauri 2.0 wraps the GUI as a real native app that invokes the Python engine
   directly (real scans, not just dropped-in JSON). `desktop-release.yml` builds Windows/macOS
-  (universal)/Linux installers on tag; v0.1.0–v0.3.0 published. Ships with no demo
+  (universal)/Linux installers on tag; v0.1.0–v0.4.0 published. Ships with no demo
   data — every screen shows real engine output or an honest empty/first-run state.
 - ✅ **CI-ready**: SARIF output, `--fail-on`, per-rule policy gating (`.argus-policy.toml`),
   GitHub Action, Docker image, green test suite (200+ tests).
