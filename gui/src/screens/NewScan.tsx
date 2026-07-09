@@ -132,8 +132,13 @@ export function NewScan() {
         <div>
           <Label>LLM PROVIDER</Label>
           <div style={{ display: "flex", alignItems: "center", gap: 12, background: C.stoneDark, border: `1px solid ${C.relief}`, padding: "11px 16px" }}>
-            <span style={{ width: 7, height: 7, borderRadius: 2, background: C.goldenrod }} />
-            <span style={{ fontFamily: FONT.display, fontSize: 12, letterSpacing: "0.1em", color: C.parchment }}>{s.provider.toUpperCase()}</span>
+            <span style={{
+              width: 7, height: 7, borderRadius: 2,
+              background: s.isDesktop && s.status?.resolved_provider && s.status.available ? C.goldenrod : C.crimson,
+            }} />
+            <span style={{ fontFamily: FONT.display, fontSize: 12, letterSpacing: "0.1em", color: C.parchment }}>
+              {(s.isDesktop && s.status?.resolved_provider ? s.provider : "no provider").toUpperCase()}
+            </span>
             <span style={{ color: C.stoneText, fontSize: 10 }}>▾</span>
           </div>
         </div>

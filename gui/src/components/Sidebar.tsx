@@ -19,12 +19,13 @@ export function Sidebar() {
   const isDesktop = useStore((s) => s.isDesktop);
   const status = useStore((s) => s.status);
   const live = isDesktop && status;
+  const providerLabel = live && status!.resolved_provider ? provider : "no provider";
   const modelLabel = live
-    ? (status!.resolved_provider ? status!.model : "no provider configured")
+    ? (status!.resolved_provider ? status!.model : "not configured")
     : "demo";
   const dotColor = live
     ? (status!.resolved_provider && status!.available ? C.goldenrod : C.crimson)
-    : C.goldenrod;
+    : C.stoneText;
 
   return (
     <aside
@@ -71,7 +72,7 @@ export function Sidebar() {
       <div style={{ padding: "18px 22px", borderTop: `1px solid ${C.relief}`, display: "flex", alignItems: "center", gap: 11 }}>
         <span style={{ width: 8, height: 8, borderRadius: 2, background: dotColor, boxShadow: `0 0 7px ${dotColor}99` }} />
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <span style={{ fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.1em", color: C.parchment }}>{provider.toUpperCase()}</span>
+          <span style={{ fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.1em", color: C.parchment }}>{providerLabel.toUpperCase()}</span>
           <span style={{ fontFamily: FONT.code, fontSize: 10, color: C.stoneText }}>{modelLabel}</span>
         </div>
       </div>

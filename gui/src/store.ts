@@ -88,7 +88,7 @@ export const useStore = create<State>((set, get) => ({
   codeSnippet: null,
   codeError: null,
   codeLoading: false,
-  provider: "groq",
+  provider: "",
   report: null,
   history: null,
   comparison: null,
