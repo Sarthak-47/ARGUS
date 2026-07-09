@@ -27,3 +27,7 @@ how the project got here.
   architecture/design-system rationale in one place.
 - **[`dev/UPGRADE.md`](dev/UPGRADE.md)** — the pre-1.0 backlog, superseded by
   [`ROADMAP.md`](../ROADMAP.md) and now fully shipped. Kept for history.
+- **[`dev/SCREENSHOTS.md`](dev/SCREENSHOTS.md)** — verified repro steps for
+  generating a real (non-fabricated) populated report and capturing GUI
+  screenshots for the README/marketing, since the GUI ships with no bundled
+  demo data by design.

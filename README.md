@@ -1,10 +1,6 @@
 <div align="center">
 
-# ◈ ARGUS
-
-**The security tool built for the vibe-coding era.**
-
-*Point it at a repo. It reads the code, spins up the app, and attacks it.*
+<img src="docs/assets/hero-banner.svg" alt="ARGUS — the security tool built for the vibe-coding era" width="100%"/>
 
 [![CI](https://github.com/Sarthak-47/ARGUS/actions/workflows/ci.yml/badge.svg)](https://github.com/Sarthak-47/ARGUS/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/Sarthak-47/ARGUS?label=release&color=B8860B)](https://github.com/Sarthak-47/ARGUS/releases/latest)
@@ -23,6 +19,12 @@ the hundred-eyed giant of Greek myth who never slept and saw everything.
 Static scanners tell you what *looks* wrong. Argus **proves** it: it reads your code, then spins
 your app up and actually attacks it — dumping data via SQLi, forging admin JWTs, reaching cloud
 metadata via SSRF — and explains every finding in plain English, tailored to your codebase.
+
+**Built for the AI-agent era, not just the AI-code era:** shipping an MCP server or an in-app
+chatbot? Argus tests those too — `MCPSecurityAgent` catches tool poisoning and dangerous
+unauthenticated capabilities in exposed MCP servers, and `PromptInjectionAgent` fires a canary
+token at your app's own AI features to prove whether untrusted input can override system
+instructions. Same swarm, same PoC-or-it-didn't-happen standard.
 
 <details>
 <summary><b>Table of contents</b></summary>
