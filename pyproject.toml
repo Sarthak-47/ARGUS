@@ -40,7 +40,7 @@ dependencies = [
 [project.optional-dependencies]
 # Heavy / platform-specific tools. Installed on demand; Argus degrades gracefully without them.
 semgrep = ["semgrep>=1.50"]
-audit = ["pip-audit>=2.7"]
+audit = ["pip-audit>=2.10.1"]
 # DOM-XSS/SPA testing (DomXSSHunter). Also run `playwright install chromium` once installed.
 browser = ["playwright>=1.45"]
 # Auto-sandboxing a repo target for `argus attack`/`argus audit` (build + run it
