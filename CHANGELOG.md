@@ -3,6 +3,33 @@
 All notable changes to Argus are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Added
+- Repo professionalization: `CODE_OF_CONDUCT.md`, GitHub issue templates
+  (bug report / feature request, with security reports redirected to
+  private advisories), a PR template, `.github/dependabot.yml` (pip/npm/
+  cargo/actions/docker), and GitHub's built-in vulnerability alerts enabled.
+- A branded SVG hero banner and social-preview card for the README (using
+  the real Argus logo), plus a dedicated callout elevating the MCP-server-
+  scanning and prompt-injection-testing angle that was previously buried
+  mid-paragraph.
+- `docs/dev/SCREENSHOTS.md`: verified, reproducible steps to generate a
+  real (non-fabricated) populated report and capture GUI screenshots.
+
+### Changed
+- Moved the internal build spec (`ARGUS_CONTEXT.md`) and the superseded
+  pre-1.0 backlog (`UPGRADE.md`) into `docs/dev/` so the repo root only
+  shows what a new visitor needs.
+- `pyproject.toml` classifiers bumped from Alpha to Beta and expanded
+  (explicit Python 3.10–3.12, license, OS-independent) to match the
+  project's actual maturity (446 tests, benchmark-proven detection).
+
+### Fixed
+- README's benchmark section and `CONTRIBUTING.md`'s release steps were
+  stale (referenced pre-JS-crawling gaps and a tag-triggered PyPI publish
+  that was deliberately changed to manual `workflow_dispatch`).
+
 ## [1.1.0] — 2026-07-08
 
 ### Added
