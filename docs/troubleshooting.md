@@ -62,7 +62,7 @@ commit. Commit or stash first.
 ## MCP server
 
 **"The MCP server needs the optional 'mcp' extra"**
-`argus mcp-server` needs `pip install 'argus-sec[mcp]'` — it's optional because
+`argus mcp-server` needs `pip install 'argus-panoptes[mcp]'` — it's optional because
 the SDK pulls in a fair number of dependencies (pydantic, starlette, uvicorn)
 that most CLI-only users don't need.
 

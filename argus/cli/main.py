@@ -281,7 +281,7 @@ def mcp_server() -> None:
     """Serve Argus as an MCP server over stdio (argus_scan/argus_attack/argus_fix).
 
     Lets an MCP-capable editor agent (Claude Code, Cursor, Copilot) run Argus
-    directly. Needs the optional 'mcp' extra: pip install 'argus-sec\\[mcp]'.
+    directly. Needs the optional 'mcp' extra: pip install 'argus-panoptes\\[mcp]'.
     """
     try:
         from argus.mcp_server import run
@@ -290,7 +290,7 @@ def mcp_server() -> None:
 
         out.error(
             "The MCP server needs the optional 'mcp' extra — "
-            "pip install 'argus-sec\\[mcp]'."
+            "pip install 'argus-panoptes\\[mcp]'."
         )
         raise typer.Exit(code=1)
 

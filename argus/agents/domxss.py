@@ -7,7 +7,7 @@ the browser. This agent launches headless Chromium via Playwright, navigates
 each discovered URL with an injected payload, and checks for actual script
 execution — proof via a real browser, not a pattern guess.
 
-Optional dependency (``pip install argus-sec[browser]`` then
+Optional dependency (``pip install argus-panoptes[browser]`` then
 ``playwright install chromium``). Degrades gracefully and stays out of the
 default agent order when unavailable — same pattern semgrep_runner.py uses for
 Semgrep — so it never affects a standard install or a default attack run.
@@ -47,7 +47,7 @@ class DomXSSHunter(BaseAgent):
 
         if async_playwright is None:
             ctx.emit(self.name, "playwright not installed — skipping "
-                                 "(pip install 'argus-sec[browser]' && playwright install chromium)")
+                                 "(pip install 'argus-panoptes[browser]' && playwright install chromium)")
             report.status = "complete"
             return report
 

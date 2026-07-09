@@ -112,7 +112,7 @@ class Sandbox:
             from docker.errors import APIError, BuildError, DockerException
         except ImportError as exc:
             raise SandboxError(
-                "The 'docker' Python package isn't installed — pip install 'argus-sec[sandbox]'."
+                "The 'docker' Python package isn't installed — pip install 'argus-panoptes[sandbox]'."
             ) from exc
 
         content_or_name, container_port = dockerfile_info

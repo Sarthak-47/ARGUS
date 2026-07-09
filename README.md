@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/Sarthak-47/ARGUS/actions/workflows/ci.yml/badge.svg)](https://github.com/Sarthak-47/ARGUS/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/Sarthak-47/ARGUS?label=release&color=B8860B)](https://github.com/Sarthak-47/ARGUS/releases/latest)
-[![PyPI](https://img.shields.io/pypi/v/argus-sec?color=B8860B)](https://pypi.org/project/argus-sec/)
+[![PyPI](https://img.shields.io/pypi/v/argus-panoptes?color=B8860B)](https://pypi.org/project/argus-panoptes/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-B8860B.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-B8860B.svg)](https://www.python.org)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-B8860B.svg)](CONTRIBUTING.md)
@@ -52,7 +52,7 @@ instructions. Same swarm, same PoC-or-it-didn't-happen standard.
 ## ⚡ See it in 30 seconds
 
 ```bash
-pip install argus-sec        # or: pipx install argus-sec
+pip install argus-panoptes        # or: pipx install argus-panoptes
 argus demo
 ```
 
@@ -99,7 +99,7 @@ no flag needed — and stays silent otherwise.
 
 Opt-in: **`DomXSSHunter`** — a real headless-browser agent (`--agents domxss`) that catches DOM
 XSS in React/Vue/Next apps the HTTP-only agents can't see. Needs `pip install
-'argus-sec[browser]' && playwright install chromium`.
+'argus-panoptes[browser]' && playwright install chromium`.
 
 The same browser dependency also upgrades ReconBot itself: when installed, ReconBot renders the
 root page in a real headless browser (no flag needed) and mines both the post-JS DOM and every
@@ -110,7 +110,7 @@ extra isn't installed.
 ## Install & use
 
 ```bash
-pip install argus-sec
+pip install argus-panoptes
 
 argus demo                                # zero-setup showcase — see it work in 30s
 argus setup                               # first-time wizard (detects GPU, picks an LLM)
@@ -258,7 +258,7 @@ below if you want the claim to actually be enforced.
 ## Run it from your editor (MCP server)
 
 ```bash
-pip install 'argus-sec[mcp]'
+pip install 'argus-panoptes[mcp]'
 argus mcp-server
 ```
 

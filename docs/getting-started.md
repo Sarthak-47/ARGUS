@@ -3,7 +3,7 @@
 ## Install
 
 ```bash
-pip install argus-sec          # or: pipx install argus-sec
+pip install argus-panoptes          # or: pipx install argus-panoptes
 ```
 
 Everything is self-contained — no account, no hosted service, no signup.
@@ -87,5 +87,5 @@ published port) — otherwise it tells you to start the app yourself and use
   --write-baseline .argus-baseline.json` once, then scan with `--baseline
   .argus-baseline.json` going forward — only genuinely new findings are
   reported.
-- **Want it in your editor?** `pip install 'argus-sec[mcp]'` then `argus
+- **Want it in your editor?** `pip install 'argus-panoptes[mcp]'` then `argus
   mcp-server` — see the main README's "Run it from your editor" section.

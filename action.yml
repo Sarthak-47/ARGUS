@@ -56,10 +56,10 @@ runs:
       shell: bash
       run: |
         if [ -n "${{ inputs.version }}" ]; then
-          pip install "argus-sec==${{ inputs.version }}" \
+          pip install "argus-panoptes==${{ inputs.version }}" \
             || pip install "git+https://github.com/Sarthak-47/ARGUS.git@${{ inputs.version }}"
         else
-          pip install argus-sec \
+          pip install argus-panoptes \
             || pip install "git+https://github.com/Sarthak-47/ARGUS.git"
         fi
 

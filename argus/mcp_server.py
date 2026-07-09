@@ -2,7 +2,7 @@
 
 Exposes scan / attack / fix as MCP tools so an editor agent (Claude Code,
 Cursor, Copilot) can run Argus directly instead of shelling out to the CLI and
-scraping text. Optional: ``pip install 'argus-sec[mcp]'``, then
+scraping text. Optional: ``pip install 'argus-panoptes[mcp]'``, then
 ``argus mcp-server``.
 
 MCP's stdio transport is a raw JSON-RPC stream *over stdout* — any stray print

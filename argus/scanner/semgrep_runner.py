@@ -29,7 +29,7 @@ def semgrep_available() -> bool:
 def run_semgrep(root: Path, config: str = "auto", timeout: int = 300) -> tuple[list[Finding], str | None]:
     """Run Semgrep, returning (findings, note_if_skipped)."""
     if not semgrep_available():
-        return [], "semgrep not installed — using built-in rules (pip install 'argus-sec[semgrep]')"
+        return [], "semgrep not installed — using built-in rules (pip install 'argus-panoptes[semgrep]')"
 
     cmd = [
         "semgrep", "scan", "--config", config, "--json", "--quiet",

@@ -83,7 +83,7 @@ jobs:
             ## Before you run a real scan
 
             The desktop app drives the `argus` CLI. Install the engine first — `pip install
-            argus-sec`, or if that package isn't published yet, build from source: clone this
+            argus-panoptes`, or if that package isn't published yet, build from source: clone this
             repo, then `pip install -e .`. Without it, the app still opens, but falls back to
             bundled demo data.
 

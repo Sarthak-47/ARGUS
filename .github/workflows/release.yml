@@ -1,9 +1,9 @@
-# Publishes argus-sec to PyPI. Triggered MANUALLY (Actions → Release → Run
+# Publishes argus-panoptes to PyPI. Triggered MANUALLY (Actions → Release → Run
 # workflow) so a version tag builds the desktop installers without also pushing
 # to PyPI — PyPI publishing is a deliberate, owner-initiated step.
 #
 # One-time setup (no API token needed): on PyPI, add this repo as a Trusted
-# Publisher for the `argus-sec` project (Publishing → Add a pending publisher):
+# Publisher for the `argus-panoptes` project (Publishing → Add a pending publisher):
 #   owner: Sarthak-47   repo: ARGUS   workflow: release.yml   environment: pypi
 # Then run this workflow from the tag you want to publish.
 name: Release
