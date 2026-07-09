@@ -6,7 +6,7 @@
 #
 # Mount the repo you want to scan at /src. For Phase-2 attacks against a running
 # app, pass --network host (Linux) and: argus attack --url http://localhost:PORT
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 LABEL org.opencontainers.image.title="Argus" \
       org.opencontainers.image.description="AI-powered security audit agent" \
