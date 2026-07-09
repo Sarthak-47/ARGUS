@@ -320,6 +320,25 @@ def _maybe_fail(result: ScanResult, fail_on: str | None) -> None:
         raise typer.Exit(code=2)
 
 
+def _default_output_dir(target: str, fallback: str) -> str:
+    """Where a report lands when the caller didn't pass --output.
+
+    ``settings.output_dir`` ("./argus-report") is relative to whatever the
+    shell's cwd happens to be — fine when you're scanning the directory
+    you're standing in, but scanning some *other* local path from an
+    unrelated cwd silently drops the report there instead of anywhere near
+    the thing that was actually scanned. If the target is a local directory
+    that exists, write next to it; otherwise (a repo URL, or a path that no
+    longer exists post-scan) fall back to the configured default.
+    """
+    target_path = Path(target).expanduser()
+    if target_path.is_dir():
+        return str(target_path / "argus-report")
+    if target_path.is_file():
+        return str(target_path.parent / "argus-report")
+    return fallback
+
+
 def _export(result: ScanResult, fmt: str, output: str | None) -> Path:
     from argus.report import export
 
@@ -328,7 +347,7 @@ def _export(result: ScanResult, fmt: str, output: str | None) -> Path:
     if fmt not in REPORT_FORMATS and fmt != "md":
         out.error(f"Unknown format '{fmt}'. Choose from: {', '.join(REPORT_FORMATS)}")
         raise typer.Exit(code=1)
-    output_dir = output or settings.output_dir
+    output_dir = output or _default_output_dir(result.target, settings.output_dir)
     path = export(result, fmt, output_dir)
     if fmt == "pdf" and path.suffix != ".pdf":
         out.warn(

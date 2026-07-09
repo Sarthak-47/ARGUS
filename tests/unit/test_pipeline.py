@@ -187,6 +187,55 @@ def test_export_pdf_without_weasyprint_warns(tmp_path, capsys):
         assert "weasyprint" in out.lower()
 
 
+# ----- default report output location (no --output given) -----
+
+def test_export_defaults_next_to_a_local_directory_target(tmp_path, monkeypatch):
+    # Regression: previously always wrote to "./argus-report" relative to
+    # the shell's cwd, so scanning some other local path from an unrelated
+    # directory silently dropped the report there instead of near the
+    # thing that was actually scanned.
+    monkeypatch.chdir(tmp_path)
+    other = tmp_path.parent / f"unrelated-target-{tmp_path.name}"
+    other.mkdir()
+    try:
+        result = ScanResult(target=str(other), phase="scan")
+        path = _export(result, "json", None)
+        assert path.parent == other / "argus-report"
+        assert not (tmp_path / "argus-report").exists()
+    finally:
+        import shutil
+        shutil.rmtree(other, ignore_errors=True)
+
+
+def test_export_defaults_next_to_a_local_file_target(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    other_dir = tmp_path.parent / f"unrelated-file-target-{tmp_path.name}"
+    other_dir.mkdir()
+    try:
+        f = other_dir / "app.py"
+        f.write_text("x = 1\n", encoding="utf-8")
+        result = ScanResult(target=str(f), phase="scan")
+        path = _export(result, "json", None)
+        assert path.parent == other_dir / "argus-report"
+    finally:
+        import shutil
+        shutil.rmtree(other_dir, ignore_errors=True)
+
+
+def test_export_falls_back_to_cwd_default_for_a_url_target(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    result = ScanResult(target="https://github.com/user/repo", phase="scan")
+    path = _export(result, "json", None)
+    assert path.parent == tmp_path / "argus-report"
+
+
+def test_export_explicit_output_always_wins(tmp_path):
+    other = tmp_path / "explicit-out"
+    result = ScanResult(target=str(tmp_path), phase="scan")
+    path = _export(result, "json", str(other))
+    assert path.parent == other
+
+
 def test_signature_ignores_line_number():
     # A correct patch routinely shifts every line below it — the reverify
     # check must not treat that shift alone as "still vulnerable".
