@@ -7,8 +7,11 @@
 *Point it at a repo. It reads the code, spins up the app, and attacks it.*
 
 [![CI](https://github.com/Sarthak-47/ARGUS/actions/workflows/ci.yml/badge.svg)](https://github.com/Sarthak-47/ARGUS/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/Sarthak-47/ARGUS?label=release&color=B8860B)](https://github.com/Sarthak-47/ARGUS/releases/latest)
+[![PyPI](https://img.shields.io/pypi/v/argus-sec?color=B8860B)](https://pypi.org/project/argus-sec/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-B8860B.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-B8860B.svg)](https://www.python.org)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-B8860B.svg)](CONTRIBUTING.md)
 
 </div>
 
@@ -20,6 +23,29 @@ the hundred-eyed giant of Greek myth who never slept and saw everything.
 Static scanners tell you what *looks* wrong. Argus **proves** it: it reads your code, then spins
 your app up and actually attacks it — dumping data via SQLi, forging admin JWTs, reaching cloud
 metadata via SSRF — and explains every finding in plain English, tailored to your codebase.
+
+<details>
+<summary><b>Table of contents</b></summary>
+
+- [See it in 30 seconds](#-see-it-in-30-seconds)
+- [How it works](#how-it-works--two-phases)
+- [Install & use](#install--use)
+- [Works on any machine — local or BYOK](#works-on-any-machine--local-or-byok)
+- [Put it in CI](#put-it-in-ci)
+- [Send findings to DefectDojo or Jira](#send-findings-to-defectdojo-or-jira)
+- [Attack behind a login](#attack-behind-a-login-authenticated-scanning)
+- [Show it off — the badge](#show-it-off--the-scanned-by-argus-badge)
+- [Run it from your editor (MCP)](#run-it-from-your-editor-mcp-server)
+- [Catch it before it commits](#catch-it-before-it-commits-pre-commit-hook)
+- [Auto-fix pull requests](#auto-fix-pull-requests)
+- [Desktop GUI](#desktop-gui)
+- [Why Argus](#why-argus)
+- [Status](#status)
+- [Proof, not vibes — the benchmark suite](#proof-not-vibes--the-benchmark-suite)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+
+</details>
 
 ## ⚡ See it in 30 seconds
 
@@ -317,10 +343,12 @@ Nobody else combines all six. That's the gap Argus owns.
 
 ## Status
 
-- ✅ **Phase 1 — Static analysis** (`argus scan`): rules, dependency audit, supply-chain manifest
-  analysis (typosquats, unpinned versions, install-script abuse), secret detection, LLM reasoning,
-  reports (HTML/JSON/Markdown/SARIF/PDF), CycloneDX SBOM export, and OWASP ASVS / PCI-DSS tags
-  per finding.
+- ✅ **Phase 1 — Static analysis** (`argus scan`): rules, dependency audit, behavioral supply-chain
+  manifest analysis (typosquats, unpinned versions, download-then-execute and obfuscated install
+  scripts, env-secret exfiltration, sensitive-path writes), secret detection, LLM reasoning
+  (`--deep` free-form review, `--taint` source-to-sink taint tracing), reports (HTML/JSON/
+  Markdown/SARIF/PDF/Jira CSV), CycloneDX SBOM + VEX export, and OWASP ASVS / PCI-DSS tags per
+  finding.
 - ✅ **Phase 2 — Attack swarm** (`argus attack`): **18 agents** (13 original + MCPSecurityAgent,
   PromptInjectionAgent, BusinessLogicAgent, AuthzTester, and the opt-in DomXSSHunter),
   orchestration loop,
@@ -372,17 +400,30 @@ real bugs: `argus demo`'s advertised `INJECTOR:SQLI-ERROR` output wasn't
 actually firing until the ground truth exposed it, and a category mismatch was
 silently hiding a real detection.
 
-First published numbers, run against real Docker targets on GitHub's own
-runners — not smoothed over: `argus_demo` **100%** (14/14 — the fully
-self-contained case), `dvwa` **33%** (2/6), `juice_shop` **14%** (1/7), `vampi`
-**20%** (1/5, up from 0% once ReconBot started auto-discovering VAmPI's own
-OpenAPI spec — see below). The remaining misses are honest, understood gaps —
-Juice Shop is an Angular SPA (Argus's crawler doesn't execute JS yet) and
-DVWA's login needs a CSRF-token-scraping form login Argus doesn't do yet —
-tracked as concrete follow-ups in
-[ROADMAP.md](ROADMAP.md#milestone-v10--prove-it-then-ship-it). That's the
-point of a benchmark: it tells you what's actually true, not what sounds good,
-and improving on it live is the point of publishing it at all.
+Numbers as of v1.1.0, run against real Docker targets on GitHub's own runners
+— not smoothed over: `argus_demo` **100%** (14/14 — the fully self-contained
+case), `juice_shop` **14–29%** (1–2/7, varies run to run — see below),
+`dvwa` **33%** (2/6), `vampi` **20%** (1/5). Every gap here is a *known,
+documented* one, not a mystery:
+
+- **Juice Shop** is an Angular SPA. ReconBot now renders it in a real headless
+  browser to catch client-routed pages and XHR/fetch calls a static crawl
+  can't see — verified working, and it moved the real score up — but the
+  crawl races Angular's bootstrap time against a network-idle timeout, so it
+  wins on a quiet CI runner and silently falls back to the static-only result
+  on a busy one. A real, reproducible improvement, not a guaranteed one on
+  every single run.
+- **DVWA** needs a rotating CSRF token scraped from the login page (done,
+  verified against a real validating server) *and* a per-session
+  difficulty-level unlock Argus also now does — the score hasn't moved yet on
+  this specific target and the remaining gap is still being root-caused.
+- **VAmPI** is API-only with almost no crawlable HTML; ReconBot now
+  auto-discovers and parses its OpenAPI spec with zero flags, which alone
+  moved this from 0% to 20%.
+
+That's the point of a benchmark: it tells you what's actually true, not what
+sounds good, and the full run-by-run history of what changed and why is in
+[ROADMAP.md](ROADMAP.md#milestone-v10--prove-it-then-ship-it).
 
 ## Roadmap
 

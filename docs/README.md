@@ -17,5 +17,13 @@ is self-contained — read the one you need.
 
 For the API/architecture-level reference, the code itself is documented at the
 module level — start at [`argus/pipeline.py`](../argus/pipeline.py) for the
-top-level orchestration, or [`ROADMAP.md`](../ROADMAP.md) for where the
-project is headed.
+top-level orchestration, or [`ROADMAP.md`](../ROADMAP.md) for the history of
+how the project got here.
+
+## Internal / historical
+
+- **[`dev/ARGUS_CONTEXT.md`](dev/ARGUS_CONTEXT.md)** — the original full
+  project spec Argus was built from. Useful if you want the complete
+  architecture/design-system rationale in one place.
+- **[`dev/UPGRADE.md`](dev/UPGRADE.md)** — the pre-1.0 backlog, superseded by
+  [`ROADMAP.md`](../ROADMAP.md) and now fully shipped. Kept for history.

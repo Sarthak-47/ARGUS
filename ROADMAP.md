@@ -1,8 +1,15 @@
 # Argus Roadmap — v0.2.0 → v1.0
 
+> **Status: the 1.0 bar below is fully shipped**, plus everything under
+> Milestone v0.4 that originally wasn't gating it (VEX, behavioral
+> supply-chain analysis, LLM taint-tracing) and both benchmark follow-ups.
+> Current release: see [CHANGELOG.md](CHANGELOG.md). This file is kept as
+> the historical record of *why* each decision was made — read it for
+> context on a specific feature, not as "what's left to build."
+
 Where Argus is (v0.2.0) and what "1.0" needs to mean. This supersedes
-[`UPGRADE.md`](UPGRADE.md) (the v0.1→v0.2 backlog, now largely shipped) as the
-forward-looking plan.
+[`UPGRADE.md`](docs/dev/UPGRADE.md) (the v0.1→v0.2 backlog, now largely
+shipped) as the forward-looking plan.
 
 It's grounded in what the 2026 market leaders are actually shipping — XBOW,
 Aikido, Snyk, Escape, StackHawk, Invicti, Horizon3 — filtered hard for Argus's

@@ -1,0 +1,66 @@
+name: Bug report
+description: Something isn't working the way it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please check
+        [existing issues](https://github.com/Sarthak-47/ARGUS/issues) first —
+        someone may have already hit this.
+  - type: input
+    id: version
+    attributes:
+      label: Argus version
+      description: Output of `argus --version` (or the desktop app's version in Settings).
+      placeholder: "1.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where did this happen?
+      options:
+        - CLI (argus scan/attack/fix/...)
+        - Desktop GUI
+        - GitHub Action
+        - MCP server
+        - pre-commit hook
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Exact command or action
+      description: The full command you ran (redact secrets/tokens), or what you clicked in the GUI.
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include the full error output/traceback if there is one.
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: "Windows 11 / macOS 15 / Ubuntu 24.04"
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I checked [Troubleshooting](https://github.com/Sarthak-47/ARGUS/blob/main/docs/troubleshooting.md) first
+        - label: This is not a security vulnerability (see [SECURITY.md](https://github.com/Sarthak-47/ARGUS/blob/main/SECURITY.md) if it is)

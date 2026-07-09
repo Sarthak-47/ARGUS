@@ -63,10 +63,14 @@ purpose is illegal or malicious use. See [SECURITY.md](SECURITY.md).
    git tag -a vX.Y.Z -m "Argus vX.Y.Z"
    git push origin vX.Y.Z
    ```
-4. That tag push triggers two GitHub Actions workflows automatically:
-   - **`release.yml`** — builds the Python package and publishes `argus-sec` to PyPI (requires
-     the PyPI trusted-publisher to already be configured for this repo — see the comment at the
-     top of that workflow file for the one-time setup).
-   - **`desktop-release.yml`** — builds Windows/macOS(universal)/Linux installers and opens a
-     **draft** GitHub Release with them attached. Review the draft, then publish it manually
-     (`gh release edit vX.Y.Z --draft=false` or via the GitHub UI).
+4. That tag push triggers `desktop-release.yml` automatically — it builds
+   Windows/macOS(universal)/Linux installers and opens a **draft** GitHub
+   Release with them attached. Review the draft, then publish it
+   (`gh release edit vX.Y.Z --draft=false --latest` or via the GitHub UI).
+5. `benchmark.yml` runs automatically once the release is published, and
+   publishes fresh detection-rate numbers as a job summary + artifact.
+6. PyPI publishing is **manual and separate** — `release.yml` only runs via
+   `workflow_dispatch` (Actions → Release → Run workflow), never on a tag
+   push, so cutting a desktop release never accidentally ships to PyPI.
+   Requires the PyPI trusted-publisher to already be configured for this repo
+   (see the comment at the top of that workflow file for the one-time setup).

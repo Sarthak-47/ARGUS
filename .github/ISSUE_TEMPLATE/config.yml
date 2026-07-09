@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/Sarthak-47/ARGUS/security/advisories/new
+    about: Please do not open a public issue for security vulnerabilities — see SECURITY.md.
+  - name: Ask a question / discuss an idea
+    url: https://github.com/Sarthak-47/ARGUS/discussions
+    about: For open-ended questions or design discussion before filing a feature request.
