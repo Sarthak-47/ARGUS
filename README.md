@@ -126,7 +126,9 @@ argus report --format html                # export the last scan (html|json|mark
 argus history                             # risk-score trend across past scans
 argus compare                             # what's new/fixed since the last scan
 argus suppress "<finding title>"          # mark a finding ignored — stops it recurring
+argus suppressions                        # list what's currently suppressed/under review
 argus surface                             # endpoints remembered across attack runs
+argus status                              # resolved LLM provider, detected GPU, configured defaults
 argus config --show
 ```
 
