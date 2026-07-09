@@ -48,7 +48,7 @@ browser = ["playwright>=1.45"]
 sandbox = ["docker>=7.0"]
 # Expose scan/attack/fix as MCP tools so an editor agent (Copilot/Cursor/Claude
 # Code) can run Argus directly: `argus mcp-server`.
-mcp = ["mcp>=1.2"]
+mcp = ["mcp>=1.28.1"]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.4"]
 
 [project.scripts]
