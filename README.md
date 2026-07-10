@@ -78,13 +78,14 @@ Risk Score 98/100  [CRITICAL]
 | Phase | What it does |
 |---|---|
 | **1 · Static Analysis** | Reads the codebase without running it: built-in rules, dependency CVEs (`npm/pip audit`), secret detection (regex + Shannon entropy + git history), then an LLM layer that validates, explains and re-rates each finding for *your* code. |
-| **2 · Attack Agent** | Points a swarm of **18 specialised agents** at the running app — orchestrated in a loop, with an out-of-band callback server to confirm *blind* vulnerabilities, and every confirmed finding carries a runnable proof-of-concept (curl command + real request/response), not just a description. |
+| **2 · Attack Agent** | Points a swarm of **19 specialised agents** at the running app — orchestrated in a loop, with an out-of-band callback server to confirm *blind* vulnerabilities, and every confirmed finding carries a runnable proof-of-concept (curl command + real request/response), not just a description. |
 
 ### The attack swarm
 
 `ReconBot` · `CrawlerBot` · `Injector` (SQLi/NoSQL/command) · `AuthBreaker` (JWT/session/MFA) ·
 `IDORHunter` · `XSSHunter` · `SSRFProber` · `HeaderPoker` (CORS) · `CSRFHunter` · `FileAttacker`
-(upload/traversal) · `Fuzzer` · `RaceCondition` · `GraphQLAgent` · `WebSocketAgent` ·
+(upload/traversal) · `DataExposure` (excessive data / secrets & PII in API responses) · `Fuzzer` ·
+`RaceCondition` · `GraphQLAgent` · `WebSocketAgent` ·
 `MCPSecurityAgent` (exposed MCP servers & AI-infra leaks — incl. tool poisoning,
 dangerous-capability tools, and resource/prompt disclosure) · `PromptInjectionAgent` (probes the
 app's own chatbot/AI features for prompt injection — sends a unique canary token wrapped in an
