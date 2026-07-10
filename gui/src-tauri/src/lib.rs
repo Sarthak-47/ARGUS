@@ -1,8 +1,64 @@
 use std::io::{BufRead, BufReader, Read};
 use std::process::{Command, Stdio};
+use std::sync::OnceLock;
 use tauri::{Emitter, Window};
 
 const EVENT_SENTINEL: &str = "@@ARGUS_EVENT@@";
+
+/// How to invoke the Argus CLI: either the `argus` console script, or a Python
+/// interpreter with `-m argus`.
+#[derive(Clone)]
+struct ArgusCli {
+  program: String,
+  base_args: Vec<String>,
+}
+
+/// Probe a series of ways to reach the Argus CLI and cache the first that
+/// answers `--version`. A GUI launched from the Dock/Start menu does NOT inherit
+/// the shell PATH, so a `pip install`'d `argus` is frequently invisible to the
+/// packaged app even though it works fine in a terminal — the single most common
+/// "it says argus isn't installed but it is" complaint. We fall back to
+/// `python -m argus` (works whenever Python is reachable) and a couple of the
+/// usual user-install bin locations.
+fn detect_argus() -> Option<ArgusCli> {
+  let mut candidates: Vec<ArgusCli> = vec![ArgusCli { program: "argus".into(), base_args: vec![] }];
+  for py in ["python3", "python", "py"] {
+    candidates.push(ArgusCli { program: py.into(), base_args: vec!["-m".into(), "argus".into()] });
+  }
+  // Common user-site script locations that a Finder/Start-menu launch misses.
+  if let Ok(home) = std::env::var("HOME") {
+    candidates.push(ArgusCli { program: format!("{home}/.local/bin/argus"), base_args: vec![] });
+  }
+  if let Ok(profile) = std::env::var("USERPROFILE") {
+    candidates.push(ArgusCli { program: format!("{profile}\\.local\\bin\\argus.exe"), base_args: vec![] });
+  }
+  candidates.into_iter().find(|c| {
+    Command::new(&c.program)
+      .args(&c.base_args)
+      .arg("--version")
+      .output()
+      .map(|o| o.status.success())
+      .unwrap_or(false)
+  })
+}
+
+fn argus_cli() -> Result<&'static ArgusCli, String> {
+  static CACHE: OnceLock<Option<ArgusCli>> = OnceLock::new();
+  CACHE.get_or_init(detect_argus).as_ref().ok_or_else(|| {
+    "Could not find the Argus CLI. Install it with `pip install argus-panoptes` \
+     and make sure Python is on your PATH."
+      .to_string()
+  })
+}
+
+/// A fresh `Command` for the resolved Argus CLI, with any `-m argus` base args
+/// already applied — append the subcommand and flags as usual.
+fn argus_command() -> Result<Command, String> {
+  let cli = argus_cli()?;
+  let mut cmd = Command::new(&cli.program);
+  cmd.args(&cli.base_args);
+  Ok(cmd)
+}
 
 /// Runs the real Argus engine against `target` and returns the resulting
 /// `report.json` contents. `mode` is "scan" (phase 1 only) or "audit" (phase
@@ -25,7 +81,7 @@ fn run_audit(window: Window, target: String, mode: String, agents: Option<String
   // `scan`/`audit` write findings to Argus's own state dir; `report --output`
   // then re-exports the most recent result to a predictable path we control.
   if mode == "scan" {
-    let output = Command::new("argus")
+    let output = argus_command()?
       .args(["scan", &target])
       .output()
       .map_err(|e| format!("failed to launch argus: {e}"))?;
@@ -33,7 +89,7 @@ fn run_audit(window: Window, target: String, mode: String, agents: Option<String
       return Err(String::from_utf8_lossy(&output.stderr).into_owned());
     }
   } else {
-    let mut cmd = Command::new("argus");
+    let mut cmd = argus_command()?;
     cmd.args(["audit", &target]);
     if let Some(a) = agents.filter(|a| !a.is_empty()) {
       cmd.args(["--agents", &a]);
@@ -61,7 +117,7 @@ fn run_audit(window: Window, target: String, mode: String, agents: Option<String
     }
   }
 
-  let report_output = Command::new("argus")
+  let report_output = argus_command()?
     .args(["report", "--format", "json", "--output", &out_dir_str])
     .output()
     .map_err(|e| format!("failed to export report: {e}"))?;
@@ -109,7 +165,7 @@ fn read_source_snippet(
 /// Dashboard's trend graph and "Recent Audits" list.
 #[tauri::command]
 fn read_scan_history(limit: usize) -> Result<String, String> {
-  let output = Command::new("argus")
+  let output = argus_command()?
     .args(["history", "--format", "json", "--limit", &limit.to_string()])
     .output()
     .map_err(|e| format!("failed to launch argus: {e}"))?;
@@ -123,7 +179,7 @@ fn read_scan_history(limit: usize) -> Result<String, String> {
 /// new/fixed since the previous scan, for the Reports screen.
 #[tauri::command]
 fn read_scan_comparison() -> Result<String, String> {
-  let output = Command::new("argus")
+  let output = argus_command()?
     .args(["compare", "--format", "json"])
     .output()
     .map_err(|e| format!("failed to launch argus: {e}"))?;
@@ -139,7 +195,7 @@ fn read_scan_comparison() -> Result<String, String> {
 /// placeholders that never reflect what's actually configured.
 #[tauri::command]
 fn read_status() -> Result<String, String> {
-  let output = Command::new("argus")
+  let output = argus_command()?
     .args(["status", "--format", "json"])
     .output()
     .map_err(|e| format!("failed to launch argus: {e}"))?;
@@ -152,7 +208,7 @@ fn read_status() -> Result<String, String> {
 /// Persists the preferred provider via `argus config --provider <name>`.
 #[tauri::command]
 fn set_provider(name: String) -> Result<(), String> {
-  let output = Command::new("argus")
+  let output = argus_command()?
     .args(["config", "--provider", &name])
     .output()
     .map_err(|e| format!("failed to launch argus: {e}"))?;
@@ -166,7 +222,7 @@ fn set_provider(name: String) -> Result<(), String> {
 /// <name> --key <key>`.
 #[tauri::command]
 fn save_provider_key(name: String, key: String) -> Result<(), String> {
-  let output = Command::new("argus")
+  let output = argus_command()?
     .args(["config", "--provider", &name, "--key", &key])
     .output()
     .map_err(|e| format!("failed to launch argus: {e}"))?;
@@ -182,7 +238,7 @@ fn save_provider_key(name: String, key: String) -> Result<(), String> {
 /// GUI shows the user rather than silently doing nothing.
 #[tauri::command]
 fn suppress_finding(search: String, status: String, reason: String) -> Result<(), String> {
-  let mut cmd = Command::new("argus");
+  let mut cmd = argus_command()?;
   cmd.args(["suppress", &search, "--status", &status]);
   if !reason.is_empty() {
     cmd.args(["--reason", &reason]);
@@ -195,14 +251,10 @@ fn suppress_finding(search: String, status: String, reason: String) -> Result<()
 }
 
 /// Cheap presence check so the GUI can tell the user to `pip install
-/// argus-sec` instead of failing opaquely on the first real scan.
+/// argus-panoptes` instead of failing opaquely on the first real scan.
 #[tauri::command]
 fn check_argus_available() -> bool {
-  Command::new("argus")
-    .arg("--version")
-    .output()
-    .map(|o| o.status.success())
-    .unwrap_or(false)
+  argus_cli().is_ok()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
