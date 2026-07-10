@@ -317,10 +317,14 @@ than guess what's yours and what's the patch.
 
 ## Desktop GUI
 
-A React + Vite + Tauri desktop app ("a war room inside the Parthenon") with six screens —
-Dashboard (with a live risk-trend graph), New Scan, Live Attack, Reports, CodeView, Settings.
-Inside the native app it **invokes the Python engine directly** to run real scans; in the browser
-dev build it renders a dropped-in `argus scan --format json` result at `gui/public/report.json`.
+A React + Vite + Tauri desktop app in a red-figure-pottery visual language — matte black-glaze,
+terracotta, and oxblood, with the Argus eye as its motif (Argus Panoptes was the hundred-eyed
+watchman, painted on Attic vases). Six screens, each its own page — Dashboard, New Scan, Live
+Attack, Reports, CodeView, Settings. On the report, the "hundred eyes" are the **~50 vulnerability
+classes Argus checks for**: a red eye caught something, a tan eye came back clean, and hovering any
+eye names it. Inside the native app it **invokes the Python engine directly** to run real scans; in
+the browser dev build it renders a dropped-in `argus scan --format json` result at
+`gui/public/report.json`.
 
 ```bash
 cd gui

@@ -6,10 +6,18 @@ All notable changes to Argus are documented here. Format loosely follows
 ## [Unreleased]
 
 ### Added
+- **Desktop GUI redesign** — a red-figure-pottery visual language (matte
+  black-glaze + terracotta + oxblood, the Argus eye as its motif) across all
+  six screens. The report's "hundred eyes" are the ~50 vulnerability classes
+  Argus checks for: red eye = caught something, tan eye = checked and clean,
+  and every eye is hoverable, naming its class. Findings render as
+  severity-tinted eyes; New Scan presents the agents as eyes you open/close;
+  Live Attack shows the running agents' eyes breathing over the elapsed clock.
+  Hash routing makes each screen a real addressable page. Engine untouched —
+  a theme + component layer over the existing React screens.
 - Repo professionalization: `CODE_OF_CONDUCT.md`, GitHub issue templates
   (bug report / feature request, with security reports redirected to
-  private advisories), a PR template, `.github/dependabot.yml` (pip/npm/
-  cargo/actions/docker), and GitHub's built-in vulnerability alerts enabled.
+  private advisories), and a PR template.
 - A branded SVG hero banner and social-preview card for the README (using
   the real Argus logo), plus a dedicated callout elevating the MCP-server-
   scanning and prompt-injection-testing angle that was previously buried
