@@ -6,6 +6,10 @@ All notable changes to Argus are documented here. Format loosely follows
 ## [Unreleased]
 
 ### Added
+- **DataExposure agent** (CWE-200) — a new attack agent that flags sensitive
+  fields (password hashes, secrets, API keys, PII) returned in JSON responses,
+  the excessive-data-exposure class no other agent covered. Takes the VAmPI
+  benchmark from 40% to 60%.
 - **REST path-template IDOR** — IDORHunter now enumerates object identifiers in
   path templates (`/users/v1/{username}`, `/api/items/{id}`), harvesting real
   ids from the collection endpoint's JSON when they can't be guessed. It
@@ -19,6 +23,15 @@ All notable changes to Argus are documented here. Format loosely follows
   registered attack agent against a live local server and asserts it returns a
   report rather than raising — so a refactor can't silently break an agent
   whose crash the orchestrator would otherwise swallow into an "error" report.
+
+### Fixed
+- **SPA false positives** — CrawlerBot no longer flags a single-page app's
+  catch-all as an exposed file: an HTML body for a path that should be
+  JSON/config/binary (`/.env`, `/backup.sql`, `/.git/*`) is the SPA fallback,
+  not the real file. Cut Juice Shop's crawler findings from 66 to 10.
+- **Session JWT never analysed** — AuthBreaker now also inspects the
+  authenticated session's own bearer token (applied via `--auth`), not just
+  tokens the homepage returns; the token most worth checking was being skipped.
 
 ## [1.2.1] — 2026-07-10
 
