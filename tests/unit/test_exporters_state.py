@@ -25,7 +25,7 @@ def _sample() -> ScanResult:
 
 def test_to_json_is_valid_and_complete():
     data = json.loads(to_json(_sample()))
-    assert data["risk_score"] == 48  # 40 + 8
+    assert data["risk_score"] == 86  # CRITICAL floor (85) + small breadth bonus for the MEDIUM
     assert data["counts"]["CRITICAL"] == 1
     assert data["findings"][0]["cwe"] == "CWE-89"
 
@@ -242,7 +242,7 @@ def test_state_save_load_roundtrip():
     loaded = load_result()
     assert loaded is not None
     assert loaded.target == "github.com/user/app"
-    assert loaded.risk_score == 48
+    assert loaded.risk_score == 86
     assert loaded.sorted_findings()[0].title == "SQL injection in /users"
 
 
@@ -284,7 +284,7 @@ def test_save_result_appends_to_history():
     entries = load_history()
     assert len(entries) == 1
     assert entries[0]["target"] == "github.com/user/app"
-    assert entries[0]["risk_score"] == 48
+    assert entries[0]["risk_score"] == 86
     assert entries[0]["counts"]["CRITICAL"] == 1
 
 

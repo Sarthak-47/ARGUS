@@ -19,21 +19,38 @@ def test_finding_location_prefers_endpoint():
     assert f2.location == "/api/users"
 
 
-def test_risk_score_saturates_at_100():
+def test_risk_score_anchored_to_worst_finding():
+    # A single finding sits at the floor of its own band — the score reflects
+    # the worst issue, not a raw sum that saturates.
     r = ScanResult(target="t")
-    for i in range(5):
-        # distinct locations: identical, unlocated findings would legitimately dedup
-        # (see test_dedup.py) — these represent 5 genuinely separate vulnerabilities.
-        r.add(Finding(title="c", severity=Severity.CRITICAL, file=f"f{i}.py", line=1))  # 40 each -> 200 raw
-    assert r.risk_score == 100
+    r.add(Finding(title="m", severity=Severity.MEDIUM))
+    assert r.risk_score == 45 and r.risk_band == "MEDIUM"
+
+    r2 = ScanResult(target="t")
+    r2.add(Finding(title="h", severity=Severity.HIGH))
+    assert r2.risk_score == 70 and r2.risk_band == "HIGH"
+
+    r3 = ScanResult(target="t")
+    r3.add(Finding(title="c", severity=Severity.CRITICAL))
+    assert r3.risk_score == 85 and r3.risk_band == "CRITICAL"
+
+
+def test_risk_score_breadth_climbs_with_diminishing_returns_and_caps():
+    r = ScanResult(target="t")
+    for i in range(3):
+        r.add(Finding(title="c", severity=Severity.CRITICAL, file=f"f{i}.py", line=1))
+    mid = r.risk_score
+    assert 85 < mid < 100  # more findings raise the score above the single-crit floor
+    # piling on more findings approaches but never exceeds 100
+    for i in range(3, 20):
+        r.add(Finding(title="c", severity=Severity.CRITICAL, file=f"f{i}.py", line=1))
+    assert r.risk_score > mid
+    assert r.risk_score <= 100
     assert r.risk_band == "CRITICAL"
 
 
-def test_risk_score_bands():
-    r = ScanResult(target="t")
-    r.add(Finding(title="m", severity=Severity.MEDIUM))  # weight 8
-    assert r.risk_score == 8
-    assert r.risk_band == "LOW"
+def test_empty_scan_has_zero_risk():
+    assert ScanResult(target="t").risk_score == 0
 
 
 def test_counts_and_sorting():
@@ -89,6 +106,6 @@ def test_to_dict_roundtrip_shape():
     r = ScanResult(target="t")
     r.add(Finding(title="x", severity=Severity.HIGH, cwe="CWE-89"))
     d = r.to_dict()
-    assert d["risk_score"] == 20
+    assert d["risk_score"] == 70  # single HIGH sits at the HIGH band floor
     assert d["findings"][0]["severity"] == "HIGH"
     assert d["findings"][0]["cwe"] == "CWE-89"

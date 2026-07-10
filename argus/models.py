@@ -7,6 +7,7 @@ vocabulary: a finding has a severity, a location, an explanation, and a fix.
 
 from __future__ import annotations
 
+import math
 import time
 import uuid
 from dataclasses import dataclass, field, asdict
@@ -238,9 +239,27 @@ class ScanResult:
 
     @property
     def risk_score(self) -> int:
-        """0-100 risk score. Saturating sum of severity weights."""
-        raw = sum(f.severity.weight for f in self.findings)
-        return min(100, raw)
+        """0-100 risk score anchored to the worst finding's severity band, plus a
+        diminishing 'breadth' bonus for the remaining findings.
+
+        A single MEDIUM reads ~45, a single HIGH ~70, a single CRITICAL ~85 —
+        each sits at the floor of its band — and additional findings push toward
+        100 with diminishing returns, so only a target riddled with serious
+        issues actually approaches it. A plain saturating sum (the previous
+        behaviour) hit 100 on almost any real app after a handful of findings,
+        which made the score uninformative.
+        """
+        if not self.findings:
+            return 0
+        floor = {
+            Severity.CRITICAL: 85, Severity.HIGH: 70, Severity.MEDIUM: 45,
+            Severity.LOW: 20, Severity.INFO: 5,
+        }
+        worst = max((f.severity for f in self.findings), key=lambda s: s.rank)
+        base = floor[worst]
+        rest = sum(f.severity.weight for f in self.findings) - worst.weight
+        bonus = (100 - base) * (1.0 - math.exp(-rest / 90.0))
+        return round(min(100, base + bonus))
 
     @property
     def risk_band(self) -> str:

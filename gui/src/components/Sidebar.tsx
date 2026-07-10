@@ -22,7 +22,10 @@ export function Sidebar() {
   const live = isDesktop && status;
   const configured = !!(live && status!.resolved_provider);
   const providerLabel = configured ? provider : "no provider";
-  const modelLabel = live ? (status!.resolved_provider ? status!.model : "not configured") : "demo";
+  // Only show a sub-line when it says something real (the resolved model). In
+  // the browser preview or when nothing is configured, the bare provider label
+  // reads cleaner than a redundant "demo" / "not configured" underneath.
+  const modelLabel = configured ? status!.model : "";
 
   return (
     <aside
