@@ -5,6 +5,8 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.2] — 2026-07-10
+
 ### Added
 - **DataExposure agent** (CWE-200) — a new attack agent that flags sensitive
   fields (password hashes, secrets, API keys, PII) returned in JSON responses,
@@ -509,7 +511,8 @@ Initial tagged release.
   universal `.dmg`, Linux `.deb`/`.rpm`/`.AppImage`).
 - Local-first LLM support (Ollama) plus BYOK providers (Groq, Gemini, Claude, OpenRouter).
 
-[Unreleased]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.1...HEAD
+[Unreleased]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.2...HEAD
+[1.2.2]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/Sarthak-47/ARGUS/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/Sarthak-47/ARGUS/compare/v1.0.0...v1.1.0

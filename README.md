@@ -279,7 +279,7 @@ an obvious vulnerable pattern *before* it ever lands in git history. Add to your
 ```yaml
 repos:
   - repo: https://github.com/Sarthak-47/ARGUS
-    rev: v1.2.1
+    rev: v1.2.2
     hooks:
       - id: argus            # blocks on HIGH+ findings (use `argus-strict` for MEDIUM+)
 ```
