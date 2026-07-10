@@ -73,6 +73,32 @@ def test_extract_does_not_duplicate_form_action_as_a_get_link():
     assert "GET http://t/transfer" not in keys
 
 
+def test_extract_action_hash_form_binds_to_page_not_root():
+    """DVWA's vulnerable pages carry the injectable param in a
+    <form action="#" method="GET"> that posts back to the *current* page.
+    The form endpoint must bind to that page's URL, not the site root —
+    otherwise the injection agents attack the wrong (non-vulnerable) endpoint."""
+    ctx = _ctx()
+    page = "http://t/vulnerabilities/sqli/"
+    html = '<form action="#" method="GET"><input name="id"><input name="Submit"></form>'
+    ReconBot()._extract(ctx, "http://t", html, page_url=page)
+    ep = next(ep for ep in ctx.endpoint_list() if ep.url == page)
+    assert ep.method == "GET"
+    assert "id" in ep.params
+    # and it must NOT have leaked onto the root
+    assert "GET http://t/" not in ctx.endpoints
+
+
+def test_extract_relative_query_link_resolves_against_page():
+    """A relative "?page=x" link (DVWA's file-inclusion page) must resolve
+    against the sub-page it appears on, not the site root."""
+    ctx = _ctx()
+    page = "http://t/vulnerabilities/fi/"
+    ReconBot()._extract(ctx, "http://t", '<a href="?page=file2.php">next</a>', page_url=page)
+    urls = {ep.url for ep in ctx.endpoint_list()}
+    assert page in urls
+
+
 def test_extract_plain_links_still_recorded_as_get():
     ctx = _ctx()
     ReconBot()._extract(ctx, "http://t", _HTML)

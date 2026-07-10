@@ -81,7 +81,7 @@ class ReconBot(BaseAgent):
         # seed the root endpoint and crawl discovered links one level deep
         ctx.add_endpoint(Endpoint(url=base + "/", method="GET", source="root",
                                   sample_status=root.status_code))
-        discovered = self._extract(ctx, base, root.text or "")
+        discovered = self._extract(ctx, base, root.text or "", page_url=base + "/")
         ctx.emit(self.name, f"parsed root — found {len(discovered)} link(s)")
 
         # fetch discovered same-origin pages to widen the surface
@@ -94,7 +94,12 @@ class ReconBot(BaseAgent):
             if ep:
                 ep.sample_status = resp.status_code
             if "text/html" in (resp.headers.get("content-type", "")):
-                self._extract(ctx, base, resp.text or "")
+                # Resolve this page's own relative links/form actions against
+                # its own URL, not the site root — otherwise a form with
+                # action="#" or "" (DVWA's sqli/xss/exec pages) or a relative
+                # "?id=1" link binds to the root instead of the vulnerable
+                # page, and the injection agents attack the wrong endpoint.
+                self._extract(ctx, base, resp.text or "", page_url=url)
 
         await self._probe_common(ctx, base)
         await self._js_crawl(ctx, base)
@@ -135,12 +140,16 @@ class ReconBot(BaseAgent):
                 poc=build_http_poc("GET", ctx.base_url + "/", resp),
             ))
 
-    def _extract(self, ctx: AttackContext, base: str, html: str) -> list[str]:
+    def _extract(self, ctx: AttackContext, base: str, html: str, page_url: str | None = None) -> list[str]:
+        # Relative links and form actions must resolve against the page they
+        # came from, not the site root — a form with action="#"/"" or a
+        # relative "?id=1" link on a sub-page otherwise binds to the root.
+        ref = page_url or (base + "/")
         urls: list[str] = []
         for raw in _LINK_RE.findall(html):
             if raw.startswith(("mailto:", "tel:", "javascript:", "data:")):
                 continue
-            absolute = urljoin(base + "/", raw)
+            absolute = urljoin(ref, raw)
             urls.append(absolute)
             parsed = urlparse(absolute)
             params = list(parse_qs(parsed.query).keys())
@@ -156,7 +165,11 @@ class ReconBot(BaseAgent):
             if method_m:
                 method = method_m.group(1).upper() or "GET"
             names = _INPUT_NAME_RE.findall(form_html)
-            target = urljoin(base + "/", action) if action else base + "/"
+            # action="#" (or missing/empty) posts back to the current page, not
+            # the site root — resolve against the page URL so the discovered
+            # endpoint is the one that actually carries the vulnerable param.
+            action_target = action if action not in ("", "#") else ref
+            target = urljoin(ref, action_target)
             ctx.add_endpoint(Endpoint(url=target.split("?")[0], method=method,
                                       params=names, source="form"))
         return urls
