@@ -5,7 +5,7 @@
 
 import { useState, useMemo, type CSSProperties } from "react";
 import { RF, sevColor, type Severity } from "../theme";
-import { VULN_CHECKS } from "../data";
+import { VULN_CHECKS, CWE_TO_CHECK } from "../data";
 import type { Finding } from "../data";
 import { MeanderLip } from "./Decor";
 
@@ -85,6 +85,10 @@ export function EyeField({ findings, onSelect }: { findings: Finding[]; onSelect
     const rank: Record<string, number> = { CRITICAL: 5, HIGH: 4, MEDIUM: 3, LOW: 2, INFO: 1 };
     return VULN_CHECKS.map((c) => {
       const hits = findings.filter((f) => {
+        // Precise: an unambiguous CWE lights exactly its class.
+        if (f.cwe && CWE_TO_CHECK[f.cwe] === c.name) return true;
+        // Fallback: title keyword (covers static findings without a CWE and
+        // the sibling classes intentionally left off the CWE map).
         const t = f.name.toLowerCase();
         return c.match.some((m) => t.includes(m));
       });

@@ -58,6 +58,8 @@ export interface Finding {
   fix: string;
   file?: string | null;
   line?: number | null;
+  cwe?: string | null;        // bare number, e.g. "89"
+  category?: string | null;   // engine category, e.g. "injection"
   compliance?: { asvs: string; pci_dss: string; label: string } | null;
   // Present only on synthesized exploit-chain findings: how many confirmed
   // findings the chain compounds. Drives the ⛓ badge in Reports.
@@ -143,6 +145,42 @@ export const VULN_CHECKS: VulnCheck[] = [
   { name: "Container base-image CVE", group: "Supply chain", match: ["base image", "image cve", "os-package"] },
   { name: "IaC / Dockerfile misconfig", group: "Supply chain", match: ["dockerfile", "iac", "container config"] },
 ];
+
+// Precise finding → eye mapping: an unambiguous CWE (one that maps to exactly
+// one class above) lights that class directly, bypassing title matching.
+// Shared CWEs (79 across all XSS, 347 across JWT, 639 across IDOR/BOLA, 94
+// across code-injection/MCP) are deliberately omitted — they'd light the wrong
+// sibling eye, so those classes stay on title matching, which distinguishes them.
+export const CWE_TO_CHECK: Record<string, string> = {
+  "89": "SQL injection",
+  "77": "OS command injection", "78": "OS command injection",
+  "918": "Server-Side Request Forgery",
+  "611": "XML external entity (XXE)",
+  "601": "Open redirect",
+  "22": "Path traversal",
+  "434": "Unrestricted file upload",
+  "530": "Backup / temp file exposure",
+  "285": "Broken function-level authz (BFLA)",
+  "290": "Authentication bypass",
+  "1004": "Insecure session cookie flags",
+  "352": "Cross-Site Request Forgery",
+  "1021": "Clickjacking",
+  "942": "Permissive CORS",
+  "693": "Missing security headers",
+  "362": "Race condition / no rate limit",
+  "1385": "WebSocket origin validation",
+  "200": "Excessive data exposure",
+  "502": "Unsafe deserialization",
+  "338": "Weak randomness (PRNG)",
+  "798": "Hardcoded secret / credentials",
+  "489": "Debug mode enabled",
+  "250": "Runs with unneeded privilege",
+  "841": "Business-logic abuse",
+  "1395": "Vulnerable dependency (CVE)",
+  "1357": "Typosquat dependency",
+  "1104": "Unpinned dependency",
+  "506": "Malicious install script",
+};
 
 // `id` matches the engine's provider identifiers (argus/config/defaults.py's
 // ALL_PROVIDERS) so a selection here can round-trip through `argus config

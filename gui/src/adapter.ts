@@ -157,6 +157,11 @@ export function mapReport(json: EngineReport): LoadedReport {
     fix: f.fix || "",
     file: f.file,
     line: f.line,
+    // Bare CWE number ("CWE-89" -> "89") + category, so the GUI can map a
+    // finding to its vulnerability-class eye precisely rather than by title
+    // keyword alone.
+    cwe: f.cwe ? String(f.cwe).replace(/^cwe-/i, "").trim() : null,
+    category: f.category || null,
     compliance: f.compliance,
     // Exploit chains carry the list of confirmed findings they compound; expose
     // the count so the UI can badge them distinctly from atomic findings.
