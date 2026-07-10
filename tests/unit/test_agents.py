@@ -14,7 +14,7 @@ import httpx
 import pytest
 
 from argus.agents.authbreaker import AuthBreaker, _b64url_decode, _b64url_encode
-from argus.agents.base import AttackContext, BaseAgent
+from argus.agents.base import AttackContext, BaseAgent, Endpoint, _destroys_session
 from argus.agents.injector import _with_param
 from argus.llm.orchestrator import _select_order
 from argus.llm.provider import LLMResult
@@ -44,6 +44,37 @@ def test_strong_secret_not_cracked():
     ab = AuthBreaker()
     token = _make_jwt("a-very-long-random-secret-not-in-the-list-xyz-123456")
     assert ab._crack_hs(token) is None
+
+
+@pytest.mark.parametrize("url,destroys", [
+    ("http://t/logout.php", True),
+    ("http://t/logout", True),
+    ("http://t/users/sign_out", True),
+    ("http://t/account/log-off", True),
+    ("http://t/api/v1/signout", True),
+    ("http://t/vulnerabilities/sqli/", False),
+    ("http://t/logout_history", False),   # not a logout action
+    ("http://t/blog/about-logout-hooks", False),
+])
+def test_destroys_session_matches_only_real_logout_paths(url, destroys):
+    assert _destroys_session(url) is destroys
+
+
+def test_add_endpoint_skips_session_destroying_urls():
+    ctx = AttackContext("http://t", client=httpx.AsyncClient())
+    ctx.add_endpoint(Endpoint(url="http://t/logout.php"))
+    ctx.add_endpoint(Endpoint(url="http://t/vulnerabilities/sqli/", params=["id"]))
+    urls = {e.url for e in ctx.endpoint_list()}
+    assert "http://t/logout.php" not in urls
+    assert "http://t/vulnerabilities/sqli/" in urls
+
+
+@pytest.mark.asyncio
+async def test_request_refuses_to_hit_logout():
+    ctx = AttackContext("http://t", client=httpx.AsyncClient())
+    resp = await BaseAgent().get(ctx, "http://t/logout.php")
+    assert resp is None
+    assert ctx.requests_sent == 0  # never even sent
 
 
 def test_with_param_sets_query():

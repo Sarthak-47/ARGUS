@@ -71,6 +71,10 @@ class BenchmarkCase:
     # container has no database until this runs) — best-effort, errors ignored.
     setup_path: str | None = None
     setup_data: dict[str, str] | None = None
+    # DVWA's setup form (like its login) carries a CSRF token that must be
+    # scraped from the page and posted back, or the DB is never created and
+    # every page redirects to setup.php — making the whole target unusable.
+    setup_csrf_field: str | None = None
     # Auth *parameters*, not a built AuthConfig — the login URL needs the
     # container's dynamically-assigned host port, only known at run time.
     auth_login_path: str | None = None
@@ -248,6 +252,7 @@ CASES: dict[str, BenchmarkCase] = {
         auth_login_path="/login.php",
         auth_data={"username": "admin", "password": "password", "Login": "Login"},
         auth_csrf_field="user_token",
+        setup_csrf_field="user_token",
         # DVWA's vulnerable pages are patched at "impossible" difficulty by
         # default for a fresh session; this lowers it so the real bug classes
         # are actually reachable to attack.
@@ -262,30 +267,49 @@ CASES: dict[str, BenchmarkCase] = {
 }
 
 
-def _run_setup(base_url: str, path: str, data: dict[str, str], attempts: int = 3) -> None:
-    """Best-effort one-time POST a fresh target needs before it's usable at
-    all (DVWA's DB init). GETs the page first (some apps only honor the setup
-    POST within a session the GET establishes) and retries with backoff — in
-    a multi-process image (web server + database supervised together), the
-    database can still be initializing for a few seconds after the web server
-    already answers requests, so the very first setup attempt can silently
-    race an unready backend. Errors are swallowed either way: the target may
-    already be initialized, or a version mismatch might change the exact
-    form; the ready-path reachability check and the auth login are the real
-    gates on whether the target is actually usable."""
+def _run_setup(base_url: str, path: str, data: dict[str, str],
+               csrf_field: str | None = None, attempts: int = 4) -> None:
+    """One-time POST a fresh target needs before it's usable at all (DVWA's DB
+    init). Uses ONE session across the GET+POST so a scraped CSRF token and the
+    session cookie it's bound to travel together, scrapes the setup form's
+    hidden token (DVWA's setup.php carries a ``user_token`` exactly like its
+    login — omitting it silently no-ops the DB creation and leaves every page
+    redirecting to setup.php), follows redirects so the creation actually
+    completes, and verifies by re-fetching the setup page. Retries with backoff
+    because a multi-process image (web server + database supervised together)
+    can still be initializing the database for a few seconds after the web
+    server already answers — so an early attempt can race an unready backend.
+    Errors are swallowed: the target may already be initialized, or a version
+    mismatch might change the exact form; the ready-path check and the auth
+    login remain the real gates on whether the target is usable."""
     import time
 
     import httpx
 
+    from argus.auth import _extract_hidden_value
+
     for attempt in range(attempts):
         try:
-            with httpx.Client(timeout=15.0) as client:
-                client.get(base_url + path)
-                client.post(base_url + path, data=data)
-            return
+            with httpx.Client(timeout=20.0, follow_redirects=True) as client:
+                page = client.get(base_url + path)
+                payload = dict(data)
+                if csrf_field:
+                    token = _extract_hidden_value(page.text or "", csrf_field)
+                    if token:
+                        payload[csrf_field] = token
+                client.post(base_url + path, data=payload)
+                # Verify: once the DB exists, DVWA's setup page reports success
+                # and stops redirecting everything back to itself. If it still
+                # looks unset, fall through to another attempt.
+                check = client.get(base_url + path)
+                body = (check.text or "").lower()
+                if "database has been created" in body or "already exists" in body \
+                        or "setup" not in str(check.url).lower():
+                    return
         except httpx.HTTPError:
-            if attempt < attempts - 1:
-                time.sleep(3.0)
+            pass
+        if attempt < attempts - 1:
+            time.sleep(3.0)
 
 
 def _run_docker_target(case: BenchmarkCase, timeout: float = 90.0) -> list[Finding]:
@@ -317,7 +341,8 @@ def _run_docker_target(case: BenchmarkCase, timeout: float = 90.0) -> list[Findi
             raise SandboxError(f"{case.name} never became reachable at {base_url} within {timeout:.0f}s")
 
         if case.setup_path:
-            _run_setup(base_url, case.setup_path, case.setup_data or {})
+            _run_setup(base_url, case.setup_path, case.setup_data or {},
+                       csrf_field=case.setup_csrf_field)
 
         auth = None
         if case.auth_login_path:

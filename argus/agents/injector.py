@@ -40,6 +40,18 @@ _TIME_THRESHOLD = 2.5
 # Common parameter names to try when an endpoint exposes none.
 _GUESS_PARAMS = ["id", "q", "search", "name", "user", "query", "page", "category"]
 
+# Static assets can't carry an injection and only crowd out real targets under
+# the work cap — a JS-heavy or authenticated app (DVWA) surfaces dozens of
+# .css/.png/.js URLs the crawl picked up from <link>/<img>/<script> tags.
+_STATIC_SUFFIXES = (
+    ".css", ".js", ".map", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico",
+    ".woff", ".woff2", ".ttf", ".eot", ".mp4", ".webp", ".pdf",
+)
+
+
+def _is_static_asset(url: str) -> bool:
+    return urlparse(url).path.lower().rstrip("/").endswith(_STATIC_SUFFIXES)
+
 
 def _with_param(url: str, param: str, value: str, base_params: dict | None = None) -> str:
     parsed = urlparse(url)
@@ -86,18 +98,38 @@ class Injector(BaseAgent):
 
     # ------------------------------------------------------------------ #
     def _targets(self, ctx: AttackContext) -> list[tuple[Endpoint, str]]:
-        out: list[tuple[Endpoint, str]] = []
+        # Endpoints that declared their own params (from a real form/query) are
+        # the strongest injection candidates — test them before falling back to
+        # guessed params on bare endpoints, so the work cap never spends itself
+        # on static assets or guesses before reaching a known parameter.
+        declared: list[tuple[Endpoint, str]] = []
+        guessed: list[tuple[Endpoint, str]] = []
         for ep in ctx.endpoint_list():
             if ep.method not in ("GET", "POST"):
                 continue
-            params = ep.params or _GUESS_PARAMS[:4]
-            for p in params:
-                out.append((ep, p))
-        return out[:80]  # bound total work
+            if _is_static_asset(ep.url):
+                continue
+            if ep.params:
+                declared.extend((ep, p) for p in ep.params)
+            else:
+                guessed.extend((ep, p) for p in _GUESS_PARAMS[:4])
+        return (declared + guessed)[:120]  # bound total work, real params first
+
+    @staticmethod
+    def _siblings(ep: Endpoint, param: str) -> dict[str, str]:
+        """Benign filler for the endpoint's *other* params so the target
+        actually reaches the vulnerable code path. Many real forms guard on a
+        submit button being present (DVWA's sqli/exec pages check
+        ``isset($_GET['Submit'])``); fuzzing only the injectable param while
+        omitting its siblings means the query never runs and the bug is
+        invisible. The value is irrelevant — only presence matters — so a
+        harmless "1" is safe and won't itself trip a detector."""
+        return {p: "1" for p in (ep.params or []) if p != param}
 
     async def _error_based(self, ctx: AttackContext, ep: Endpoint, param: str) -> bool:
+        siblings = self._siblings(ep, param)
         for payload in _ERROR_PAYLOADS:
-            url = _with_param(ep.url, param, "1" + payload)
+            url = _with_param(ep.url, param, "1" + payload, base_params=siblings)
             resp = await self.get(ctx, url)
             if resp is None:
                 continue
@@ -124,11 +156,12 @@ class Injector(BaseAgent):
         return False
 
     async def _time_based(self, ctx: AttackContext, ep: Endpoint, param: str) -> bool:
+        siblings = self._siblings(ep, param)
         # baseline timing
-        base_url = _with_param(ep.url, param, "1")
+        base_url = _with_param(ep.url, param, "1", base_params=siblings)
         _, base_t = await self.timed_request(ctx, ep.method, base_url)
         for payload in _TIME_PAYLOADS:
-            url = _with_param(ep.url, param, payload)
+            url = _with_param(ep.url, param, payload, base_params=siblings)
             resp, elapsed = await self.timed_request(ctx, ep.method, url)
             if resp is not None and elapsed - base_t >= _TIME_THRESHOLD:
                 # confirm with a second shot to reduce noise
@@ -155,8 +188,9 @@ class Injector(BaseAgent):
     async def _boolean_based(
         self, ctx: AttackContext, ep: Endpoint, param: str, seen: set[str], sig: str
     ) -> None:
-        t = await self.get(ctx, _with_param(ep.url, param, "1" + _BOOL_TRUE))
-        f = await self.get(ctx, _with_param(ep.url, param, "1" + _BOOL_FALSE))
+        siblings = self._siblings(ep, param)
+        t = await self.get(ctx, _with_param(ep.url, param, "1" + _BOOL_TRUE, base_params=siblings))
+        f = await self.get(ctx, _with_param(ep.url, param, "1" + _BOOL_FALSE, base_params=siblings))
         if t is None or f is None:
             return
         if t.status_code == f.status_code and abs(len(t.text or "") - len(f.text or "")) > 60:

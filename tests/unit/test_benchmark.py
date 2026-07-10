@@ -212,12 +212,17 @@ def test_run_setup_swallows_errors(monkeypatch):
     _run_setup("http://nope", "/setup.php", {"x": "y"}, attempts=1)  # must not raise, no sleep
 
 
-def test_run_setup_retries_on_failure_then_succeeds(monkeypatch):
+def test_run_setup_retries_until_db_creation_verified(monkeypatch):
     import httpx
 
     from argus.benchmark import _run_setup
 
-    calls = {"n": 0}
+    posts = {"n": 0}
+
+    class Resp:
+        def __init__(self, text, url):
+            self.text = text
+            self.url = url
 
     class FlakyClient:
         def __enter__(self):
@@ -226,19 +231,20 @@ def test_run_setup_retries_on_failure_then_succeeds(monkeypatch):
         def __exit__(self, *a):
             return False
 
-        def get(self, *a, **kw):
-            return None
+        def get(self, url, *a, **kw):
+            # The verify GET reports success only after the DB has been created.
+            if posts["n"] >= 2:
+                return Resp("Database has been created.", "http://x/setup.php")
+            return Resp("<form>Setup DVWA — create database</form>", "http://x/setup.php")
 
         def post(self, *a, **kw):
-            calls["n"] += 1
-            if calls["n"] < 2:
-                raise httpx.ConnectError("db not ready yet")
-            return None
+            posts["n"] += 1
+            return Resp("", "http://x/setup.php")
 
     monkeypatch.setattr(httpx, "Client", lambda **kw: FlakyClient())
     monkeypatch.setattr("time.sleep", lambda s: None)  # don't actually wait in tests
-    _run_setup("http://x", "/setup.php", {"x": "y"}, attempts=3)
-    assert calls["n"] == 2  # failed once, succeeded on retry
+    _run_setup("http://x", "/setup.php", {"x": "y"}, attempts=4)
+    assert posts["n"] == 2  # kept trying until the verify GET confirmed creation
 
 
 def test_docker_target_wires_csrf_aware_auth(monkeypatch):
@@ -265,7 +271,7 @@ def test_docker_target_wires_csrf_aware_auth(monkeypatch):
     monkeypatch.setattr("argus.sandbox.docker_manager._wait_until_reachable", lambda url, timeout: True)
     monkeypatch.setattr(
         "argus.benchmark._run_setup",
-        lambda base, path, data: setup_calls.append((path, data)),
+        lambda base, path, data, csrf_field=None: setup_calls.append((path, data, csrf_field)),
     )
 
     def fake_attack_sync(base_url, use_callback=False, auth=None):
@@ -277,6 +283,7 @@ def test_docker_target_wires_csrf_aware_auth(monkeypatch):
     _run_docker_target(CASES["dvwa"])
 
     assert setup_calls and setup_calls[0][0] == "/setup.php"
+    assert setup_calls[0][2] == "user_token"  # setup CSRF token is wired through
     assert len(attack_calls) == 1
     auth = attack_calls[0]
     assert auth is not None

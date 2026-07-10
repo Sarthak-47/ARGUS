@@ -10,13 +10,26 @@ not crash, when the target misbehaves.
 from __future__ import annotations
 
 import asyncio
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable
+from urllib.parse import urlparse
 
 import httpx
 
 from argus.models import Finding, Severity
+
+# Endpoints that destroy the current session when requested. Attacking them has
+# no security value, but a single GET mid-run logs every subsequent agent out —
+# silently gutting all authenticated testing after it (on DVWA this made the
+# post-login attack agents miss everything behind auth). We never crawl or
+# attack these; auth stays live for the whole run.
+_SESSION_DESTROYING = re.compile(r"(?:^|/)(?:log[-_]?out|log[-_]?off|sign[-_]?out|signoff)(?:[./]|$)", re.IGNORECASE)
+
+
+def _destroys_session(url: str) -> bool:
+    return bool(_SESSION_DESTROYING.search(urlparse(url).path))
 
 
 @dataclass
@@ -81,6 +94,10 @@ class AttackContext:
 
     # ----- attack surface -----
     def add_endpoint(self, ep: Endpoint) -> None:
+        # Never add a session-destroying endpoint to the surface — no agent
+        # should crawl or attack it and log the whole run out.
+        if _destroys_session(ep.url):
+            return
         existing = self.endpoints.get(ep.key())
         if existing:
             for p in ep.params:
@@ -123,6 +140,11 @@ class BaseAgent:
         **kwargs: Any,
     ) -> httpx.Response | None:
         """Perform a request under the concurrency limit; return None on error."""
+        # Refuse to request a session-destroying endpoint even if one slips
+        # through as a direct URL (e.g. a crawl following a logout link) —
+        # this is the last line keeping the authenticated session alive.
+        if _destroys_session(url):
+            return None
         kwargs.setdefault("timeout", 15.0)
         async with ctx.semaphore:
             try:
