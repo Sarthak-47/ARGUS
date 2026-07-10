@@ -5,6 +5,23 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.3] — 2026-07-10
+
+### Fixed
+- **Risk score no longer saturates at 100.** It was a plain saturating sum of
+  severity weights, so almost any real app maxed out and the number carried no
+  information. The score now stays inside the worst finding's severity band (a
+  single MEDIUM reads 45, HIGH 70, CRITICAL 85) and climbs toward the top of
+  that band with additional findings via diminishing returns — so it actually
+  discriminates between scans, and the band always matches the worst finding
+  (no "CRITICAL" with zero critical findings).
+- **Wide-window layout.** New Scan, Settings, and Dashboard capped their content
+  narrowly with no centering, so on a maximized/ultrawide window everything
+  jammed to the left under a full-width header. Content now fills the width and
+  the New Scan agent grid flows responsively (3 columns at 1280px, 5 at 1920px).
+- Dropped the redundant "demo" / "not configured" sub-label under the sidebar
+  provider; the model name shows only when a real provider is resolved.
+
 ## [1.2.2] — 2026-07-10
 
 ### Added
@@ -511,7 +528,8 @@ Initial tagged release.
   universal `.dmg`, Linux `.deb`/`.rpm`/`.AppImage`).
 - Local-first LLM support (Ollama) plus BYOK providers (Groq, Gemini, Claude, OpenRouter).
 
-[Unreleased]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.2...HEAD
+[Unreleased]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.3...HEAD
+[1.2.3]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/Sarthak-47/ARGUS/compare/v1.1.0...v1.2.0
