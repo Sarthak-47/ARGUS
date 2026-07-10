@@ -17,7 +17,7 @@ export function NewScan() {
     <section>
       <ScreenHeader title="New Scan" subtitle="point Argus at a target" />
 
-      <div style={{ padding: "22px 46px 64px", maxWidth: 920 }}>
+      <div style={{ padding: "22px 46px 64px", maxWidth: 1500 }}>
         <Label>Target</Label>
         <div style={{ display: "flex", gap: 10, marginBottom: s.isDesktop ? 10 : 34 }}>
           <input
@@ -69,7 +69,7 @@ export function NewScan() {
             {allOn ? "Deselect all" : "Select all"}
           </button>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 9, marginBottom: 34 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: 9, marginBottom: 34 }}>
           {AGENTS.map((n) => {
             const on = s.scanChecked[n];
             return (

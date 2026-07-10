@@ -42,7 +42,7 @@ export function Dashboard() {
         }
       />
 
-      <div style={{ padding: "26px 46px 64px", maxWidth: 1180, position: "relative" }}>
+      <div style={{ padding: "26px 46px 64px", maxWidth: 1500, position: "relative" }}>
         <div style={{ fontFamily: FONT.display, fontSize: 10.5, letterSpacing: "0.2em", textTransform: "uppercase", color: RF.dust, marginBottom: 14 }}>
           Risk over time — each scan, coloured by severity
         </div>

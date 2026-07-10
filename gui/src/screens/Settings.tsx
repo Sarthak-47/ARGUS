@@ -22,7 +22,7 @@ export function Settings() {
     <section>
       <ScreenHeader title="Settings" subtitle={live ? "how Argus is configured" : "demo preview — open in the desktop app for real config"} />
 
-      <div style={{ padding: "24px 46px 64px", maxWidth: 940 }}>
+      <div style={{ padding: "24px 46px 64px", maxWidth: 1200 }}>
         <Head>LLM provider</Head>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 8, marginBottom: 18 }}>
           {PROVIDERS.map((p) => {
