@@ -142,6 +142,105 @@ def test_idor_finds_numeric_path_segment():
     assert _replace_path_int("http://t/api/orders/10472", "10472", "10473") == "http://t/api/orders/10473"
 
 
+def test_idor_detects_rest_path_templates():
+    from argus.agents.base import AttackContext, Endpoint
+    from argus.agents.idorhunter import IDORHunter
+
+    ctx = AttackContext("http://t", client=httpx.AsyncClient())
+    ctx.add_endpoint(Endpoint(url="http://t/users/v1/{username}", method="GET"))
+    ctx.add_endpoint(Endpoint(url="http://t/api/items/{id}", method="GET"))
+    cands = IDORHunter()._candidates(ctx)
+    kinds = {(k, key) for k, _u, key in cands}
+    assert ("template", "username") in kinds
+    assert ("template", "id") in kinds
+
+
+def test_idor_harvests_identifier_values_from_json():
+    from argus.agents.idorhunter import IDORHunter
+
+    found: set[str] = set()
+    IDORHunter()._walk_scalars(
+        [{"username": "name1", "id": 1}, {"username": "name2", "id": 2}], found
+    )
+    assert {"name1", "name2"} <= found
+
+
+@pytest.mark.asyncio
+async def test_idor_enumerates_username_template_via_collection_harvest():
+    """The concrete usernames aren't in /users/v1/{username}; IDORHunter must
+    harvest them from the collection (GET /users/v1) and enumerate — the BOLA
+    shape a numeric-only heuristic misses entirely."""
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    from argus.agents.base import AttackContext, Endpoint
+    from argus.agents.idorhunter import IDORHunter
+
+    class H(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            if self.path.rstrip("/") == "/users/v1":
+                body = b'{"users":[{"username":"name1"},{"username":"name2"}]}'
+            elif self.path == "/users/v1/name1":
+                body = b'{"username":"name1","email":"a@x.com","password":"aaa"}'
+            elif self.path == "/users/v1/name2":
+                body = b'{"username":"name2","email":"b@x.com","password":"bbb"}'
+            else:
+                body = b'{}'
+            self.wfile.write(body)
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{srv.server_address[1]}"
+    try:
+        async with httpx.AsyncClient() as client:
+            ctx = AttackContext(base, client=client, concurrency=4)
+            ctx.add_endpoint(Endpoint(url=base + "/users/v1/{username}", method="GET"))
+            await IDORHunter().run(ctx)
+        idor = [f for f in ctx.findings if f.detector.startswith("idorhunter")]
+        assert idor, "expected an IDOR finding from enumerating harvested usernames"
+    finally:
+        srv.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_headerpoker_flags_wildcard_cors():
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    from argus.agents.base import AttackContext
+    from argus.agents.headerpoker import HeaderPoker
+
+    class H(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
+            self.wfile.write(b"ok")
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{srv.server_address[1]}"
+    try:
+        async with httpx.AsyncClient() as client:
+            ctx = AttackContext(base, client=client, concurrency=4)
+            await HeaderPoker().run(ctx)
+        cors = [f for f in ctx.findings if f.detector == "headerpoker:cors"]
+        assert len(cors) == 1  # wildcard flagged exactly once, not per-probe
+        assert "wildcard" in cors[0].title.lower()
+    finally:
+        srv.shutdown()
+
+
 def test_fileattacker_param_and_signatures():
     from argus.agents.fileattacker import _FILE_PARAM, _SIGS
     assert _FILE_PARAM.search("file") and _FILE_PARAM.search("download")

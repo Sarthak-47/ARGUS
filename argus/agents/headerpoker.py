@@ -22,6 +22,7 @@ class HeaderPoker(BaseAgent):
         report = AgentReport(agent=self.name, status="running")
         base = ctx.base_url
 
+        await self._permissive_cors(ctx, base + "/")
         await self._cors(ctx, base + "/", _EVIL_ORIGIN, "arbitrary origin")
         await self._cors(ctx, base + "/", "null", "null origin")
         await self._forwarded_bypass(ctx)
@@ -32,6 +33,37 @@ class HeaderPoker(BaseAgent):
         ctx.emit(self.name, "sweep complete", "ok")
         return report
 
+    async def _permissive_cors(self, ctx: AttackContext, url: str) -> None:
+        """A static wildcard `Access-Control-Allow-Origin: *` lets any site read
+        the (non-credentialed) response. Often intentional on a truly public
+        API, so this is LOW — but on anything serving non-public data it's a real
+        cross-origin exposure, and the reflected-origin/credentials cases below
+        (which are HIGH) never fire for a plain wildcard."""
+        resp = await self.get(ctx, url, headers={"Origin": _EVIL_ORIGIN})
+        if resp is None:
+            return
+        acao = resp.headers.get("access-control-allow-origin")
+        if acao != "*":
+            return  # reflection/credentials cases are handled by _cors
+        ctx.emit(self.name, "CORS allows any origin (wildcard)", "high")
+        ctx.report(Finding(
+            title="Permissive CORS (wildcard origin)",
+            severity=Severity.LOW,
+            category="misconfig",
+            detector="headerpoker:cors",
+            endpoint=url,
+            evidence=f"Access-Control-Allow-Origin: * on {url}",
+            description="The server returns a wildcard Access-Control-Allow-Origin, "
+                        "so any website can read its responses cross-origin. On any "
+                        "endpoint that isn't fully public this discloses data to "
+                        "attacker-controlled sites.",
+            exploit="Any origin's JavaScript can fetch this endpoint and read the response.",
+            fix="Return Access-Control-Allow-Origin only for an explicit allow-list of trusted origins.",
+            cwe="CWE-942",
+            confidence="high",
+            poc=build_http_poc("GET", url, resp),
+        ))
+
     async def _cors(self, ctx: AttackContext, url: str, origin: str, label: str) -> None:
         resp = await self.get(ctx, url, headers={"Origin": origin})
         if resp is None:
@@ -40,7 +72,7 @@ class HeaderPoker(BaseAgent):
         acac = resp.headers.get("access-control-allow-credentials", "").lower()
         if not acao:
             return
-        reflects = acao == origin or (acao == "*" )
+        reflects = acao == origin
         if reflects and (acao == origin or acac == "true"):
             sev = Severity.HIGH if acac == "true" else Severity.MEDIUM
             ctx.emit(self.name, f"CORS allows {label}", "high")
