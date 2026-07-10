@@ -274,8 +274,8 @@ def test_docker_target_wires_csrf_aware_auth(monkeypatch):
         lambda base, path, data, csrf_field=None: setup_calls.append((path, data, csrf_field)),
     )
 
-    def fake_attack_sync(base_url, use_callback=False, auth=None):
-        attack_calls.append(auth)
+    def fake_attack_sync(base_url, use_callback=False, auth=None, identity_b=None):
+        attack_calls.append((auth, identity_b))
         return [], [], []
 
     monkeypatch.setattr("argus.llm.orchestrator.run_attack_sync", fake_attack_sync)
@@ -285,8 +285,45 @@ def test_docker_target_wires_csrf_aware_auth(monkeypatch):
     assert setup_calls and setup_calls[0][0] == "/setup.php"
     assert setup_calls[0][2] == "user_token"  # setup CSRF token is wired through
     assert len(attack_calls) == 1
-    auth = attack_calls[0]
+    auth, _identity_b = attack_calls[0]
     assert auth is not None
     assert auth.login_url.endswith("/login.php")
     assert auth.csrf_field == "user_token"
     assert auth.login_data["username"] == "admin"
+
+
+def test_vampi_case_wires_jwt_login_and_second_identity(monkeypatch):
+    """VAmPI is a JWT API: primary identity logs in via JSON and extracts a
+    bearer token; a second identity (name2) is built for BOLA testing."""
+    from argus.benchmark import CASES, _run_docker_target
+
+    attack_calls = []
+
+    class FakeContainer:
+        def remove(self, force=True):
+            pass
+
+    class FakeClient:
+        class containers:
+            @staticmethod
+            def run(*a, **kw):
+                return FakeContainer()
+
+    monkeypatch.setattr("docker.from_env", lambda: FakeClient())
+    monkeypatch.setattr("argus.sandbox.docker_manager._wait_until_reachable", lambda url, timeout: True)
+    monkeypatch.setattr("argus.benchmark._run_setup", lambda *a, **k: None)
+
+    def fake_attack_sync(base_url, use_callback=False, auth=None, identity_b=None):
+        attack_calls.append((auth, identity_b))
+        return [], [], []
+
+    monkeypatch.setattr("argus.llm.orchestrator.run_attack_sync", fake_attack_sync)
+
+    _run_docker_target(CASES["vampi"])
+
+    auth, identity_b = attack_calls[0]
+    assert auth.login_json is True
+    assert auth.token_json_path == "auth_token"
+    assert auth.login_data["username"] == "name1"
+    assert identity_b is not None
+    assert identity_b.login_data["username"] == "name2"

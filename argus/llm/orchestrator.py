@@ -19,6 +19,7 @@ from argus.agents.base import AgentReport, AttackContext
 from argus.agents.businesslogic import BusinessLogicAgent
 from argus.agents.crawlerbot import CrawlerBot
 from argus.agents.csrfhunter import CSRFHunter
+from argus.agents.dataexposure import DataExposureAgent
 from argus.agents.domxss import DomXSSHunter
 from argus.agents.fileattacker import FileAttacker
 from argus.agents.fuzzer import Fuzzer
@@ -35,7 +36,7 @@ from argus.agents.websocketagent import WebSocketAgent
 from argus.agents.xsshunter import XSSHunter
 from argus.models import Finding
 
-# The full 13-agent swarm (ReconBot runs separately, first).
+# The full agent swarm (ReconBot runs separately, first).
 AGENT_REGISTRY = {
     "reconbot": ReconBot,
     "crawlerbot": CrawlerBot,
@@ -55,6 +56,7 @@ AGENT_REGISTRY = {
     "mcpsecurity": MCPSecurityAgent,
     "promptinjection": PromptInjectionAgent,
     "businesslogic": BusinessLogicAgent,
+    "dataexposure": DataExposureAgent,
     "domxss": DomXSSHunter,
 }
 
@@ -68,7 +70,7 @@ _DEFAULT_ORDER = [
     "crawlerbot", "injector", "authbreaker", "idorhunter", "authztester", "xsshunter",
     "ssrfprober", "headerpoker", "csrfhunter", "fileattacker", "graphqlagent",
     "websocketagent", "mcpsecurity", "promptinjection", "businesslogic",
-    "fuzzer", "racecondition",
+    "dataexposure", "fuzzer", "racecondition",
 ]
 
 

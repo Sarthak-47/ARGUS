@@ -69,6 +69,8 @@ class CrawlerBot(BaseAgent):
             body = resp.text or ""
             if not_found and self._similar(body, not_found):
                 return
+            if self._is_spa_fallback(path, resp):
+                return
             if resp.status_code < 400:
                 ctx.add_endpoint(Endpoint(url=base + path, source="crawl"))
                 ctx.report(Finding(
@@ -109,6 +111,8 @@ class CrawlerBot(BaseAgent):
                 return
             if not_found and self._similar(resp.text or "", not_found):
                 return
+            if self._is_spa_fallback(target, resp):
+                return
             ctx.report(Finding(
                 title="Exposed backup/temporary file",
                 severity=Severity.HIGH,
@@ -133,3 +137,24 @@ class CrawlerBot(BaseAgent):
         if abs(len(a) - len(b)) <= 24:
             return a[:200] == b[:200]
         return False
+
+    @staticmethod
+    def _is_spa_fallback(path: str, resp) -> bool:
+        """A single-page app (Angular/React/Vue) serves index.html for every
+        unknown route, so a probe for /.env or /backup.sql comes back 200 —
+        but as HTML, not the file. Treat an HTML body for a path that should be
+        JSON/config/binary/source as the SPA catch-all, not a real exposure.
+        This is the dominant false-positive source on a modern SPA target."""
+        ctype = resp.headers.get("content-type", "").lower()
+        if "html" not in ctype:
+            return False
+        p = path.lower().rstrip("/")
+        # Paths that legitimately return HTML (panels, docs) are exempt.
+        if p.endswith((".html", "/")) or any(
+            seg in p for seg in ("admin", "dashboard", "phpmyadmin", "swagger",
+                                 "wp-admin", "jenkins", "server-status", "actuator")
+        ):
+            return False
+        # Everything else in the list expects non-HTML content
+        # (.env/.json/.sql/.zip/.yml/.git/*/source maps/.DS_Store/...).
+        return True

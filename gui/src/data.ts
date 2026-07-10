@@ -9,7 +9,7 @@ import type { Severity } from "./theme";
 export const AGENTS = [
   "ReconBot", "Injector", "AuthBreaker", "IDORHunter", "CrawlerBot", "Fuzzer",
   "HeaderPoker", "FileAttacker", "RaceCondition", "SSRFProber", "XSSHunter",
-  "WebSocketAgent", "GraphQLAgent",
+  "WebSocketAgent", "GraphQLAgent", "DataExposure",
 ] as const;
 
 export type AgentName = (typeof AGENTS)[number];
@@ -28,6 +28,7 @@ export const DESC: Record<string, string> = {
   XSSHunter: "cross-site scripting",
   WebSocketAgent: "socket hijacking",
   GraphQLAgent: "schema introspection",
+  DataExposure: "excessive data exposure",
 };
 
 export interface AgentState {

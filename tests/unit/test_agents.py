@@ -46,6 +46,37 @@ def test_strong_secret_not_cracked():
     assert ab._crack_hs(token) is None
 
 
+@pytest.mark.asyncio
+async def test_authbreaker_analyses_the_session_bearer_token():
+    """A weak JWT supplied as the session's own Authorization header (via --auth)
+    must get cracked — it's the token most worth checking, and previously only
+    tokens the homepage handed out were analysed."""
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    class H(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_GET(self):
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"ok")
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{srv.server_address[1]}"
+    try:
+        token = _make_jwt("secret")  # weak, in the wordlist
+        async with httpx.AsyncClient(headers={"Authorization": f"Bearer {token}"}) as client:
+            ctx = AttackContext(base, client=client, concurrency=4)
+            await AuthBreaker().run(ctx)
+        weak = [f for f in ctx.findings if "secret" in f.title.lower() or f.detector == "authbreaker:jwt-weak-secret"]
+        assert weak, "expected the session's weak JWT secret to be flagged"
+    finally:
+        srv.shutdown()
+
+
 @pytest.mark.parametrize("url,destroys", [
     ("http://t/logout.php", True),
     ("http://t/logout", True),
@@ -239,6 +270,22 @@ async def test_headerpoker_flags_wildcard_cors():
         assert "wildcard" in cors[0].title.lower()
     finally:
         srv.shutdown()
+
+
+def test_crawlerbot_treats_spa_html_fallback_as_not_exposed():
+    from argus.agents.crawlerbot import CrawlerBot
+
+    class R:
+        def __init__(self, ctype):
+            self.headers = {"content-type": ctype}
+
+    # HTML served for a path that should be a config/binary file = SPA catch-all
+    assert CrawlerBot._is_spa_fallback("/.env", R("text/html; charset=utf-8")) is True
+    assert CrawlerBot._is_spa_fallback("/backup.sql", R("text/html")) is True
+    # A real JSON/text file is not a fallback
+    assert CrawlerBot._is_spa_fallback("/config.json", R("application/json")) is False
+    # HTML panels legitimately return HTML
+    assert CrawlerBot._is_spa_fallback("/admin/", R("text/html")) is False
 
 
 def test_fileattacker_param_and_signatures():

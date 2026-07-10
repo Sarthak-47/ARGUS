@@ -54,6 +54,12 @@ class AuthBreaker(BaseAgent):
             tokens |= self._find_tokens(resp)
             self._check_cookie_flags(ctx, resp)
 
+        # The authenticated session itself carries a token — a Bearer JWT applied
+        # via --auth (or one login already deposited in the cookie jar). Analyse
+        # that too: otherwise a user who scans with a JWT never gets it checked,
+        # which is exactly the token most worth checking.
+        tokens |= self._session_tokens(ctx)
+
         # also scan any JWT-looking strings the recon stage saw
         for token in tokens:
             ctx.emit(self.name, f"analysing JWT ({token[:18]}…)")
@@ -69,6 +75,19 @@ class AuthBreaker(BaseAgent):
         return report
 
     # ------------------------------------------------------------------ #
+    def _session_tokens(self, ctx: AttackContext) -> set[str]:
+        """JWTs carried by the authenticated client itself — the Authorization
+        header and the cookie jar — not just what the homepage hands out."""
+        tokens: set[str] = set()
+        auth_header = ctx.client.headers.get("Authorization", "")
+        tokens |= {m.group(0) for m in _JWT_RE.finditer(auth_header)}
+        try:
+            for v in ctx.client.cookies.values():
+                tokens |= {m.group(0) for m in _JWT_RE.finditer(v)}
+        except Exception:  # noqa: BLE001 — cookie jar access is best-effort
+            pass
+        return tokens
+
     def _find_tokens(self, resp) -> set[str]:
         tokens: set[str] = set()
         for v in resp.cookies.values():

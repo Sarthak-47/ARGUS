@@ -80,6 +80,11 @@ class BenchmarkCase:
     auth_login_path: str | None = None
     auth_data: dict[str, str] | None = None
     auth_csrf_field: str | None = None
+    # JSON-body login that returns a bearer token (a JWT API like VAmPI), plus an
+    # optional second identity for cross-user BOLA testing.
+    auth_login_json: bool = False
+    auth_token_json_path: str | None = None
+    identity_b_data: dict[str, str] | None = None
     # An extra request some apps need right after login (DVWA's per-session
     # security level defaults to "impossible" — all vulnerable pages patched —
     # until this runs on the same authenticated session).
@@ -226,7 +231,7 @@ DVWA_GROUND_TRUTH = [
 VAMPI_GROUND_TRUTH = [
     GroundTruthEntry("BOLA — cross-user object access", detector_prefix="authztester:bola"),
     GroundTruthEntry("BOLA/IDOR via numeric ID enumeration", detector_prefix="idorhunter"),
-    GroundTruthEntry("Excessive data exposure / missing auth", detector_prefix="headerpoker"),
+    GroundTruthEntry("Excessive data exposure / missing auth", detector_prefix="dataexposure"),
     GroundTruthEntry("SQL injection in an API parameter", detector_prefix="injector"),
     GroundTruthEntry("JWT/auth weakness", detector_prefix="authbreaker"),
 ]
@@ -263,6 +268,15 @@ CASES: dict[str, BenchmarkCase] = {
         name="vampi", description="VAmPI (Vulnerable API)", kind="docker",
         image="erev0s/vampi:latest", container_port=5000, ready_path="/",
         ground_truth=VAMPI_GROUND_TRUTH,
+        # VAmPI ships empty; GET /createdb seeds users name1/pass1 … name4.
+        setup_path="/createdb",
+        # JWT API: POST /users/v1/login returns {"auth_token": "<jwt>"}.
+        auth_login_path="/users/v1/login",
+        auth_data={"username": "name1", "password": "pass1"},
+        auth_login_json=True,
+        auth_token_json_path="auth_token",
+        # A second real user for cross-user BOLA (authztester).
+        identity_b_data={"username": "name2", "password": "pass2"},
     ),
 }
 
@@ -304,6 +318,7 @@ def _run_setup(base_url: str, path: str, data: dict[str, str],
                 check = client.get(base_url + path)
                 body = (check.text or "").lower()
                 if "database has been created" in body or "already exists" in body \
+                        or "populated" in body \
                         or "setup" not in str(check.url).lower():
                     return
         except httpx.HTTPError:
@@ -345,18 +360,30 @@ def _run_docker_target(case: BenchmarkCase, timeout: float = 90.0) -> list[Findi
                        csrf_field=case.setup_csrf_field)
 
         auth = None
+        identity_b = None
         if case.auth_login_path:
             from argus.auth import AuthConfig
 
             auth = AuthConfig(
                 login_url=base_url + case.auth_login_path,
                 login_data=dict(case.auth_data or {}),
+                login_json=case.auth_login_json,
+                token_json_path=case.auth_token_json_path,
                 csrf_field=case.auth_csrf_field,
                 post_login_url=(base_url + case.post_login_path) if case.post_login_path else None,
                 post_login_data=dict(case.post_login_data or {}),
             )
+            if case.identity_b_data:
+                identity_b = AuthConfig(
+                    login_url=base_url + case.auth_login_path,
+                    login_data=dict(case.identity_b_data),
+                    login_json=case.auth_login_json,
+                    token_json_path=case.auth_token_json_path,
+                    csrf_field=case.auth_csrf_field,
+                )
 
-        findings, _reports, _eps = run_attack_sync(base_url, use_callback=False, auth=auth)
+        findings, _reports, _eps = run_attack_sync(
+            base_url, use_callback=False, auth=auth, identity_b=identity_b)
         return findings
     finally:
         try:
