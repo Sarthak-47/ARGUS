@@ -5,6 +5,21 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+### Added
+- **REST path-template IDOR** — IDORHunter now enumerates object identifiers in
+  path templates (`/users/v1/{username}`, `/api/items/{id}`), harvesting real
+  ids from the collection endpoint's JSON when they can't be guessed. It
+  previously did nothing against a modern REST API. Takes the VAmPI benchmark
+  from 20% to 40%.
+- **Wildcard CORS detection** — HeaderPoker flags a static
+  `Access-Control-Allow-Origin: *` at LOW severity, distinct from the HIGH
+  reflected-origin/credentials case (which never fired for a plain wildcard).
+  Takes the Juice Shop benchmark from 29% to 43%.
+- A no-crash smoke guard (`tests/unit/test_agent_smoke.py`) that runs every
+  registered attack agent against a live local server and asserts it returns a
+  report rather than raising — so a refactor can't silently break an agent
+  whose crash the orchestrator would otherwise swallow into an "error" report.
+
 ## [1.2.1] — 2026-07-10
 
 ### Fixed
