@@ -5,6 +5,28 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+### Fixed
+- **Authenticated-target attack coverage** — five engine fixes, each verified
+  against a live DVWA container, that take the DVWA benchmark from 2/6 to 6/6
+  (SQL injection, reflected XSS, command injection, CSRF, path traversal,
+  missing headers) with no target-specific hacks:
+  - Never crawl or attack session-destroying endpoints (logout/signout). One
+    agent following a logout link mid-run silently logged the whole session
+    out, so every later agent tested the login page instead of the
+    authenticated surface — this was hiding reflected XSS behind auth.
+  - Injection/XSS agents now send an endpoint's other form params (a submit
+    button, etc.) when fuzzing one, so pages that guard on a submit being
+    present (`isset($_GET['Submit'])`) actually reach the vulnerable path.
+  - Injection/XSS agents skip static assets and test endpoints with real
+    declared params before guessed ones, so the work cap reaches injectable
+    endpoints instead of being spent on `.css`/`.png` URLs.
+  - ReconBot resolves a sub-page's relative links and form actions against
+    that page's own URL, not the site root, so a form with `action="#"` or a
+    relative `?id=` link binds to the right (vulnerable) endpoint.
+  - The benchmark's DVWA setup posts the setup form's CSRF token and verifies
+    DB creation — without it the database was never created and every page
+    redirected to `setup.php`, leaving the whole target unusable.
+
 ## [1.2.0] — 2026-07-10
 
 ### Added
