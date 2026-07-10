@@ -5,6 +5,28 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.4] — 2026-07-11
+
+### Fixed
+- **Desktop app couldn't find the `argus` CLI** — a GUI launched from the
+  Dock/Start menu doesn't inherit the shell PATH, so a pip-installed `argus` was
+  invisible to the packaged app: it reported "argus was not found on PATH" and
+  couldn't detect or select the local LLM provider, even though `argus` worked
+  fine in a terminal. The Tauri backend now probes the `argus` script, then
+  `python -m argus`, then the usual user-site bin locations, and caches the
+  first that answers `--version`. Adds `argus/__main__.py` for the module
+  fallback.
+- **SQL injection missed when the query is built into a variable first** — the
+  rule only flagged string-building done inside the `execute(...)` call, so the
+  common `q = "SELECT … " + name; execute(q)` pattern slipped through. A new
+  `py-sql-build` rule catches concatenation, `%`-format, and f-string query
+  construction, requiring real SQL structure (SELECT…FROM etc.) so ordinary
+  strings and parameterised queries don't trip it (verified: zero false
+  positives on a clean control file).
+
+### Docs
+- README lists the DataExposure agent and corrects the swarm count.
+
 ## [1.2.3] — 2026-07-10
 
 ### Fixed
@@ -528,7 +550,8 @@ Initial tagged release.
   universal `.dmg`, Linux `.deb`/`.rpm`/`.AppImage`).
 - Local-first LLM support (Ollama) plus BYOK providers (Groq, Gemini, Claude, OpenRouter).
 
-[Unreleased]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.3...HEAD
+[Unreleased]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.4...HEAD
+[1.2.4]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.3...v1.2.4
 [1.2.3]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.0...v1.2.1
