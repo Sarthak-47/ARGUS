@@ -5,6 +5,8 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-07-10
+
 ### Added
 - **Desktop GUI redesign** — a red-figure-pottery visual language (matte
   black-glaze + terracotta + oxblood, the Argus eye as its motif) across all
@@ -15,6 +17,15 @@ All notable changes to Argus are documented here. Format loosely follows
   Live Attack shows the running agents' eyes breathing over the elapsed clock.
   Hash routing makes each screen a real addressable page. Engine untouched —
   a theme + component layer over the existing React screens.
+- **Live attack feed** — the engine now emits machine-readable per-agent
+  events when `ARGUS_EVENT_STREAM=1` (a `@@ARGUS_EVENT@@` sentinel + JSON
+  line); the desktop shell runs the audit with stdout piped and forwards each
+  as an `argus://event`, and Live Attack renders whatever actually streamed —
+  falling back to the eyes + clock when nothing has, so the feed is a live
+  nicety and never load-bearing.
+- **CWE-precise eye mapping** — findings light their vulnerability-class eye
+  by canonical (unambiguous) CWE first, with title-keyword fallback for the
+  shared CWEs, so a finding maps to the right eye instead of a fuzzy sibling.
 - Repo professionalization: `CODE_OF_CONDUCT.md`, GitHub issue templates
   (bug report / feature request, with security reports redirected to
   private advisories), and a PR template.
@@ -26,6 +37,7 @@ All notable changes to Argus are documented here. Format loosely follows
   real (non-fabricated) populated report and capture GUI screenshots.
 
 ### Changed
+- Desktop GUI upgraded to React 19.
 - Moved the internal build spec (`ARGUS_CONTEXT.md`) and the superseded
   pre-1.0 backlog (`UPGRADE.md`) into `docs/dev/` so the repo root only
   shows what a new visitor needs.
@@ -441,7 +453,8 @@ Initial tagged release.
   universal `.dmg`, Linux `.deb`/`.rpm`/`.AppImage`).
 - Local-first LLM support (Ollama) plus BYOK providers (Groq, Gemini, Claude, OpenRouter).
 
-[Unreleased]: https://github.com/Sarthak-47/ARGUS/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/Sarthak-47/ARGUS/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/Sarthak-47/ARGUS/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/Sarthak-47/ARGUS/compare/v0.6.0...v1.0.0
 [0.6.0]: https://github.com/Sarthak-47/ARGUS/compare/v0.5.0...v0.6.0
