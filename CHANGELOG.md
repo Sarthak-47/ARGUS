@@ -32,6 +32,10 @@ All notable changes to Argus are documented here. Format loosely follows
 - **Session JWT never analysed** — AuthBreaker now also inspects the
   authenticated session's own bearer token (applied via `--auth`), not just
   tokens the homepage returns; the token most worth checking was being skipped.
+- **Report detail polish** — a static finding (no HTTP response, reproduction,
+  or CVSS) no longer renders an empty RESPONSE box, empty REPRODUCTION section,
+  or a bare "CVSS —"; sections appear only when they carry content, and the
+  code evidence is labelled "CODE" rather than "REQUEST".
 
 ## [1.2.1] — 2026-07-10
 
