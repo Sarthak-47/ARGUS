@@ -239,27 +239,31 @@ class ScanResult:
 
     @property
     def risk_score(self) -> int:
-        """0-100 risk score anchored to the worst finding's severity band, plus a
-        diminishing 'breadth' bonus for the remaining findings.
+        """0-100 risk score that stays within the worst finding's severity band,
+        with a diminishing 'breadth' bonus for the remaining findings.
 
-        A single MEDIUM reads ~45, a single HIGH ~70, a single CRITICAL ~85 —
-        each sits at the floor of its band — and additional findings push toward
-        100 with diminishing returns, so only a target riddled with serious
-        issues actually approaches it. A plain saturating sum (the previous
-        behaviour) hit 100 on almost any real app after a handful of findings,
-        which made the score uninformative.
+        The band a score falls in (see :meth:`risk_band`) always matches the
+        worst finding's severity — a target whose worst issue is HIGH can never
+        read "CRITICAL" just because it has many highs. A single MEDIUM reads 45,
+        a single HIGH 70, a single CRITICAL 85 (the floor of each band); more
+        findings push toward the *top of that same band* with diminishing
+        returns. A plain saturating sum (the previous behaviour) hit 100 on
+        almost any real app after a handful of findings, which made the score
+        both uninformative and inconsistent with the band.
         """
         if not self.findings:
             return 0
-        floor = {
-            Severity.CRITICAL: 85, Severity.HIGH: 70, Severity.MEDIUM: 45,
-            Severity.LOW: 20, Severity.INFO: 5,
+        # (floor, ceil) per band, aligned to risk_band's thresholds so the score
+        # never crosses into a higher band than the worst finding warrants.
+        band = {
+            Severity.CRITICAL: (85, 100), Severity.HIGH: (70, 84),
+            Severity.MEDIUM: (45, 69), Severity.LOW: (20, 44), Severity.INFO: (5, 19),
         }
         worst = max((f.severity for f in self.findings), key=lambda s: s.rank)
-        base = floor[worst]
+        floor, ceil = band[worst]
         rest = sum(f.severity.weight for f in self.findings) - worst.weight
-        bonus = (100 - base) * (1.0 - math.exp(-rest / 90.0))
-        return round(min(100, base + bonus))
+        bonus = (ceil - floor) * (1.0 - math.exp(-rest / 90.0))
+        return round(min(ceil, floor + bonus))
 
     @property
     def risk_band(self) -> str:
