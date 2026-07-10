@@ -5,6 +5,8 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.1] — 2026-07-10
+
 ### Fixed
 - **Authenticated-target attack coverage** — five engine fixes, each verified
   against a live DVWA container, that take the DVWA benchmark from 2/6 to 6/6
@@ -475,7 +477,8 @@ Initial tagged release.
   universal `.dmg`, Linux `.deb`/`.rpm`/`.AppImage`).
 - Local-first LLM support (Ollama) plus BYOK providers (Groq, Gemini, Claude, OpenRouter).
 
-[Unreleased]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/Sarthak-47/ARGUS/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/Sarthak-47/ARGUS/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/Sarthak-47/ARGUS/compare/v0.6.0...v1.0.0
