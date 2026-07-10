@@ -6,9 +6,9 @@ import { EyeGlyph, TerracottaMark, ScreenHeader } from "../components/Panoptes";
 export function LiveAttack() {
   const s = useStore();
 
-  // A real desktop audit runs the CLI as an opaque subprocess — there's no
-  // per-agent telemetry to stream, so we show an honest running state: the eyes
-  // that were opened, keeping watch, and the clock. No fabricated feed.
+  // While an audit runs, the engine streams real per-agent events (desktop
+  // only). We render whatever it has actually emitted — no fabricated feed —
+  // and fall back to the eyes + clock when nothing has streamed yet.
   if (s.auditRunning) {
     const mins = Math.floor(s.auditElapsedSec / 60);
     const secs = s.auditElapsedSec % 60;
@@ -45,11 +45,33 @@ export function LiveAttack() {
               );
             })}
           </div>
-          <p style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 15, color: RF.dust, maxWidth: "60ch" }}>
-            {s.phase2
-              ? "Argus is attacking a real target. It's not a simulation, so there's no scripted feed — just the elapsed clock while the agents work."
-              : "Reading and mapping the code — this is usually quick."}
-          </p>
+          {s.feed.length > 0 ? (
+            <div>
+              <div style={{ fontFamily: FONT.display, fontSize: 10.5, letterSpacing: "0.2em", textTransform: "uppercase", color: RF.dust, marginBottom: 14 }}>
+                Live feed · {s.feed.length}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 3, maxHeight: 320, overflowY: "auto", paddingRight: 8 }}>
+                {s.feed.slice().reverse().map((l) => {
+                  const crit = l.sev === "crit";
+                  return (
+                    <div key={l.id} style={{ display: "flex", alignItems: "baseline", gap: 12, padding: "5px 0", borderBottom: `1px solid ${RF.diluteLo}` }}>
+                      <span style={{ flex: "0 0 auto", width: 6, height: 6, borderRadius: "50%", marginTop: 6, background: crit ? RF.oxbloodHi : RF.dilute }} />
+                      <span style={{ flex: "0 0 118px", fontFamily: FONT.display, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", color: RF.clay }}>{l.agent}</span>
+                      <span style={{ fontFamily: FONT.body, fontSize: 14.5, color: crit ? RF.parchment : RF.dust }}>
+                        {crit ? "✓ " : ""}{l.text}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <p style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 15, color: RF.dust, maxWidth: "60ch" }}>
+              {s.phase2
+                ? "Argus is attacking a real target. The live feed will fill in as the agents confirm findings."
+                : "Reading and mapping the code — this is usually quick."}
+            </p>
+          )}
         </div>
       </section>
     );

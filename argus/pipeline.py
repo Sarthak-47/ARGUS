@@ -19,6 +19,27 @@ from argus.config import load_settings
 from argus.config.defaults import REPORT_FORMATS
 from argus.models import Finding, ScanResult
 
+# Machine-readable attack-event stream. Off by default (the CLI shows the Rich
+# feed and nothing else). The desktop shell sets ARGUS_EVENT_STREAM=1 and reads
+# these sentinel-prefixed JSON lines off stdout to drive a live per-agent feed,
+# while ignoring every other (Rich-decorated) line.
+_EVENT_SENTINEL = "@@ARGUS_EVENT@@"
+
+
+def _stream_event(agent: str, text: str, sev: str) -> None:
+    import os
+
+    if os.environ.get("ARGUS_EVENT_STREAM") != "1":
+        return
+    import json
+    import sys
+
+    try:
+        sys.stdout.write(_EVENT_SENTINEL + json.dumps({"agent": agent, "text": text, "sev": sev}) + "\n")
+        sys.stdout.flush()
+    except Exception:  # never let telemetry break the attack
+        pass
+
 
 def _do_scan(target: str, deep: bool, depth: str | None, no_llm: bool, taint: bool = False) -> ScanResult:
     from argus.sbom import collect_packages
@@ -479,6 +500,7 @@ def run_attack(
         out.step("Deploying agents… (ReconBot first)")
 
         def feed(agent: str, text: str, sev: str) -> None:
+            _stream_event(agent, text, sev)
             if sev == "crit":
                 out.console.print(f"  [dark_orange3]\\[{agent}][/] [bold red]✓ {text}[/]")
             else:

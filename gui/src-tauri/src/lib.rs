@@ -1,12 +1,23 @@
-use std::process::Command;
+use std::io::{BufRead, BufReader, Read};
+use std::process::{Command, Stdio};
+use tauri::{Emitter, Window};
+
+const EVENT_SENTINEL: &str = "@@ARGUS_EVENT@@";
 
 /// Runs the real Argus engine against `target` and returns the resulting
 /// `report.json` contents. `mode` is "scan" (phase 1 only) or "audit" (phase
 /// 1 + phase 2). Assumes `argus` is on PATH (as installed by `pip install
-/// argus-sec`) — this is the desktop shell driving the existing CLI, not a
-/// reimplementation of it.
+/// argus-panoptes`) — this is the desktop shell driving the existing CLI, not
+/// a reimplementation of it.
+///
+/// For an `audit`, the child is run with `ARGUS_EVENT_STREAM=1` and its stdout
+/// is read line by line: sentinel-prefixed lines carry a per-agent event we
+/// forward to the frontend as `argus://event` so Live Attack can show a real
+/// feed. Everything else (the Rich-decorated output) is ignored. If any of the
+/// streaming fails, the audit still completes and the report is returned — the
+/// feed is a live nicety, never load-bearing.
 #[tauri::command]
-fn run_audit(target: String, mode: String, agents: Option<String>) -> Result<String, String> {
+fn run_audit(window: Window, target: String, mode: String, agents: Option<String>) -> Result<String, String> {
   let out_dir = std::env::temp_dir().join("argus-gui-report");
   std::fs::create_dir_all(&out_dir).map_err(|e| format!("failed to create output dir: {e}"))?;
   let out_dir_str = out_dir.to_string_lossy().to_string();
@@ -27,9 +38,26 @@ fn run_audit(target: String, mode: String, agents: Option<String>) -> Result<Str
     if let Some(a) = agents.filter(|a| !a.is_empty()) {
       cmd.args(["--agents", &a]);
     }
-    let output = cmd.output().map_err(|e| format!("failed to launch argus: {e}"))?;
-    if !output.status.success() {
-      return Err(String::from_utf8_lossy(&output.stderr).into_owned());
+    cmd.env("ARGUS_EVENT_STREAM", "1");
+    cmd.stdout(Stdio::piped());
+    cmd.stderr(Stdio::piped());
+    let mut child = cmd.spawn().map_err(|e| format!("failed to launch argus: {e}"))?;
+
+    if let Some(stdout) = child.stdout.take() {
+      for line in BufReader::new(stdout).lines().map_while(Result::ok) {
+        if let Some(rest) = line.strip_prefix(EVENT_SENTINEL) {
+          let _ = window.emit("argus://event", rest.to_string());
+        }
+      }
+    }
+
+    let status = child.wait().map_err(|e| format!("argus did not finish cleanly: {e}"))?;
+    if !status.success() {
+      let mut err = String::new();
+      if let Some(mut stderr) = child.stderr.take() {
+        let _ = stderr.read_to_string(&mut err);
+      }
+      return Err(if err.trim().is_empty() { "the attack failed".into() } else { err });
     }
   }
 

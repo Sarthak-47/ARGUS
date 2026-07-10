@@ -450,3 +450,23 @@ def test_run_llm_taint_flag_off_does_not_call_taint_trace(tmp_path, monkeypatch)
     _run_llm(object(), tmp_path, result, deep=False, taint=False)
 
     assert called == []
+
+
+# ----- machine-readable attack-event stream (desktop live feed) -----
+
+def test_stream_event_off_by_default(capsys, monkeypatch):
+    from argus.pipeline import _stream_event
+    monkeypatch.delenv("ARGUS_EVENT_STREAM", raising=False)
+    _stream_event("INJECTOR", "SQL injection", "crit")
+    assert capsys.readouterr().out == ""
+
+
+def test_stream_event_emits_sentinel_json_when_enabled(capsys, monkeypatch):
+    import json
+    from argus.pipeline import _stream_event, _EVENT_SENTINEL
+    monkeypatch.setenv("ARGUS_EVENT_STREAM", "1")
+    _stream_event("INJECTOR", "SQL injection (error-based)", "crit")
+    line = capsys.readouterr().out.strip()
+    assert line.startswith(_EVENT_SENTINEL)
+    payload = json.loads(line[len(_EVENT_SENTINEL):])
+    assert payload == {"agent": "INJECTOR", "text": "SQL injection (error-based)", "sev": "crit"}

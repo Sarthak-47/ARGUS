@@ -4,7 +4,8 @@
 
 import { create } from "zustand";
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import { AGENTS } from "./data";
+import { listen } from "@tauri-apps/api/event";
+import { AGENTS, type FeedLine } from "./data";
 import { mapReport, mapHistory, type LoadedReport, type HistoryEntry, type EngineComparison, type StatusInfo } from "./adapter";
 
 export type Screen = "dashboard" | "scan" | "live" | "report" | "settings" | "code";
@@ -49,6 +50,9 @@ interface State {
   auditElapsedSec: number;
   auditError: string | null;
   argusAvailable: boolean | null;
+  // live per-agent events streamed from the running engine (desktop only).
+  // Empty when nothing has streamed yet — Live Attack falls back to the clock.
+  feed: FeedLine[];
   // ids of findings just suppressed in this session — hidden from the
   // current view immediately, without waiting for a re-scan
   suppressedIds: Set<number>;
@@ -102,6 +106,7 @@ export const useStore = create<State>((set, get) => ({
   auditElapsedSec: 0,
   auditError: null,
   argusAvailable: null,
+  feed: [],
   suppressedIds: new Set(),
   suppressionError: null,
 
@@ -134,7 +139,7 @@ export const useStore = create<State>((set, get) => ({
       set({ auditError: "Enter a target path or URL first." });
       return;
     }
-    set({ auditRunning: true, auditError: null, auditElapsedSec: 0, screen: "live" });
+    set({ auditRunning: true, auditError: null, auditElapsedSec: 0, feed: [], screen: "live" });
     if (auditTimer) clearInterval(auditTimer);
     auditTimer = setInterval(() => set((s) => ({ auditElapsedSec: s.auditElapsedSec + 1 })), 1000);
     try {
@@ -283,3 +288,21 @@ export const useStore = create<State>((set, get) => ({
     }
   },
 }));
+
+// Subscribe once to the engine's live per-agent event stream (desktop only).
+// Each `argus://event` carries one `{agent, text, sev}` line the running audit
+// emitted; we append it to the feed the Live Attack screen renders. If we're
+// not in the Tauri shell there's no emitter, so this is simply a no-op.
+if (isTauri()) {
+  let feedId = 0;
+  listen<string>("argus://event", (e) => {
+    try {
+      const p = JSON.parse(e.payload) as { agent: string; text: string; sev: FeedLine["sev"] };
+      const line: FeedLine = { agent: p.agent, text: p.text, sev: p.sev, id: feedId++ };
+      // Cap the retained feed so a long audit can't grow it without bound.
+      useStore.setState((s) => ({ feed: [...s.feed.slice(-199), line] }));
+    } catch {
+      /* malformed line — ignore it rather than break the feed */
+    }
+  });
+}
