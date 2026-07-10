@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { C, FONT } from "./theme";
-import { useStore } from "./store";
+import { useStore, type Screen } from "./store";
 import { Sidebar } from "./components/Sidebar";
 import { NoiseOverlay } from "./components/Decor";
 import { Dashboard } from "./screens/Dashboard";
@@ -10,8 +10,11 @@ import { Reports } from "./screens/Reports";
 import { Settings } from "./screens/Settings";
 import { CodeView } from "./screens/CodeView";
 
+const SCREENS: Screen[] = ["dashboard", "scan", "live", "report", "settings", "code"];
+
 export default function App() {
   const screen = useStore((s) => s.screen);
+  const setScreen = useStore((s) => s.setScreen);
   const loadReport = useStore((s) => s.loadReport);
   const loadHistory = useStore((s) => s.loadHistory);
   const loadStatus = useStore((s) => s.loadStatus);
@@ -21,6 +24,18 @@ export default function App() {
     loadHistory();
     loadStatus();
   }, [loadReport, loadHistory, loadStatus]);
+
+  // Hash routing: each screen is a separate page (#/reports, #/scan, …), with
+  // working back/forward and deep links.
+  useEffect(() => {
+    const apply = () => {
+      const h = window.location.hash.replace(/^#\/?/, "") as Screen;
+      if (SCREENS.includes(h) && h !== useStore.getState().screen) setScreen(h);
+    };
+    apply();
+    window.addEventListener("hashchange", apply);
+    return () => window.removeEventListener("hashchange", apply);
+  }, [setScreen]);
 
   return (
     <div style={{ position: "fixed", inset: 0, display: "flex", background: C.obsidian, color: C.parchment, fontFamily: FONT.body, overflow: "hidden" }}>

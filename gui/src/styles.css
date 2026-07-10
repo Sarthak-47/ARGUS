@@ -1,17 +1,17 @@
 :root {
-  --obsidian: #08080c;
-  --stone-dark: #0f0f15;
-  --stone-carved: #171720;
-  --relief: #1e1e2a;
-  --goldenrod: #b8860b;
-  --bronze: #cd7f32;
-  --crimson: #8b0000;
-  --sienna: #8b4513;
-  --gold-pale: #d4a853;
-  --parchment: #c4a882;
-  --stone-text: #6b5a45;
-  --ember: #2a1f0e;
-  --weathered: #4a4035;
+  --obsidian: #0d0906;
+  --stone-dark: #17110a;
+  --stone-carved: #1b140c;
+  --relief: #5c3a1e;
+  --goldenrod: #c56a33;
+  --bronze: #a9552a;
+  --crimson: #a5382a;
+  --sienna: #c07a2c;
+  --gold-pale: #e0a163;
+  --parchment: #cbbb9c;
+  --stone-text: #9d7c54;
+  --ember: #221a10;
+  --weathered: #7d4f28;
 }
 
 * { box-sizing: border-box; }
@@ -37,12 +37,18 @@ input { font-family: inherit; }
 @keyframes argusTrace { from { stroke-dashoffset: 480; } to { stroke-dashoffset: 0; } }
 @keyframes argusBreathe { 0%, 100% { opacity: 0.85; } 50% { opacity: 1; } }
 
-/* hover affordances ported from the design's style-hover */
-.nav-item:hover { background: var(--relief) !important; color: var(--parchment) !important; }
-.row-hover:hover { background: var(--ember) !important; }
-.btn-ghost:hover { background: var(--ember) !important; }
-.btn-solid:hover { background: var(--bronze) !important; }
-.btn-outline:hover { border-color: var(--bronze) !important; color: var(--bronze) !important; }
+/* hover affordances — tuned for the red-figure palette (matte, subtle) */
+.nav-item:hover { background: rgba(197, 106, 51, 0.07) !important; color: var(--gold-pale) !important; }
+.row-hover:hover { background: rgba(197, 106, 51, 0.06) !important; }
+.btn-ghost:hover { background: rgba(197, 106, 51, 0.10) !important; }
+.btn-solid:hover { filter: brightness(1.06); }
+.btn-outline:hover { border-color: var(--goldenrod) !important; color: var(--gold-pale) !important; }
+
+/* keyboard focus — visible on the matte ground */
+button:focus-visible, input:focus-visible, a:focus-visible {
+  outline: 2px solid var(--goldenrod);
+  outline-offset: 2px;
+}
 
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }

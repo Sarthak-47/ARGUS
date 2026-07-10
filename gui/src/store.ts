@@ -228,11 +228,18 @@ export const useStore = create<State>((set, get) => ({
 
   setScreen: (s) => {
     set({ screen: s, selectedId: null });
+    // Each screen is its own page — reflect it in the URL hash so back/forward
+    // and deep links work. Setting the hash to its current value is a no-op and
+    // won't re-fire the hashchange listener in App.
+    if (typeof window !== "undefined" && window.location.hash !== `#/${s}`) {
+      window.location.hash = `/${s}`;
+    }
     if (s === "report") get().loadComparison();
   },
 
   openCodeView: async (file, line) => {
     set({ screen: "code", codeSnippet: null, codeError: null, codeLoading: true });
+    if (typeof window !== "undefined" && window.location.hash !== "#/code") window.location.hash = "/code";
     const { isDesktop, report } = get();
     const root = report?.target;
     if (!isDesktop || !root || /^https?:\/\//i.test(root)) {
