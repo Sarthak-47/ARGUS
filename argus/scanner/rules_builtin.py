@@ -32,6 +32,23 @@ RULES: list[dict] = [
         "fix": "Use parameterised queries (e.g. cursor.execute(sql, (params,))) instead of string interpolation.",
     },
     {
+        # Catches a SQL string built into a variable first (concat / %-format /
+        # f-string) and executed later — the py-sql-fstring rule only sees
+        # building done *inside* the execute() call. Requires a real SQL shape
+        # (SELECT…FROM, INSERT…INTO, UPDATE…SET, DELETE…FROM) so the English
+        # words "select"/"update" in ordinary strings don't trip it.
+        "id": "py-sql-build", "title": "Possible SQL injection (string-built query)",
+        "severity": Severity.HIGH, "category": "injection", "langs": {"Python"},
+        "pattern": re.compile(
+            r"(?i)(?:"
+            r"\b(?:select\b[^\n;'\"]*\bfrom|insert\b[^\n;'\"]*\binto|update\b[^\n;'\"]*\bset|delete\b[^\n;'\"]*\bfrom)\b[^\n;'\"]*['\"]{1,2}\s*[+%]"
+            r"|f['\"][^'\"]*(?:select\b[^'\"]*\bfrom|insert\b[^'\"]*\binto|update\b[^'\"]*\bset|delete\b[^'\"]*\bfrom)\b[^'\"]*\{"
+            r")"
+        ),
+        "cwe": "CWE-89",
+        "fix": "Use parameterised queries (e.g. cursor.execute(sql, (params,))) instead of string interpolation.",
+    },
+    {
         "id": "js-sql-concat", "title": "Possible SQL injection (string-built query)",
         "severity": Severity.HIGH, "category": "injection", "langs": {"JavaScript", "TypeScript"},
         "pattern": re.compile(r"(?i)\.(?:query|execute|raw)\s*\(\s*(?:`[^`]*\$\{|['\"].*['\"]\s*\+)"),

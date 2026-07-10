@@ -29,6 +29,28 @@ def _detectors(tmp_path, filename, content):
     return {f.detector for f in scan_rules(tmp_path)}
 
 
+def test_sql_injection_caught_when_query_built_into_a_variable(tmp_path):
+    # The query is built by concatenation on one line and executed on the next —
+    # py-sql-fstring only sees building done inside execute(); py-sql-build
+    # covers the variable-first form.
+    dets = _detectors(tmp_path, "db.py",
+        "q = \"SELECT * FROM users WHERE name = '\" + name + \"'\"\n"
+        "cur.execute(q)\n")
+    assert "rule:py-sql-build" in dets
+
+
+def test_sql_build_rule_skips_safe_and_ordinary_english(tmp_path):
+    dets = _detectors(tmp_path, "ok.py",
+        # parameterised query — safe
+        "cur.execute('SELECT * FROM users WHERE name = ?', (name,))\n"
+        # the English words 'select'/'update' in plain strings must not trip it
+        "msg = 'Please select an option: ' + choice\n"
+        "label = 'Update your profile ' + user\n"
+        # a plain constant SQL string with no interpolation — safe
+        "base = 'SELECT id FROM accounts'\n")
+    assert "rule:py-sql-build" not in dets
+
+
 def test_js_new_rules_fire_and_skip_safe_variants(tmp_path):
     dets = _detectors(tmp_path, "app.js",
         "document.write(userInput);\n"
