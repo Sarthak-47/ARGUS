@@ -4,6 +4,12 @@ import { EyeGlyph, EyeField, TerracottaMark, ScreenHeader } from "../components/
 
 const SEV_NAME: Record<string, string> = { CRITICAL: "Critical", HIGH: "High", MEDIUM: "Medium", LOW: "Low", INFO: "Info" };
 
+// A field is worth showing only if it carries real content — static findings
+// have no HTTP response or reproduction, so those sections should stay hidden
+// rather than render an empty box.
+const hasText = (v?: string | null): boolean =>
+  !!v && v.trim().length > 0 && v.trim() !== "—" && v.trim().toLowerCase() !== "n/a";
+
 export function Reports() {
   const s = useStore();
   const live = s.report;
@@ -150,7 +156,9 @@ export function Reports() {
               <span style={{ fontFamily: FONT.code, fontSize: 12, color: C.bronze }}>{sel.endpoint}</span>
               <div style={{ display: "flex", gap: 20, marginTop: 14, fontFamily: FONT.body, fontStyle: "italic", fontSize: 14, color: C.stoneText }}>
                 <span>Found by <span style={{ fontStyle: "normal", color: C.bronze, fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.06em" }}>{sel.agent}</span></span>
-                <span>CVSS <span style={{ fontStyle: "normal", color: sevColor(sel.severity), fontFamily: FONT.code }}>{sel.cvss}</span></span>
+                {sel.cvss && String(sel.cvss).trim() && String(sel.cvss).trim() !== "—" && (
+                  <span>CVSS <span style={{ fontStyle: "normal", color: sevColor(sel.severity), fontFamily: FONT.code }}>{sel.cvss}</span></span>
+                )}
               </div>
               {sel.compliance && (
                 <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
@@ -176,16 +184,28 @@ export function Reports() {
               )}
             </div>
             <div style={{ overflowY: "auto", flex: 1, minHeight: 0, padding: "4px 0" }}>
-              <Section title="WHAT IS IT"><div style={{ fontFamily: FONT.body, fontSize: 16, lineHeight: 1.55, color: C.parchment }}>{sel.whatIs}</div></Section>
-              <Section title="EVIDENCE">
-                <SubCap color={C.goldenrod}>REQUEST</SubCap>
-                <Pre>{sel.request}</Pre>
-                <div style={{ height: 12 }} />
-                <SubCap color={C.crimson}>RESPONSE</SubCap>
-                <Pre>{sel.response}</Pre>
-              </Section>
-              <Section title="REPRODUCTION"><div style={{ fontFamily: FONT.code, fontSize: 12, lineHeight: 1.7, color: C.parchment, whiteSpace: "pre-wrap" }}>{sel.repro}</div></Section>
-              <Section title="FIX" last><Pre>{sel.fix}</Pre></Section>
+              {sel.whatIs && sel.whatIs.trim() && (
+                <Section title="WHAT IS IT"><div style={{ fontFamily: FONT.body, fontSize: 16, lineHeight: 1.55, color: C.parchment }}>{sel.whatIs}</div></Section>
+              )}
+              {(hasText(sel.request) || hasText(sel.response)) && (
+                <Section title="EVIDENCE">
+                  {hasText(sel.request) && (<>
+                    <SubCap color={C.goldenrod}>{hasText(sel.response) ? "REQUEST" : "CODE"}</SubCap>
+                    <Pre>{sel.request}</Pre>
+                  </>)}
+                  {hasText(sel.response) && (<>
+                    {hasText(sel.request) && <div style={{ height: 12 }} />}
+                    <SubCap color={C.crimson}>RESPONSE</SubCap>
+                    <Pre>{sel.response}</Pre>
+                  </>)}
+                </Section>
+              )}
+              {hasText(sel.repro) && (
+                <Section title="REPRODUCTION"><div style={{ fontFamily: FONT.code, fontSize: 12, lineHeight: 1.7, color: C.parchment, whiteSpace: "pre-wrap" }}>{sel.repro}</div></Section>
+              )}
+              {hasText(sel.fix) && (
+                <Section title="FIX" last><Pre>{sel.fix}</Pre></Section>
+              )}
             </div>
           </div>
         )}
