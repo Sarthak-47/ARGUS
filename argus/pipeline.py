@@ -8,6 +8,7 @@ scan → git-history scan → optional LLM enrichment → persist → render. Ph
 
 from __future__ import annotations
 
+import re
 import shutil
 import time
 from pathlib import Path
@@ -457,6 +458,16 @@ def run_attack(
 
     base_url = url
     sandbox: Sandbox | None = None
+    # `target` is normally a repo to spin up in a Docker sandbox — but if it's
+    # already a URL (e.g. the desktop app's single Target field carries
+    # whatever the user typed, with no separate "already running" field), treat
+    # it as an already-running app instead of trying to Docker-sandbox a URL
+    # string as though it were a repo path. Skips the Docker requirement
+    # entirely for this case.
+    if not base_url and target and re.match(r"^https?://", target, re.IGNORECASE):
+        base_url = target
+        target = None
+
     if not base_url:
         if not target:
             out.error("Provide --url of a running app (or a target repo once Docker is set up).")
@@ -466,16 +477,25 @@ def run_attack(
             out.info(availability_note())
             out.info("For now, start the app yourself and run: "
                      "[wheat1]argus attack --url http://localhost:PORT[/]")
+            _stream_event(
+                "system",
+                "Phase 2 needs Docker to sandbox the target automatically, and Docker isn't "
+                "available — point Argus at an already-running app's URL instead.",
+                "crit",
+            )
             raise typer.Exit(code=1)
 
         out.step("Spinning up the target in a Docker sandbox…")
+        _stream_event("system", "Spinning up the target in a Docker sandbox…", "ok")
         sandbox = Sandbox(Path(target).expanduser().resolve())
         try:
             base_url = sandbox.start()
         except SandboxError as exc:
             out.error(str(exc))
+            _stream_event("system", f"Sandbox failed to start: {exc}", "crit")
             raise typer.Exit(code=1)
         out.success(f"Sandbox reachable at [wheat1]{base_url}[/]")
+        _stream_event("system", f"Sandbox reachable at {base_url}", "ok")
 
     try:
         requested = [a.strip().lower() for a in agents.split(",")] if agents else None
@@ -597,13 +617,26 @@ def run_audit(target: str, fix: bool = False, agents: str | None = None,
     run_scan(target, gate=False)
     out.console.print()
 
-    if docker_available():
+    # A URL-shaped target is already a running app — Phase 2 can attack it
+    # directly and never needs Docker at all. Only a bare repo path needs the
+    # sandbox, so only gate *that* case on docker_available(); otherwise this
+    # outer check blocked Phase 2 even when nothing here required Docker,
+    # which is exactly what made "Strike the app" against a URL silently do
+    # nothing in the desktop app (no event ever streamed to explain why).
+    target_is_url = bool(target and re.match(r"^https?://", target, re.IGNORECASE))
+    if target_is_url or docker_available():
         run_attack(target=target, agents=agents, auth=auth, auth_b=auth_b,
                    api_spec=api_spec, banner=False)
     else:
         out.info("Phase 1 complete. Phase 2 needs Docker to sandbox the target automatically — "
                  "point Argus at a running instance instead:")
         out.info("[wheat1]argus attack --url http://localhost:PORT[/]")
+        _stream_event(
+            "system",
+            "Phase 2 skipped — it needs Docker to sandbox a repo target automatically, and "
+            "Docker isn't available. Point Argus at an already-running app's URL instead.",
+            "crit",
+        )
 
     if fix:
         out.console.print()

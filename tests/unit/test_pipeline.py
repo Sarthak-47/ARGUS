@@ -8,7 +8,7 @@ import typer
 import pytest
 
 import argus.pipeline as pipeline
-from argus.pipeline import run_scan, run_attack, run_fix, run_pr_comment, export_last, _export, _reverify_fixes, _run_llm
+from argus.pipeline import run_scan, run_attack, run_audit, run_fix, run_pr_comment, export_last, _export, _reverify_fixes, _run_llm
 from argus.compare import finding_signature
 from argus.models import CodebaseMap, Finding, ScanResult, Severity
 from argus.fix import AppliedFix
@@ -160,6 +160,37 @@ def test_run_attack_without_url_or_target_exits_cleanly(capsys):
         run_attack(target=None, url=None)
     assert exc_info.value.exit_code == 1
     assert "provide --url" in capsys.readouterr().out.lower()
+
+
+def test_run_attack_treats_url_shaped_target_as_already_running(monkeypatch):
+    # `target` (positional) is normally "a repo to Docker-sandbox" — but the
+    # desktop app's single Target field passes whatever the user typed through
+    # `target`, with no separate "already running" field. A URL-shaped target
+    # must be attacked directly, and must never require Docker: this used to
+    # unconditionally hit the "needs Docker" gate for a URL too, which is what
+    # made "Strike the app" against an already-running app silently do nothing
+    # in the desktop app whenever Docker wasn't installed/running.
+    monkeypatch.setattr("argus.sandbox.docker_manager.docker_available", lambda: False)
+    sandbox_started = []
+    monkeypatch.setattr(
+        "argus.sandbox.docker_manager.Sandbox",
+        lambda *a, **k: sandbox_started.append(True),
+    )
+    # A closed local port refuses the connection immediately — ReconBot's own
+    # unreachable-target handling completes the run without ever needing a
+    # real server (see test_orchestrator.py's matching test).
+    result = run_attack(target="http://127.0.0.1:1", url=None)
+    assert not sandbox_started, "a URL-shaped target must never be Docker-sandboxed"
+    assert result is not None
+    assert result.target == "http://127.0.0.1:1"
+
+
+def test_run_audit_skips_phase_2_without_docker_for_a_repo_target(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr("argus.sandbox.docker_manager.docker_available", lambda: False)
+    (tmp_path / "app.py").write_text("print('hi')\n", encoding="utf-8")
+    run_audit(str(tmp_path))
+    out_text = capsys.readouterr().out.lower()
+    assert "phase 2 needs docker" in out_text
 
 
 def test_export_last_without_prior_scan_exits_cleanly(capsys):

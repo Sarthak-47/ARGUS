@@ -58,10 +58,16 @@ export function sevColor(sev: string): string {
   )[sev] || "#7d4f28";
 }
 
+// Thresholds must match argus.models.ScanResult.risk_band exactly (85/70/45) —
+// this drifted out of sync with the backend once already: a scan that the
+// engine correctly banded HIGH (e.g. score 77) rendered as "CRITICAL" on
+// Dashboard, which recomputes the band locally, while Reports (which prefers
+// the backend's own `band` field when present) showed the correct label for
+// the very same scan. Found by clicking through the real packaged app.
 export function bandColor(score: number): string {
-  return score >= 70 ? "#c24a30" : score >= 45 ? "#c07a2c" : "#c56a33";
+  return score >= 85 ? "#c24a30" : score >= 70 ? "#c07a2c" : score >= 45 ? "#c56a33" : "#7d4f28";
 }
 
 export function bandLabel(score: number): string {
-  return score >= 70 ? "Critical" : score >= 45 ? "High" : score >= 25 ? "Medium" : "Low";
+  return score >= 85 ? "Critical" : score >= 70 ? "High" : score >= 45 ? "Medium" : "Low";
 }
