@@ -160,11 +160,16 @@ jobs:
         run: |
           pip install -e . pyinstaller
           pyinstaller packaging/argus.spec --distpath dist
-          mkdir -p gui/src-tauri/binaries/argus-cli
-          if [ "${{ matrix.platform }}" = "windows-latest" ]; then
-            cp dist/argus-cli.exe gui/src-tauri/binaries/argus-cli/argus-cli.exe
-          else
-            cp dist/argus-cli gui/src-tauri/binaries/argus-cli/argus-cli
+          # onedir, not onefile — a onefile build self-extracts its entire
+          # payload to a temp dir on *every single launch* (~1.1s measured
+          # overhead per invocation), and the desktop app invokes this CLI many
+          # times per session (a status/history check on nearly every screen
+          # navigation, plus scan/report per action) — that overhead compounded
+          # into the app visibly lagging on every click. onedir unpacks once at
+          # build time; copy the whole produced directory, not a single file.
+          mkdir -p gui/src-tauri/binaries
+          cp -R dist/argus-cli gui/src-tauri/binaries/argus-cli
+          if [ "${{ matrix.platform }}" != "windows-latest" ]; then
             chmod +x gui/src-tauri/binaries/argus-cli/argus-cli
           fi
 
