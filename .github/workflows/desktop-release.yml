@@ -42,8 +42,13 @@ jobs:
           # sending every platform build's "Build and release" step down the "no
           # releaseId or tagName, skip all uploads" path — 0 assets despite every
           # job reporting success. A direct GET by tag doesn't have that gap.
-          EXISTING_ID=$(gh api "repos/${{ github.repository }}/releases/tags/$TAG" --jq .id 2>/dev/null || true)
-          if [ -n "$EXISTING_ID" ]; then
+          #
+          # `gh api` writes an error response body (e.g. 404 "Not Found") to
+          # STDOUT, not stderr, and exits non-zero — a second attempt at this fix
+          # captured that JSON error text itself as a fake "existing id" because
+          # it only checked for a non-empty string, not the command's exit code.
+          # Gate on the exit code so a failed lookup is never mistaken for a hit.
+          if EXISTING_ID=$(gh api "repos/${{ github.repository }}/releases/tags/$TAG" --jq .id 2>/dev/null); then
             echo "Reusing existing release $EXISTING_ID for $TAG"
             echo "id=$EXISTING_ID" >> "$GITHUB_OUTPUT"
             exit 0
@@ -93,8 +98,10 @@ jobs:
           # just happened microseconds earlier.
           NEW_ID=""
           for i in 1 2 3 4 5; do
-            NEW_ID=$(gh api "repos/${{ github.repository }}/releases/tags/$TAG" --jq .id 2>/dev/null || true)
-            [ -n "$NEW_ID" ] && break
+            if NEW_ID=$(gh api "repos/${{ github.repository }}/releases/tags/$TAG" --jq .id 2>/dev/null); then
+              break
+            fi
+            NEW_ID=""
             sleep 2
           done
           if [ -z "$NEW_ID" ]; then
