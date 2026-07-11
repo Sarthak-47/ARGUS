@@ -8,10 +8,17 @@ tests the dangerous ``Origin: null`` case, and probes access-control bypass head
 
 from __future__ import annotations
 
-from argus.agents.base import AgentReport, AttackContext, BaseAgent, build_http_poc
+from argus.agents.base import (
+    AgentReport,
+    AttackContext,
+    BaseAgent,
+    build_http_poc,
+    response_matches_fallback,
+)
 from argus.models import Finding, Severity
 
 _EVIL_ORIGIN = "https://evil.argus-test.example"
+_BOGUS_PATH = "/argus-fallback-probe-x9z7q"
 
 
 class HeaderPoker(BaseAgent):
@@ -99,24 +106,41 @@ class HeaderPoker(BaseAgent):
     async def _forwarded_bypass(self, ctx: AttackContext) -> None:
         # Find a path that currently returns 401/403, then retry with bypass headers.
         denied = [ep for ep in ctx.endpoint_list() if ep.sample_status in (401, 403)]
+        if not denied:
+            return
+        # A 401/403 -> <400 status flip alone isn't proof the header reached
+        # ep.url specifically — the header itself might just make *any* path
+        # return the same generic 200 (a WAF/gateway that trusts the header
+        # for routing to a catch-all, not for authorization). Cached per
+        # header, not per endpoint: whether a bogus, unrelated path also
+        # flips to the identical response once it carries the same header.
+        baselines: dict[str, str | None] = {}
         for ep in denied[:5]:
             for header in ("X-Forwarded-For", "X-Real-IP", "X-Original-URL", "X-Forwarded-Host"):
                 value = "127.0.0.1" if header in ("X-Forwarded-For", "X-Real-IP") else "/"
                 resp = await self.get(ctx, ep.url, headers={header: value})
-                if resp is not None and resp.status_code < 400:
-                    ctx.report(Finding(
-                        title="Access control bypass via request header",
-                        severity=Severity.HIGH,
-                        category="misconfig",
-                        detector="headerpoker:bypass",
-                        endpoint=ep.url,
-                        evidence=f"{header}: {value} changed {ep.sample_status} -> {resp.status_code}",
-                        description=f"Sending {header} bypassed an access restriction, indicating the "
-                                    f"app trusts a client-supplied header for authorization or routing.",
-                        exploit=f"Set {header} to reach restricted functionality.",
-                        fix="Do not trust client-supplied forwarding/override headers for access control.",
-                        cwe="CWE-290",
-                        confidence="high",
-                        poc=build_http_poc("GET", ep.url, resp),
-                    ))
-                    break
+                if resp is None or resp.status_code >= 400:
+                    continue
+                if header not in baselines:
+                    baseline_resp = await self.get(
+                        ctx, ctx.base_url + _BOGUS_PATH, headers={header: value},
+                    )
+                    baselines[header] = baseline_resp.text if baseline_resp is not None else None
+                if response_matches_fallback(resp.text or "", baselines[header]):
+                    continue
+                ctx.report(Finding(
+                    title="Access control bypass via request header",
+                    severity=Severity.HIGH,
+                    category="misconfig",
+                    detector="headerpoker:bypass",
+                    endpoint=ep.url,
+                    evidence=f"{header}: {value} changed {ep.sample_status} -> {resp.status_code}",
+                    description=f"Sending {header} bypassed an access restriction, indicating the "
+                                f"app trusts a client-supplied header for authorization or routing.",
+                    exploit=f"Set {header} to reach restricted functionality.",
+                    fix="Do not trust client-supplied forwarding/override headers for access control.",
+                    cwe="CWE-290",
+                    confidence="high",
+                    poc=build_http_poc("GET", ep.url, resp),
+                ))
+                break

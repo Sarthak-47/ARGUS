@@ -164,16 +164,23 @@ class Injector(BaseAgent):
             url = _with_param(ep.url, param, payload, base_params=siblings)
             resp, elapsed = await self.timed_request(ctx, ep.method, url)
             if resp is not None and elapsed - base_t >= _TIME_THRESHOLD:
-                # confirm with a second shot to reduce noise
+                # Confirm against a *fresh* baseline, not the one measured
+                # once before this whole loop started — general latency drift
+                # on a real target (cold cache, GC pause, a noisy upstream)
+                # between then and now can push a clean response past the
+                # threshold too, and reusing the stale baseline can't catch
+                # that. This is a CRITICAL/9.8 finding, so a false positive
+                # here is expensive.
+                _, confirm_base_t = await self.timed_request(ctx, ep.method, base_url)
                 _, confirm_t = await self.timed_request(ctx, ep.method, url)
-                if confirm_t - base_t >= _TIME_THRESHOLD:
+                if confirm_t - confirm_base_t >= _TIME_THRESHOLD:
                     ctx.report(Finding(
                         title="SQL injection (time-based blind)",
                         severity=Severity.CRITICAL,
                         category="injection",
                         detector="injector:sqli-time",
                         endpoint=f"{ep.method} {ep.url}",
-                        evidence=f"param '{param}': baseline {base_t:.2f}s vs sleep {elapsed:.2f}s",
+                        evidence=f"param '{param}': baseline {confirm_base_t:.2f}s vs sleep {confirm_t:.2f}s",
                         description=f"A sleep payload in '{param}' delayed the response, confirming "
                                     f"blind SQL injection.",
                         exploit="Blind boolean/time exfiltration of arbitrary data.",

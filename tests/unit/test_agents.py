@@ -320,6 +320,48 @@ async def test_headerpoker_flags_wildcard_cors():
         srv.shutdown()
 
 
+@pytest.mark.asyncio
+async def test_headerpoker_forwarded_bypass_ignores_a_catchall_gateway():
+    """Regression: a gateway that 401s a plain request but 200s *any* request
+    once it carries an X-Forwarded-For/X-Real-IP/etc. header — same generic
+    body regardless of the header's value or the target path — used to read
+    as a confirmed HIGH "access control bypass," purely from the status flip.
+    Every real request in this test gets the identical catch-all body."""
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    from argus.agents.base import AttackContext, Endpoint
+    from argus.agents.headerpoker import HeaderPoker
+
+    class H(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_GET(self):
+            bypass_headers = ("x-forwarded-for", "x-real-ip", "x-original-url", "x-forwarded-host")
+            if not any(h in (k.lower() for k in self.headers.keys()) for h in bypass_headers):
+                self.send_response(401)
+                self.end_headers()
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"generic":"same catch-all body for any bypass header"}')
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base = f"http://127.0.0.1:{srv.server_address[1]}"
+    try:
+        async with httpx.AsyncClient() as client:
+            ctx = AttackContext(base, client=client, concurrency=4)
+            ctx.add_endpoint(Endpoint(url=base + "/admin", method="GET", sample_status=401))
+            await HeaderPoker().run(ctx)
+        bypass = [f for f in ctx.findings if f.detector == "headerpoker:bypass"]
+        assert bypass == [], bypass
+    finally:
+        srv.shutdown()
+
+
 def test_crawlerbot_treats_spa_html_fallback_as_not_exposed():
     from argus.agents.crawlerbot import CrawlerBot
 

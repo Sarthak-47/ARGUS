@@ -25,8 +25,16 @@ from urllib.parse import urlparse
 
 import httpx
 
-from argus.agents.base import AgentReport, AttackContext, BaseAgent, build_http_poc
+from argus.agents.base import (
+    AgentReport,
+    AttackContext,
+    BaseAgent,
+    build_http_poc,
+    response_matches_fallback,
+)
 from argus.models import Finding, Severity
+
+_BASELINE_PATH = "/argus-fallback-probe-x9z7q"
 
 _INT_SEG = re.compile(r"/\d{1,12}(?=/|$)")
 _ID_PARAMS = {"id", "user", "userid", "user_id", "account", "order", "oid", "pid", "uuid"}
@@ -63,6 +71,17 @@ class AuthzTester(BaseAgent):
                 report.status = "error"
                 return report
 
+            # A gateway/CDN in front of the real app can 403 an unauthenticated
+            # request but 200 *any* authenticated one with a generic/catch-all
+            # body, regardless of path — that would otherwise look exactly like
+            # a BOLA/BFLA bypass. Fetch one definitely-bogus path per identity
+            # up front so a "reachable" response can be confirmed as actually
+            # distinct content, not just a non-error status code.
+            a_baseline_resp = await self.get(ctx, ctx.base_url + _BASELINE_PATH)
+            a_baseline = a_baseline_resp.text if a_baseline_resp is not None else None
+            b_baseline_resp = await self._raw(ctx, client_b, ctx.base_url + _BASELINE_PATH)
+            b_baseline = b_baseline_resp.text if b_baseline_resp is not None else None
+
             bola, bfla = 0, 0
             for ep in self._candidates(ctx):
                 if ep.method != "GET":
@@ -84,9 +103,14 @@ class AuthzTester(BaseAgent):
                     continue  # public endpoint — not an authz finding
 
                 if object_scoped and a_resp.status_code < 400 and b_resp.status_code < 400:
+                    if response_matches_fallback(a_resp.text or "", a_baseline) or \
+                       response_matches_fallback(b_resp.text or "", b_baseline):
+                        continue  # indistinguishable from the catch-all baseline — not a real hit
                     bola += 1
                     self._report_bola(ctx, url, b_resp)
                 elif privileged and b_resp.status_code < 400:
+                    if response_matches_fallback(b_resp.text or "", b_baseline):
+                        continue
                     bfla += 1
                     self._report_bfla(ctx, url, b_resp)
 
