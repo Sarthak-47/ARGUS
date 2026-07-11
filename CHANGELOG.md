@@ -5,6 +5,37 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.9] — 2026-07-11
+
+### Fixed
+- **Dashboard showed a different risk band than Reports for the same scan.**
+  `theme.ts`'s band thresholds had drifted out of sync with the backend's
+  85/70/45 CRITICAL/HIGH/MEDIUM cutoffs (e.g. a score of 77 showed "HIGH" on
+  Reports but "CRITICAL" on Dashboard). Reports read the backend's own `band`
+  field; Dashboard always recomputed it locally with the stale thresholds.
+  Fixed by matching the thresholds exactly.
+- **"Strike the app" (Live Attack) showed nothing and jumped straight to a
+  near-empty report.** Phase 2 requires Docker to sandbox a bare local-path
+  target, and silently skipped with only a CLI-only log line — never reaching
+  the GUI's event stream — whenever Docker wasn't running. Separately, a
+  URL typed into the Target field was always routed through that same
+  Docker-sandbox path, so attacking an already-running app couldn't work at
+  all regardless of Docker. Both fixed: URL-shaped targets now bypass Docker
+  entirely, and a genuine Docker-unavailable skip now streams a real event
+  the live feed shows instead of going silent.
+
+### Changed
+- **Settings: removed the Argus CLI section and path override.** No longer
+  needed now that the backend is bundled directly inside the installer
+  (v1.2.8) — nothing to detect or point at.
+- **Settings: pick your own local model.** If Ollama has multiple models
+  pulled, Settings now lists every one of them (via a new `argus status`
+  field) so you can pick which one Argus uses instead of only ever seeing the
+  single size-recommended default.
+- Settings no longer shows placeholder dashes/text in browser-preview mode —
+  the configuration sections that need the desktop app are simply omitted
+  until then.
+
 ## [1.2.8] — 2026-07-11
 
 ### Changed
