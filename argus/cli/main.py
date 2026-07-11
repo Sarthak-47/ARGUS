@@ -172,11 +172,16 @@ def attack(
     auth: Optional[str] = typer.Option(None, "--auth", help="Path to a .argus-auth.toml so agents attack the logged-in surface (auto-discovered in the working dir if present)."),
     auth_b: Optional[str] = typer.Option(None, "--auth-b", help="A second identity's auth file — enables BOLA/BFLA cross-user authorization testing (ideally a low-privilege account)."),
     api_spec: Optional[str] = typer.Option(None, "--api-spec", help="OpenAPI/Swagger/Postman/GraphQL spec (file or URL) to seed the attack surface."),
+    max_requests: Optional[int] = typer.Option(
+        None, "--max-requests", help="Hard cap on total requests sent to the target — a safety backstop "
+                                      "against a runaway agent or an overly deep scan hammering the target."
+    ),
 ) -> None:
     """Phase 2 — attack agent. Actively exploit a running app."""
     from argus.pipeline import run_attack
 
-    run_attack(target=target, url=url, agents=agents, auth=auth, auth_b=auth_b, api_spec=api_spec)
+    run_attack(target=target, url=url, agents=agents, auth=auth, auth_b=auth_b,
+               api_spec=api_spec, max_requests=max_requests)
 
 
 # --------------------------------------------------------------------------- #
@@ -190,11 +195,16 @@ def audit(
     auth: Optional[str] = typer.Option(None, "--auth", help="Path to a .argus-auth.toml so Phase 2 attacks the logged-in surface."),
     auth_b: Optional[str] = typer.Option(None, "--auth-b", help="A second identity's auth file — enables BOLA/BFLA cross-user authorization testing."),
     api_spec: Optional[str] = typer.Option(None, "--api-spec", help="OpenAPI/Swagger/Postman/GraphQL spec (file or URL) to seed the attack surface."),
+    max_requests: Optional[int] = typer.Option(
+        None, "--max-requests", help="Hard cap on total requests sent to the target during Phase 2 — a safety "
+                                      "backstop against a runaway agent or an overly deep scan."
+    ),
 ) -> None:
     """Full pipeline — Phase 1 static analysis then Phase 2 attack."""
     from argus.pipeline import run_audit
 
-    run_audit(target, fix=fix, agents=agents, auth=auth, auth_b=auth_b, api_spec=api_spec)
+    run_audit(target, fix=fix, agents=agents, auth=auth, auth_b=auth_b,
+              api_spec=api_spec, max_requests=max_requests)
 
 
 # --------------------------------------------------------------------------- #
@@ -237,6 +247,11 @@ def benchmark(
     ),
     fmt: str = typer.Option("markdown", "--format", help="markdown | json"),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Write the report to this file instead of stdout."),
+    min_detection_rate: Optional[float] = typer.Option(
+        None, "--min-detection-rate",
+        help="Fail (exit 1) if any case's detection rate falls below this (0.0-1.0) — "
+             "for gating a release on a real accuracy regression, not just a setup error.",
+    ),
 ) -> None:
     """Run Argus against known-vulnerable apps and report a real detection rate.
 
@@ -271,6 +286,13 @@ def benchmark(
 
     if any(r.error for r in results):
         raise typer.Exit(code=1)
+
+    if min_detection_rate is not None:
+        regressed = [r for r in results if r.detection_rate < min_detection_rate]
+        if regressed:
+            names_str = ", ".join(f"{r.case} ({r.detection_rate:.0%})" for r in regressed)
+            out.error(f"Detection rate below {min_detection_rate:.0%} threshold: {names_str}")
+            raise typer.Exit(code=1)
 
 
 # --------------------------------------------------------------------------- #

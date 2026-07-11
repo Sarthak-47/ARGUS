@@ -97,6 +97,7 @@ async def run_attack_async(
     use_callback: bool = True,
     provider=None,
     concurrency: int = 10,
+    max_requests: int | None = None,
     on_event=None,
     seed_endpoints=None,
     auth=None,
@@ -124,13 +125,17 @@ async def run_attack_async(
 
     headers = {"User-Agent": "Argus/0.1 (+https://github.com/Sarthak-47/ARGUS)"}
     try:
+        # Do not follow a target-controlled redirect to a different origin.
+        # Scope checks in BaseAgent provide a second line of defence for all
+        # explicit requests, while TLS verification remains enabled by default.
         async with httpx.AsyncClient(
-            follow_redirects=True, headers=headers, verify=False, timeout=15.0
+            follow_redirects=False, headers=headers, timeout=15.0
         ) as client:
             ctx = AttackContext(
                 base_url,
                 client=client,
                 concurrency=concurrency,
+                max_requests=max_requests,
                 prior_findings=prior,
                 callback=callback,
                 provider=provider,

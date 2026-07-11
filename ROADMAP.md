@@ -1,4 +1,4 @@
-# Argus Roadmap — v0.2.0 → v1.0
+# Argus Roadmap — v1.2.9 and beyond
 
 > **Status: the 1.0 bar below is fully shipped**, plus everything under
 > Milestone v0.4 that originally wasn't gating it (VEX, behavioral
@@ -7,7 +7,8 @@
 > the historical record of *why* each decision was made — read it for
 > context on a specific feature, not as "what's left to build."
 
-Where Argus is (v0.2.0) and what "1.0" needs to mean. This supersedes
+Historical roadmap showing how Argus reached v1.0; current releases are tracked
+in the changelog. This supersedes
 [`UPGRADE.md`](docs/dev/UPGRADE.md) (the v0.1→v0.2 backlog, now largely
 shipped) as the forward-looking plan.
 
@@ -17,7 +18,7 @@ real audience: **solo developers and small teams**, local-first, no enterprise
 sprawl. Enterprise-flavoured features (org asset graphs, CSPM fleets, SIEM
 correlation) are deliberately out of scope for 1.0.
 
-## Where we are (v0.2.0)
+## Historical snapshot (v0.2.0)
 
 Shipped and solid: two-phase engine (static scan + real attack swarm with
 confirmed PoCs), LLM reasoning, **exploit chaining**, secret/IaC/supply-chain
@@ -173,7 +174,7 @@ developers live.
   surface.
   - **Follow-up A — JS-aware crawling.** ✅ **Done.** ReconBot now reuses
     DomXSSHunter's optional Playwright dependency: when installed (`pip
-    install 'argus-sec[browser]'`), it renders the root page in a real
+    install 'argus-panoptes[browser]'`), it renders the root page in a real
     headless browser (no flag needed — same zero-flag philosophy as follow-up
     C's OpenAPI auto-discovery) and mines both the post-JS DOM (for links/
     forms that only exist after client-side rendering) and every XHR/fetch
@@ -258,7 +259,7 @@ habit. Build them in parallel with the milestones above — cheapest-first.
   badge with copy-pasteable markdown, documented in the README — free social
   proof and backlinks that compound forever.
 - **D3 · Argus as an MCP server.** ✅ **Done.** `argus mcp-server` (optional
-  `argus-sec[mcp]` extra) exposes `argus_scan`/`argus_attack`/`argus_fix` as MCP
+  `argus-panoptes[mcp]` extra) exposes `argus_scan`/`argus_attack`/`argus_fix` as MCP
   tools so Copilot/Cursor/Claude Code can run Argus from inside the editor.
   Every tool redirects the engine's Rich console output away from stdout
   (required — stdio *is* the JSON-RPC transport) and returns structured JSON.

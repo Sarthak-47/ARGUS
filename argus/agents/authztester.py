@@ -53,8 +53,8 @@ class AuthzTester(BaseAgent):
         # the anonymous baseline. Both are torn down when we're done.
         from argus.auth import AuthError
 
-        anon = httpx.AsyncClient(follow_redirects=True, verify=False, timeout=15.0)
-        client_b = httpx.AsyncClient(follow_redirects=True, verify=False, timeout=15.0)
+        anon = httpx.AsyncClient(follow_redirects=False, timeout=15.0)
+        client_b = httpx.AsyncClient(follow_redirects=False, timeout=15.0)
         try:
             try:
                 await ctx.identity_b.apply(client_b)

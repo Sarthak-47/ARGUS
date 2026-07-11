@@ -51,6 +51,7 @@ interface State {
   auditRunning: boolean;
   auditElapsedSec: number;
   auditError: string | null;
+  auditCanceling: boolean;
   argusAvailable: boolean | null;
   // manual "Argus CLI path" override (Settings' escape hatch for when
   // auto-detection can't find argus — e.g. a project venv install)
@@ -75,6 +76,7 @@ interface State {
   suppressFinding: (id: number, title: string, status: "ignored" | "reviewing", reason?: string) => Promise<void>;
   setTarget: (t: string) => void;
   runRealAudit: () => Promise<void>;
+  cancelAudit: () => Promise<void>;
   checkArgusAvailable: () => Promise<void>;
   loadArgusPath: () => Promise<void>;
   setArgusPathOverride: (path: string) => Promise<void>;
@@ -118,6 +120,7 @@ export const useStore = create<State>((set, get) => ({
   auditRunning: false,
   auditElapsedSec: 0,
   auditError: null,
+  auditCanceling: false,
   argusAvailable: null,
   argusPathSaved: null,
   argusPathSaving: false,
@@ -214,7 +217,23 @@ export const useStore = create<State>((set, get) => ({
       get().loadComparison();
     } catch (err) {
       if (auditTimer) { clearInterval(auditTimer); auditTimer = null; }
-      set({ auditRunning: false, auditError: String(err), screen: "scan" });
+      const canceled = String(err).includes("Scan canceled");
+      set({
+        auditRunning: false,
+        auditCanceling: false,
+        auditError: canceled ? null : String(err),
+        screen: "scan",
+      });
+    }
+  },
+
+  cancelAudit: async () => {
+    if (!isTauri() || !get().auditRunning) return;
+    set({ auditCanceling: true });
+    try {
+      await invoke("cancel_audit");
+    } catch {
+      set({ auditCanceling: false });
     }
   },
 

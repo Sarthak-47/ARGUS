@@ -59,7 +59,16 @@ class DomXSSHunter(BaseAgent):
 
         confirmed = 0
         async with async_playwright() as pw:
-            browser = await pw.chromium.launch()
+            try:
+                browser = await pw.chromium.launch()
+            except Exception:
+                # The Python package can be present while Chromium was never
+                # downloaded.  This optional agent must degrade like an absent
+                # dependency, not fail an otherwise valid attack run.
+                ctx.emit(self.name, "Chromium unavailable — skipping "
+                                     "(run `playwright install chromium`)")
+                report.status = "complete"
+                return report
             try:
                 page = await browser.new_page()
                 for ep_url, param in targets:

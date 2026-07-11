@@ -100,12 +100,46 @@ def test_add_endpoint_skips_session_destroying_urls():
     assert "http://t/vulnerabilities/sqli/" in urls
 
 
+def test_attack_context_rejects_off_origin_endpoints():
+    ctx = AttackContext("https://example.test:8443", client=httpx.AsyncClient())
+    ctx.add_endpoint(Endpoint(url="https://example.test:8443/in-scope"))
+    ctx.add_endpoint(Endpoint(url="https://outside.test/owned-by-someone-else"))
+    ctx.add_endpoint(Endpoint(url="http://example.test:8443/downgraded-scheme"))
+    assert [ep.url for ep in ctx.endpoint_list()] == ["https://example.test:8443/in-scope"]
+
+
 @pytest.mark.asyncio
 async def test_request_refuses_to_hit_logout():
     ctx = AttackContext("http://t", client=httpx.AsyncClient())
     resp = await BaseAgent().get(ctx, "http://t/logout.php")
     assert resp is None
     assert ctx.requests_sent == 0  # never even sent
+
+
+@pytest.mark.asyncio
+async def test_request_refuses_to_hit_off_origin_url():
+    ctx = AttackContext("http://t", client=httpx.AsyncClient())
+    resp = await BaseAgent().get(ctx, "http://outside.test/")
+    assert resp is None
+    assert ctx.requests_sent == 0  # never even sent
+
+
+@pytest.mark.asyncio
+async def test_request_stops_once_max_requests_budget_is_exhausted():
+    def handler(request):
+        return httpx.Response(200, text="ok")
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    ctx = AttackContext("http://t", client=client, max_requests=2)
+    agent = BaseAgent()
+
+    r1 = await agent.get(ctx, "http://t/a")
+    r2 = await agent.get(ctx, "http://t/b")
+    r3 = await agent.get(ctx, "http://t/c")
+
+    assert r1 is not None and r2 is not None
+    assert r3 is None
+    assert ctx.requests_sent == 2
 
 
 def test_with_param_sets_query():

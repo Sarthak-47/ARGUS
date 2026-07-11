@@ -100,3 +100,21 @@ def test_surface_json_is_valid_for_an_explicit_empty_target():
 def test_surface_without_target_or_scan_exits_nonzero():
     result = runner.invoke(app, ["surface"])
     assert result.exit_code != 0
+
+
+def test_benchmark_min_detection_rate_fails_the_run_below_threshold(monkeypatch):
+    from argus.benchmark import BenchmarkResult
+
+    low = BenchmarkResult(case="argus_demo", total_findings=1, ground_truth_count=10, detected=["a"])
+    monkeypatch.setattr("argus.benchmark.run_suite", lambda names=None: [low])
+    result = runner.invoke(app, ["benchmark", "--min-detection-rate", "0.5"])
+    assert result.exit_code != 0
+
+
+def test_benchmark_min_detection_rate_passes_at_or_above_threshold(monkeypatch):
+    from argus.benchmark import BenchmarkResult
+
+    high = BenchmarkResult(case="argus_demo", total_findings=10, ground_truth_count=10, detected=[f"a{i}" for i in range(6)])
+    monkeypatch.setattr("argus.benchmark.run_suite", lambda names=None: [high])
+    result = runner.invoke(app, ["benchmark", "--min-detection-rate", "0.5"])
+    assert result.exit_code == 0

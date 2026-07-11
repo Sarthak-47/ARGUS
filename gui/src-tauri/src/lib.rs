@@ -11,6 +11,16 @@ static RESOURCE_DIR: OnceLock<PathBuf> = OnceLock::new();
 
 const EVENT_SENTINEL: &str = "@@ARGUS_EVENT@@";
 
+/// PID of the currently-running `argus audit` child, if any, so a separate
+/// `cancel_audit` call can find and kill it — `run_audit` blocks its own
+/// command thread on `child.wait()`, so cancellation has to come from another
+/// command invocation running concurrently on Tauri's thread pool.
+static AUDIT_CHILD: Mutex<Option<u32>> = Mutex::new(None);
+/// Set by `cancel_audit` so `run_audit` can tell a killed child apart from one
+/// that simply failed on its own, and report "canceled" instead of a stray
+/// stderr message from being killed mid-request.
+static AUDIT_CANCELED: Mutex<bool> = Mutex::new(false);
+
 /// Windows flashes a visible console window for every spawned console-mode
 /// subprocess (argus, python, py) unless CREATE_NO_WINDOW is set — invisible
 /// on other platforms, but on Windows this GUI app was popping and closing a
@@ -218,6 +228,8 @@ fn run_audit(window: Window, target: String, mode: String, agents: Option<String
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
     let mut child = cmd.spawn().map_err(|e| format!("failed to launch argus: {e}"))?;
+    *AUDIT_CANCELED.lock().unwrap() = false;
+    *AUDIT_CHILD.lock().unwrap() = Some(child.id());
 
     if let Some(stdout) = child.stdout.take() {
       for line in BufReader::new(stdout).lines().map_while(Result::ok) {
@@ -227,7 +239,13 @@ fn run_audit(window: Window, target: String, mode: String, agents: Option<String
       }
     }
 
-    let status = child.wait().map_err(|e| format!("argus did not finish cleanly: {e}"))?;
+    let wait_result = child.wait();
+    *AUDIT_CHILD.lock().unwrap() = None;
+    let canceled = std::mem::take(&mut *AUDIT_CANCELED.lock().unwrap());
+    let status = wait_result.map_err(|e| format!("argus did not finish cleanly: {e}"))?;
+    if canceled {
+      return Err("Scan canceled.".into());
+    }
     if !status.success() {
       let mut err = String::new();
       if let Some(mut stderr) = child.stderr.take() {
@@ -247,6 +265,32 @@ fn run_audit(window: Window, target: String, mode: String, agents: Option<String
 
   std::fs::read_to_string(out_dir.join("report.json"))
     .map_err(|e| format!("failed to read report.json: {e}"))
+}
+
+/// Kills the in-progress `argus audit` child started by `run_audit`, if any —
+/// the Live Attack screen's Cancel button. A no-op (not an error) when nothing
+/// is running, since the frontend may race a scan finishing on its own.
+#[tauri::command]
+fn cancel_audit() -> Result<(), String> {
+  let pid = match *AUDIT_CHILD.lock().unwrap() {
+    Some(pid) => pid,
+    None => return Ok(()),
+  };
+  *AUDIT_CANCELED.lock().unwrap() = true;
+
+  #[cfg(target_os = "windows")]
+  let result = new_command("taskkill")
+    .args(["/PID", &pid.to_string(), "/T", "/F"])
+    .output();
+  #[cfg(not(target_os = "windows"))]
+  let result = new_command("kill")
+    .args(["-TERM", &pid.to_string()])
+    .output();
+
+  match result {
+    Ok(_) => Ok(()),
+    Err(e) => Err(format!("failed to cancel: {e}")),
+  }
 }
 
 /// Reads up to `context` lines before and after `line` (1-indexed) from a
@@ -434,7 +478,7 @@ fn clear_argus_path() -> Result<(), String> {
 pub fn run() {
   tauri::Builder::default()
     .invoke_handler(tauri::generate_handler![
-      run_audit, check_argus_available, read_source_snippet, read_scan_history,
+      run_audit, cancel_audit, check_argus_available, read_source_snippet, read_scan_history,
       read_scan_comparison, read_status, set_provider, set_local_model, save_provider_key,
       suppress_finding, get_argus_path, set_argus_path, clear_argus_path
     ])
