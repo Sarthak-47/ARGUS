@@ -27,7 +27,7 @@ jobs:
     outputs:
       release_id: ${{ steps.create.outputs.id }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Create draft release
         id: create
@@ -127,7 +127,7 @@ jobs:
           - platform: ubuntu-latest
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Linux system dependencies (webkitgtk)
         if: matrix.platform == 'ubuntu-latest'
