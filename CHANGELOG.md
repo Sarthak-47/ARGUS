@@ -5,6 +5,24 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.8] — 2026-07-11
+
+### Changed
+- **The desktop app now bundles the Argus CLI directly inside the installer**
+  instead of depending on a separately `pip install`'d `argus` reachable on
+  PATH — the root cause behind every "argus not found" / "no provider
+  detected" report. PyInstaller freezes the CLI's core dependencies into a
+  single self-contained `argus-cli` binary, the installer ships it as a
+  resource, and the app finds it via its own resource directory — no PATH,
+  no manual configuration, on a fresh install. Verified by running the frozen
+  binary directly with a PATH containing nothing but `system32`: `status`,
+  `scan`, and `report` (including HTML template rendering) all work.
+  The manual CLI-path override added in v1.2.5 remains available in Settings
+  for anyone who needs an optional extra (`[sandbox]`/`[browser]`) the bundle
+  excludes, or is running from source.
+  Known gap: the bundled macOS binary isn't yet a true universal2 build (see
+  `packaging/README.md`).
+
 ## [1.2.7] — 2026-07-11
 
 ### Fixed
@@ -594,7 +612,8 @@ Initial tagged release.
   universal `.dmg`, Linux `.deb`/`.rpm`/`.AppImage`).
 - Local-first LLM support (Ollama) plus BYOK providers (Groq, Gemini, Claude, OpenRouter).
 
-[Unreleased]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.7...HEAD
+[Unreleased]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.8...HEAD
+[1.2.8]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.7...v1.2.8
 [1.2.7]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.6...v1.2.7
 [1.2.6]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.5...v1.2.6
 [1.2.5]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.4...v1.2.5
