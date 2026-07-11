@@ -5,6 +5,36 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.12] — 2026-07-11
+
+### Fixed
+- **Path-probing agents (ReconBot, CrawlerBot) reported fake findings on any
+  site with a catch-all/SPA-fallback handler.** A site that serves the same
+  page with HTTP 200 for every unmatched route (Netlify/Vercel/any
+  client-routed app) was misread as "found /.env" (CRITICAL), "found
+  /.git/config" (HIGH), fake Jenkins/phpMyAdmin/WordPress admin panels, and
+  more — reproduced live against a real site: 28 fake findings, risk score
+  99/CRITICAL, on a static portfolio with zero real exposure. Root cause was
+  two bugs: CrawlerBot's own baseline-comparison guard was defeated by
+  comparing a *truncated* 404 baseline against the *full* candidate body
+  (the length check silently failed for any real page over ~524 bytes);
+  ReconBot had no baseline guard at all. Fixed with shared, correctly
+  truncated baseline-fetch/compare helpers used by both agents. Verified:
+  the same target now correctly scores 46/MEDIUM (2 genuine findings).
+- **The same false-positive class existed in three more agents**, found via a
+  full audit of every attack agent: AuthzTester (BOLA/BFLA could read a
+  gateway's generic 200-for-any-authenticated-request as a cross-user access
+  bypass), HeaderPoker (a bypass header that makes a WAF/gateway 200 *any*
+  path read as "access control bypass" for that specific endpoint), and
+  Injector (time-based blind SQLi reused a single stale baseline timing
+  across the whole payload loop, so ordinary target latency drift could
+  false-positive a CRITICAL finding). All three now confirm a genuine,
+  baseline-distinct signal before reporting.
+- Risk scoring itself was not miscalibrated — a single real HIGH-severity
+  finding is deliberately meant to floor the score at 70+. The "always above
+  70" symptom was these false-positive HIGH/CRITICAL findings manufacturing
+  a floor that shouldn't have applied; fixing them resolves it without any
+  change to the scoring formula.
 ## [1.2.11] — 2026-07-11
 
 ### Security
