@@ -12,7 +12,16 @@ from __future__ import annotations
 import re
 from urllib.parse import urljoin, urlparse, parse_qs
 
-from argus.agents.base import AgentReport, AttackContext, BaseAgent, Endpoint, build_http_poc, gather_limited
+from argus.agents.base import (
+    AgentReport,
+    AttackContext,
+    BaseAgent,
+    Endpoint,
+    build_http_poc,
+    fetch_fallback_baseline,
+    gather_limited,
+    response_matches_fallback,
+)
 from argus.models import Finding, Severity
 
 try:
@@ -180,11 +189,19 @@ class ReconBot(BaseAgent):
         return (u.scheme in ("http", "https")) and (u.netloc == b.netloc)
 
     async def _probe_common(self, ctx: AttackContext, base: str) -> None:
+        # A catch-all handler (an SPA fallback serving index.html for every
+        # unmatched route, a custom 404 page, a WAF block page) makes every one
+        # of these probes come back 200 with the same body — without this,
+        # that reads as "found /.env" / "found /.git/config" etc. on any
+        # client-routed site. Fetched once, compared per-candidate.
+        fallback_baseline = await fetch_fallback_baseline(self, ctx)
+
         async def probe(path: str, label: str, sev: Severity):
             resp = await self.get(ctx, base + path)
             if resp is None or resp.status_code >= 400:
                 return
-            body = (resp.text or "")[:400]
+            body_full = resp.text or ""
+            body = body_full[:400]
             if path == "/robots.txt" and resp.status_code == 200:
                 for line in body.splitlines():
                     if line.lower().startswith(("disallow", "allow")):
@@ -192,10 +209,12 @@ class ReconBot(BaseAgent):
                         if loc and loc != "/":
                             ctx.add_endpoint(Endpoint(url=urljoin(base, loc), source="robots"))
                 return
+            if response_matches_fallback(body_full, fallback_baseline):
+                return
             if path == "/graphql":
                 ctx.recon["graphql"] = True
             if path in _SPEC_PATHS:
-                self._seed_from_spec(ctx, base, path, body_full=resp.text or "")
+                self._seed_from_spec(ctx, base, path, body_full=body_full)
             if sev is Severity.INFO:
                 return
             ctx.report(Finding(

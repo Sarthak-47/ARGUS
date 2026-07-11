@@ -230,6 +230,41 @@ async def gather_limited(coros: list[Awaitable], limit: int = 20) -> list:
     return await asyncio.gather(*(_wrap(c) for c in coros))
 
 
+# How much of a response body the fallback-baseline comparison looks at. Must
+# be large enough to hold a real SPA's full <head> (a modern bundle's index.html
+# easily runs 1-3KB before any content) — comparing a *truncated* baseline
+# against a *full* candidate body defeats the length-bucket check for any page
+# longer than the truncation, which is exactly what let a wordlist scan of an
+# SPA-fallback site (Netlify/Vercel/any client-routed app serving index.html
+# with HTTP 200 for every unmatched path) report dozens of fake "exposed
+# file"/"admin panel" findings that were really just the same homepage.
+_FALLBACK_SNIPPET_LEN = 2000
+
+
+async def fetch_fallback_baseline(agent: "BaseAgent", ctx: AttackContext) -> str | None:
+    """Fetch a path that is certain not to exist, once, so path-probing
+    detectors (ReconBot, CrawlerBot) can tell a genuine hit apart from a
+    catch-all handler — an SPA fallback, a custom 404 page, a WAF block page —
+    that returns the same body for every unmatched route."""
+    resp = await agent.get(ctx, ctx.base_url + "/argus-fallback-probe-" + "x9z7q")
+    return resp.text if resp is not None else None
+
+
+def response_matches_fallback(body: str, baseline: str | None) -> bool:
+    """Whether `body` looks like the same catch-all page as `baseline` —
+    same length bucket and shared prefix over a large-enough window that a
+    real distinct resource won't coincidentally match. Both sides are
+    truncated to the *same* length before comparing; comparing truncated vs.
+    untruncated text — the bug this replaces — makes the length check
+    meaningless for any page longer than the truncation."""
+    if not baseline:
+        return False
+    a, b = body[:_FALLBACK_SNIPPET_LEN], baseline[:_FALLBACK_SNIPPET_LEN]
+    if abs(len(a) - len(b)) <= 24:
+        return a[:200] == b[:200]
+    return False
+
+
 # Headers that must never appear verbatim in a captured PoC — a security tool must
 # not leak the very credentials it used while proving a vulnerability.
 _SENSITIVE_HEADERS = {"authorization", "cookie", "set-cookie", "x-api-key"}

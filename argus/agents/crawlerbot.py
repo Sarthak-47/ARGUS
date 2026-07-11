@@ -8,7 +8,16 @@ differently from "not found" (defeats catch-all 200 handlers).
 
 from __future__ import annotations
 
-from argus.agents.base import AgentReport, AttackContext, BaseAgent, Endpoint, build_http_poc, gather_limited
+from argus.agents.base import (
+    AgentReport,
+    AttackContext,
+    BaseAgent,
+    Endpoint,
+    build_http_poc,
+    fetch_fallback_baseline,
+    gather_limited,
+    response_matches_fallback,
+)
 from argus.models import Finding, Severity
 
 # (path, label, severity) — a compact, high-value slice of a SecLists-style list.
@@ -57,7 +66,7 @@ class CrawlerBot(BaseAgent):
         report = AgentReport(agent=self.name, status="running")
         base = ctx.base_url
 
-        not_found = await self._fingerprint_404(ctx)
+        not_found = await fetch_fallback_baseline(self, ctx)
         ctx.emit(self.name, f"fuzzing {len(_PATHS)} common paths …")
 
         async def probe(path: str, label: str, sev: Severity):
@@ -67,7 +76,7 @@ class CrawlerBot(BaseAgent):
             if resp.status_code >= 500:
                 return
             body = resp.text or ""
-            if not_found and self._similar(body, not_found):
+            if response_matches_fallback(body, not_found):
                 return
             if self._is_spa_fallback(path, resp):
                 return
@@ -96,10 +105,6 @@ class CrawlerBot(BaseAgent):
         ctx.emit(self.name, f"crawl complete — surface map updated ({len(ctx.endpoints)} endpoints)", "ok")
         return report
 
-    async def _fingerprint_404(self, ctx: AttackContext) -> str | None:
-        resp = await self.get(ctx, ctx.base_url + "/argus-not-here-" + "x9z7")
-        return (resp.text or "")[:500] if resp is not None else None
-
     async def _backup_sweep(self, ctx: AttackContext, not_found: str | None) -> None:
         # Try backup suffixes on a few known file-like endpoints.
         candidates = [ep.url for ep in ctx.endpoint_list() if "." in ep.url.rsplit("/", 1)[-1]][:8]
@@ -109,7 +114,7 @@ class CrawlerBot(BaseAgent):
             resp = await self.get(ctx, target)
             if resp is None or resp.status_code >= 400:
                 return
-            if not_found and self._similar(resp.text or "", not_found):
+            if response_matches_fallback(resp.text or "", not_found):
                 return
             if self._is_spa_fallback(target, resp):
                 return
@@ -130,13 +135,6 @@ class CrawlerBot(BaseAgent):
 
         coros = [probe(u, s) for u in candidates for s in _BACKUP_SUFFIXES]
         await gather_limited(coros, limit=ctx.semaphore._value or 8)
-
-    @staticmethod
-    def _similar(a: str, b: str) -> bool:
-        """Crude similarity: same length bucket and shared prefix => likely same 404 page."""
-        if abs(len(a) - len(b)) <= 24:
-            return a[:200] == b[:200]
-        return False
 
     @staticmethod
     def _is_spa_fallback(path: str, resp) -> bool:

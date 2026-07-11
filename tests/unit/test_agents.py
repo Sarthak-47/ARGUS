@@ -184,11 +184,25 @@ def test_xss_with_param_builds_query():
     assert "q=" in url and url.startswith("http://t/search?")
 
 
-def test_crawlerbot_404_similarity():
-    from argus.agents.crawlerbot import CrawlerBot
-    cb = CrawlerBot()
-    assert cb._similar("not found page", "not found page") is True
-    assert cb._similar("a" * 50, "b" * 400) is False
+def test_fallback_baseline_similarity():
+    from argus.agents.base import response_matches_fallback
+
+    assert response_matches_fallback("not found page", "not found page") is True
+    assert response_matches_fallback("a" * 50, "b" * 400) is False
+    assert response_matches_fallback("anything", None) is False
+
+
+def test_fallback_baseline_similarity_not_defeated_by_truncated_baseline():
+    # Regression: the baseline used to be pre-truncated to 500 chars while the
+    # candidate body was compared at full length, so the length-bucket check
+    # always failed for any real page longer than ~524 chars — silently
+    # disabling the whole guard on any SPA whose fallback page (a real
+    # index.html, easily 1-3KB) was longer than that.
+    from argus.agents.base import response_matches_fallback
+
+    baseline = "<!doctype html>" + "x" * 2000  # a realistic SPA fallback page
+    same_page = baseline  # what an unrelated probed path gets back
+    assert response_matches_fallback(same_page, baseline) is True
 
 
 def test_registry_contains_full_swarm():
@@ -395,3 +409,42 @@ def test_attack_context_provider_defaults_to_none():
     import httpx as _httpx
     ctx = AttackContext("http://t", client=_httpx.AsyncClient())
     assert ctx.provider is None
+
+
+@pytest.mark.asyncio
+async def test_reconbot_suppresses_findings_on_an_spa_fallback_site():
+    """Regression: an SPA (Netlify/Vercel/any client-routed app) serves the
+    same index.html with HTTP 200 for every unmatched path. Reproduced live
+    against a real Netlify-hosted site: ReconBot reported "Exposed .env file"
+    (CRITICAL) and "Exposed .git repository" (HIGH) purely because the
+    fallback page happened to return 200 — it had no baseline-comparison
+    guard at all."""
+    from argus.agents.reconbot import ReconBot
+
+    fallback_body = "<!doctype html>" + "x" * 2000  # a realistic SPA index.html
+
+    def handler(request):
+        return httpx.Response(200, text=fallback_body, headers={"content-type": "text/html"})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    ctx = AttackContext("http://t", client=client)
+    await ReconBot()._probe_common(ctx, "http://t")
+
+    assert ctx.findings == []
+
+
+@pytest.mark.asyncio
+async def test_crawlerbot_suppresses_findings_on_an_spa_fallback_site():
+    from argus.agents.crawlerbot import CrawlerBot
+
+    fallback_body = "<!doctype html>" + "x" * 2000
+
+    def handler(request):
+        return httpx.Response(200, text=fallback_body, headers={"content-type": "text/html"})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    ctx = AttackContext("http://t", client=client)
+    report = await CrawlerBot().run(ctx)
+
+    assert report.findings == 0
+    assert ctx.findings == []
