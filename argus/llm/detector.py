@@ -13,7 +13,7 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 
-from argus.config.defaults import VRAM_MODEL_MAP
+from argus.config.defaults import PROVIDER_ENDPOINTS, VRAM_MODEL_MAP
 
 
 @dataclass
@@ -95,3 +95,24 @@ def recommend_model(vram_gb: float) -> str | None:
         else:
             break
     return best
+
+
+def list_ollama_models(host: str | None = None) -> list[str]:
+    """Every model name Ollama actually has pulled on this machine, via its
+    `/api/tags` endpoint — so Settings can offer a real choice among models the
+    user already has installed, not just the one size-recommended default.
+    Returns `[]` (never raises) if Ollama isn't running or isn't reachable —
+    this is a nice-to-have list, not something that should break `status`.
+    """
+    import httpx
+
+    base = (host or PROVIDER_ENDPOINTS["ollama"]).replace("/api/chat", "")
+    try:
+        r = httpx.get(f"{base}/api/tags", timeout=2.0)
+        if r.status_code != 200:
+            return []
+        data = r.json()
+        names = [m.get("name") for m in data.get("models", []) if m.get("name")]
+        return sorted(names)
+    except (httpx.HTTPError, ValueError):
+        return []

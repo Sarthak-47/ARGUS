@@ -135,6 +135,7 @@ export interface StatusInfo {
   available: boolean;
   gpu: { vendor: string; name: string; vram_gb: number; detected: boolean };
   recommended_model: string | null;
+  local_models: string[];
   scan_defaults: { depth: string };
   report_defaults: { output_dir: string; format: string };
   agent_count: number;

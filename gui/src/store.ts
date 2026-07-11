@@ -32,6 +32,8 @@ interface State {
   codeLoading: boolean;
   // settings
   provider: string;
+  savingModel: boolean;
+  modelSaveError: string | null;
   // real engine data (null => nothing scanned yet)
   report: LoadedReport | null;
   // real scan history (null => no scans recorded yet)
@@ -84,6 +86,7 @@ interface State {
   setFilter: (f: string) => void;
   select: (id: number | null) => void;
   setProvider: (p: string) => void;
+  setLocalModel: (name: string) => Promise<void>;
   openCodeView: (file: string, line: number) => Promise<void>;
 }
 
@@ -101,6 +104,8 @@ export const useStore = create<State>((set, get) => ({
   codeError: null,
   codeLoading: false,
   provider: "",
+  savingModel: false,
+  modelSaveError: null,
   report: null,
   history: null,
   comparison: null,
@@ -339,6 +344,18 @@ export const useStore = create<State>((set, get) => ({
       invoke("set_provider", { name: p.toLowerCase() })
         .then(() => get().loadStatus())
         .catch(() => { /* keep the local selection even if persisting failed */ });
+    }
+  },
+  setLocalModel: async (name) => {
+    if (!isTauri()) return;
+    set({ savingModel: true, modelSaveError: null });
+    try {
+      await invoke("set_local_model", { name });
+      await get().loadStatus();
+    } catch (err) {
+      set({ modelSaveError: String(err) });
+    } finally {
+      set({ savingModel: false });
     }
   },
 }));

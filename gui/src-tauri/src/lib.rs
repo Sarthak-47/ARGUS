@@ -338,6 +338,21 @@ fn set_provider(name: String) -> Result<(), String> {
   Ok(())
 }
 
+/// Persists the local Ollama model to use via `argus config --model <name>` —
+/// so Settings can offer a real choice among every model already pulled on
+/// this machine, not just the one size-recommended default.
+#[tauri::command]
+fn set_local_model(name: String) -> Result<(), String> {
+  let output = argus_command()?
+    .args(["config", "--model", &name])
+    .output()
+    .map_err(|e| format!("failed to launch argus: {e}"))?;
+  if !output.status.success() {
+    return Err(String::from_utf8_lossy(&output.stderr).into_owned());
+  }
+  Ok(())
+}
+
 /// Persists an API key for a cloud provider via `argus config --provider
 /// <name> --key <key>`.
 #[tauri::command]
@@ -420,8 +435,8 @@ pub fn run() {
   tauri::Builder::default()
     .invoke_handler(tauri::generate_handler![
       run_audit, check_argus_available, read_source_snippet, read_scan_history,
-      read_scan_comparison, read_status, set_provider, save_provider_key, suppress_finding,
-      get_argus_path, set_argus_path, clear_argus_path
+      read_scan_comparison, read_status, set_provider, set_local_model, save_provider_key,
+      suppress_finding, get_argus_path, set_argus_path, clear_argus_path
     ])
     .setup(|app| {
       if let Ok(dir) = app.path().resource_dir() {
