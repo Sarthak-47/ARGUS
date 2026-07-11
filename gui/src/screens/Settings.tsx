@@ -41,9 +41,15 @@ export function Settings() {
         <Head>Argus CLI</Head>
         <div style={{ border: `1px solid ${RF.diluteLo}`, background: RF.glaze, padding: "20px 24px", marginBottom: 44 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: s.argusAvailable ? RF.clay : C.crimson }} />
-            <span style={{ fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: s.argusAvailable ? RF.clayHi : C.crimson }}>
-              {s.argusAvailable === null ? "checking…" : s.argusAvailable ? "found" : "not found"}
+            <span style={{
+              width: 8, height: 8, borderRadius: "50%",
+              background: !s.isDesktop ? RF.diluteLo : s.argusAvailable ? RF.clay : s.argusAvailable === null ? RF.dust : C.crimson,
+            }} />
+            <span style={{
+              fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase",
+              color: !s.isDesktop ? RF.dust : s.argusAvailable ? RF.clayHi : s.argusAvailable === null ? RF.dust : C.crimson,
+            }}>
+              {!s.isDesktop ? "desktop app only" : s.argusAvailable === null ? "checking…" : s.argusAvailable ? "found" : "not found"}
             </span>
             {s.argusPathSaved && (
               <span style={{ fontFamily: FONT.code, fontSize: 11, color: RF.dust }}>— using manually-set path</span>
@@ -160,20 +166,22 @@ function ArgusPathField({
         <input
           value={pathInput}
           onChange={(e) => setPathInput(e.target.value)}
-          placeholder="e.g. C:\path\to\.venv\Scripts\argus.exe or /usr/local/bin/argus"
-          style={{ flex: 1, background: RF.glazeLo, border: `1px solid ${RF.dilute}`, color: RF.parchment, fontFamily: FONT.code, fontSize: 12, padding: "12px 15px", outline: "none" }}
+          disabled={!s.isDesktop}
+          placeholder={s.isDesktop ? "e.g. C:\\path\\to\\.venv\\Scripts\\argus.exe or /usr/local/bin/argus" : "only settable in the desktop app"}
+          style={{ flex: 1, background: RF.glazeLo, border: `1px solid ${RF.dilute}`, color: RF.parchment, fontFamily: FONT.code, fontSize: 12, padding: "12px 15px", outline: "none", opacity: s.isDesktop ? 1 : 0.6 }}
         />
         <button
-          disabled={s.argusPathSaving || !pathInput.trim()}
+          disabled={!s.isDesktop || s.argusPathSaving || !pathInput.trim()}
           onClick={() => s.setArgusPathOverride(pathInput.trim())}
-          style={{ background: RF.glazeLo, border: `1px solid ${RF.dilute}`, color: RF.clay, fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", padding: "0 20px", cursor: pathInput.trim() ? "pointer" : "not-allowed" }}
+          style={{ background: RF.glazeLo, border: `1px solid ${RF.dilute}`, color: RF.clay, fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", padding: "0 20px", cursor: s.isDesktop && pathInput.trim() ? "pointer" : "not-allowed" }}
         >
           {s.argusPathSaving ? "Testing…" : "Save & test"}
         </button>
         {s.argusPathSaved && (
           <button
+            disabled={!s.isDesktop}
             onClick={() => { s.clearArgusPathOverride(); setPathInput(""); }}
-            style={{ background: "transparent", border: `1px solid ${RF.diluteLo}`, color: RF.dust, fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", padding: "0 16px", cursor: "pointer" }}
+            style={{ background: "transparent", border: `1px solid ${RF.diluteLo}`, color: RF.dust, fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", padding: "0 16px", cursor: s.isDesktop ? "pointer" : "not-allowed" }}
           >
             Reset
           </button>

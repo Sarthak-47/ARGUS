@@ -5,6 +5,19 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.6] — 2026-07-11
+
+### Fixed
+- **Saving an Argus CLI path in Settings crashed with a raw JS error**
+  (`Cannot read properties of undefined (reading 'invoke')`) outside the
+  desktop app — the new field added in v1.2.5 wasn't guarded the way every
+  other desktop-only action in the store is. Found by driving every button in
+  the actual browser preview end-to-end.
+- **The "Argus CLI" status showed "checking…" forever** in the browser
+  preview, since there's no backend there to ever resolve it — it now reads
+  "desktop app only" and the path field/buttons are disabled with a clear
+  explanation, instead of implying a check is perpetually in progress.
+
 ## [1.2.5] — 2026-07-11
 
 ### Fixed
@@ -563,7 +576,8 @@ Initial tagged release.
   universal `.dmg`, Linux `.deb`/`.rpm`/`.AppImage`).
 - Local-first LLM support (Ollama) plus BYOK providers (Groq, Gemini, Claude, OpenRouter).
 
-[Unreleased]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.5...HEAD
+[Unreleased]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.6...HEAD
+[1.2.6]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.5...v1.2.6
 [1.2.5]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.4...v1.2.5
 [1.2.4]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.3...v1.2.4
 [1.2.3]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.2...v1.2.3

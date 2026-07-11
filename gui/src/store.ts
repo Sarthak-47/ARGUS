@@ -159,6 +159,10 @@ export const useStore = create<State>((set, get) => ({
   // Re-checks availability/status/history immediately on success so every
   // screen that depends on the engine being reachable updates at once.
   setArgusPathOverride: async (path) => {
+    if (!isTauri()) {
+      set({ argusPathError: "Setting a CLI path only works in the desktop app." });
+      return;
+    }
     set({ argusPathSaving: true, argusPathError: null });
     try {
       await invoke("set_argus_path", { path });
