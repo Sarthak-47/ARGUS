@@ -35,7 +35,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${GITHUB_REF_NAME}"
-          EXISTING_ID=$(gh api "repos/${{ github.repository }}/releases" --jq ".[] | select(.tag_name==\"$TAG\") | .id" | head -1)
+          # A direct by-tag lookup, not a list-all-and-filter — the latter raced
+          # ahead of `gh release create`'s own write on the very first attempt at
+          # this (list-based reads and a just-completed create aren't guaranteed
+          # to be consistent with each other), silently producing an empty id and
+          # sending every platform build's "Build and release" step down the "no
+          # releaseId or tagName, skip all uploads" path — 0 assets despite every
+          # job reporting success. A direct GET by tag doesn't have that gap.
+          EXISTING_ID=$(gh api "repos/${{ github.repository }}/releases/tags/$TAG" --jq .id 2>/dev/null || true)
           if [ -n "$EXISTING_ID" ]; then
             echo "Reusing existing release $EXISTING_ID for $TAG"
             echo "id=$EXISTING_ID" >> "$GITHUB_OUTPUT"
@@ -81,7 +88,19 @@ jobs:
           # left-aligned markdown instead of an indented code block.
           sed -i 's/^          //' /tmp/release_notes.md
           gh release create "$TAG" --draft --title "Argus Desktop $TAG" --notes-file /tmp/release_notes.md
-          NEW_ID=$(gh api "repos/${{ github.repository }}/releases" --jq ".[] | select(.tag_name==\"$TAG\") | .id" | head -1)
+          # Same direct by-tag lookup as above, with a short retry: even a GET
+          # (not a list) has occasionally needed a beat to reflect a write that
+          # just happened microseconds earlier.
+          NEW_ID=""
+          for i in 1 2 3 4 5; do
+            NEW_ID=$(gh api "repos/${{ github.repository }}/releases/tags/$TAG" --jq .id 2>/dev/null || true)
+            [ -n "$NEW_ID" ] && break
+            sleep 2
+          done
+          if [ -z "$NEW_ID" ]; then
+            echo "::error::Could not resolve the release id for $TAG after creating it"
+            exit 1
+          fi
           echo "Created release $NEW_ID for $TAG"
           echo "id=$NEW_ID" >> "$GITHUB_OUTPUT"
 
