@@ -34,7 +34,7 @@ jobs:
 
       - name: Run benchmark suite
         run: |
-          argus benchmark --format markdown --output benchmark-results.md || true
+          argus benchmark --format markdown --output benchmark-results.md
           cat benchmark-results.md >> "$GITHUB_STEP_SUMMARY"
           cat benchmark-results.md
 
