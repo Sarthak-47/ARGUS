@@ -5,6 +5,45 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.10] — 2026-07-11
+
+### Security
+- **Off-origin links/forms/redirects on a target page could enter the attack
+  surface and be requested.** `AttackContext` now enforces the exact
+  scheme+host+port the operator authorized on every request, not just at
+  endpoint discovery — closing the gap between the authorized-target promise
+  and what agents could actually reach.
+- **TLS certificate verification and redirect-following were disabled** on
+  the main attack client and AuthzTester's extra identities, making active
+  scan traffic interceptable and masking real certificate misconfigurations.
+  Both are now on/off by default respectively (httpx's own defaults).
+- **The desktop app shipped with `csp: null`.** Replaced with a strict
+  policy scoped to the app's own origin — a compromised frontend dependency
+  or renderer XSS no longer has an unrestricted blast radius against the
+  native command surface.
+- Docker-compose sandbox runs now use a unique project name per run, instead
+  of the repo directory's default — no more risk of attaching to or tearing
+  down a developer's own running stack.
+- SECURITY.md now states plainly that sandboxing is containment, not a trust
+  boundary.
+
+### Added
+- **Live Attack has a working Cancel button.** No way existed to stop a
+  running scan/attack once started.
+- **`--max-requests`** hard cap on Phase 2 traffic, independent of the
+  existing concurrency limit — a safety backstop against a runaway agent or
+  an overly deep scan.
+- **`argus benchmark --min-detection-rate`** fails the run on a genuine
+  accuracy regression, not just a setup error; the benchmark workflow now
+  runs on tag push (before the draft release is published) instead of after.
+- Dependabot for pip, npm, cargo, and GitHub Actions.
+
+### Fixed
+- DomXSSHunter now degrades cleanly (skip + emit) instead of raising when
+  Playwright is installed but its Chromium binary was never downloaded.
+- The benchmark workflow no longer silences failures with `|| true`.
+- ROADMAP.md's stale v0.2.0/`argus-sec` references updated to current.
+
 ## [1.2.9] — 2026-07-11
 
 ### Fixed
