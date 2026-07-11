@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "argus-panoptes"
-version = "1.2.4"
+version = "1.2.5"
 description = "Argus — AI-powered security audit agent. Point it at a repo. It reads the code, spins up the app, and attacks it."
 readme = "README.md"
 requires-python = ">=3.10"

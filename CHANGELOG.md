@@ -5,6 +5,19 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.5] — 2026-07-11
+
+### Fixed
+- **Desktop app couldn't find `argus` when it isn't on the system PATH at
+  all** — v1.2.4's auto-detection (the `argus` script, `python -m argus`, a
+  couple of user-bin locations) still can't find an install that lives
+  nowhere but a project's own venv, which no path-probing heuristic can guess.
+  Settings now has an "Argus CLI" field: paste the exact path to your `argus`
+  executable (e.g. a venv's `Scripts\argus.exe` or `bin/argus`), it's
+  validated with `--version` before saving, persisted, and takes effect
+  immediately — no restart needed. New Scan's "not found" message now links
+  straight to Settings instead of a dead end.
+
 ## [1.2.4] — 2026-07-11
 
 ### Fixed
@@ -550,7 +563,8 @@ Initial tagged release.
   universal `.dmg`, Linux `.deb`/`.rpm`/`.AppImage`).
 - Local-first LLM support (Ollama) plus BYOK providers (Groq, Gemini, Claude, OpenRouter).
 
-[Unreleased]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.4...HEAD
+[Unreleased]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.5...HEAD
+[1.2.5]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.4...v1.2.5
 [1.2.4]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.3...v1.2.4
 [1.2.3]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.1...v1.2.2
