@@ -1,7 +1,13 @@
 use std::io::{BufRead, BufReader, Read};
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
-use std::sync::Mutex;
-use tauri::{Emitter, Window};
+use std::sync::{Mutex, OnceLock};
+use tauri::{Emitter, Manager, Window};
+
+/// The installed app's own resource directory (set once in `.setup()`), so
+/// `detect_argus` can find the Argus CLI binary bundled directly inside the
+/// installer — see `bundled_argus_path`.
+static RESOURCE_DIR: OnceLock<PathBuf> = OnceLock::new();
 
 const EVENT_SENTINEL: &str = "@@ARGUS_EVENT@@";
 
@@ -34,11 +40,11 @@ struct ArgusCli {
   base_args: Vec<String>,
 }
 
-/// `argus` isn't always on the packaged app's PATH — a GUI launched from the
-/// Dock/Start menu doesn't inherit the shell PATH, and `argus` may only exist
-/// inside a project venv the app has no way to guess. If neither auto-detection
-/// nor a manually-configured path can find it, this is what the user needs to
-/// do about it.
+/// The packaged app ships its own self-contained Argus CLI binary (see
+/// `bundled_argus_path`), so this should be unreachable for anyone running the
+/// installer as-is. It only shows up when running from source without the
+/// bundle present, or if the bundled binary was somehow removed/corrupted —
+/// hence pointing at both a normal install and the manual override.
 const NOT_FOUND_MSG: &str = "Could not find the Argus CLI. Install it with `pip install argus-panoptes`, \
   or set its path manually in Settings (e.g. the `argus`/`argus.exe` inside a venv's \
   Scripts/bin folder).";
@@ -86,15 +92,36 @@ fn probe(program: &str, base_args: &[&str]) -> bool {
     .unwrap_or(false)
 }
 
+/// Path to the Argus CLI binary bundled directly inside this installed app
+/// (see packaging/argus.spec + tauri.{windows,macos,linux}.conf.json's
+/// `bundle.resources`) — a standalone, self-contained executable with no
+/// dependency on a system Python or a separate `pip install argus-panoptes`.
+/// This is what makes the packaged app work out of the box; PATH-based
+/// detection below only matters when running from source in dev mode.
+fn bundled_argus_path() -> Option<PathBuf> {
+  let dir = RESOURCE_DIR.get()?;
+  let name = if cfg!(target_os = "windows") { "argus-cli.exe" } else { "argus-cli" };
+  let candidate = dir.join("argus-cli").join(name);
+  if candidate.exists() { Some(candidate) } else { None }
+}
+
 /// Probe a series of ways to reach the Argus CLI and return the first that
 /// answers `--version`: a manually-configured override first (highest
-/// priority — the user told us exactly where it is), then the `argus` script,
-/// then `python -m argus` (works whenever *some* Python on PATH has it
-/// installed), then a couple of the usual user-install bin locations.
+/// priority — the user told us exactly where it is), then the binary bundled
+/// inside this app (the normal case for anyone who just downloaded the
+/// installer), then the `argus` script, then `python -m argus` (works
+/// whenever *some* Python on PATH has it installed — the dev-from-source
+/// case), then a couple of the usual user-install bin locations.
 fn detect_argus() -> Option<ArgusCli> {
   if let Some(path) = read_override() {
     if probe(&path, &[]) {
       return Some(ArgusCli { program: path, base_args: vec![] });
+    }
+  }
+  if let Some(path) = bundled_argus_path() {
+    let path_str = path.to_string_lossy().into_owned();
+    if probe(&path_str, &[]) {
+      return Some(ArgusCli { program: path_str, base_args: vec![] });
     }
   }
   let mut candidates: Vec<ArgusCli> = vec![ArgusCli { program: "argus".into(), base_args: vec![] }];
@@ -155,9 +182,9 @@ fn argus_command() -> Result<Command, String> {
 
 /// Runs the real Argus engine against `target` and returns the resulting
 /// `report.json` contents. `mode` is "scan" (phase 1 only) or "audit" (phase
-/// 1 + phase 2). Assumes `argus` is on PATH (as installed by `pip install
-/// argus-panoptes`) — this is the desktop shell driving the existing CLI, not
-/// a reimplementation of it.
+/// 1 + phase 2). Resolved via `argus_command`, which normally means the CLI
+/// bundled directly inside this app (see `bundled_argus_path`) — this is the
+/// desktop shell driving the existing CLI, not a reimplementation of it.
 ///
 /// For an `audit`, the child is run with `ARGUS_EVENT_STREAM=1` and its stdout
 /// is read line by line: sentinel-prefixed lines carry a per-agent event we
@@ -397,6 +424,9 @@ pub fn run() {
       get_argus_path, set_argus_path, clear_argus_path
     ])
     .setup(|app| {
+      if let Ok(dir) = app.path().resource_dir() {
+        let _ = RESOURCE_DIR.set(dir);
+      }
       if cfg!(debug_assertions) {
         app.handle().plugin(
           tauri_plugin_log::Builder::default()

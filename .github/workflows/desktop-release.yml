@@ -119,6 +119,24 @@ jobs:
           # other legs, where this is a no-op.
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build the bundled Argus CLI (PyInstaller)
+        shell: bash
+        run: |
+          pip install -e . pyinstaller
+          pyinstaller packaging/argus.spec --distpath dist
+          mkdir -p gui/src-tauri/binaries/argus-cli
+          if [ "${{ matrix.platform }}" = "windows-latest" ]; then
+            cp dist/argus-cli.exe gui/src-tauri/binaries/argus-cli/argus-cli.exe
+          else
+            cp dist/argus-cli gui/src-tauri/binaries/argus-cli/argus-cli
+            chmod +x gui/src-tauri/binaries/argus-cli/argus-cli
+          fi
+
       - name: Install frontend dependencies
         working-directory: gui
         run: npm ci

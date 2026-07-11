@@ -6,6 +6,10 @@ __pycache__/
 .eggs/
 build/
 dist/
+# The PyInstaller-frozen Argus CLI the desktop app bundles as a resource —
+# built fresh by CI (see packaging/argus.spec + .github/workflows/desktop-release.yml)
+# right before the Tauri build, never committed.
+gui/src-tauri/binaries/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
