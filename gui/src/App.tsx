@@ -18,12 +18,14 @@ export default function App() {
   const loadReport = useStore((s) => s.loadReport);
   const loadHistory = useStore((s) => s.loadHistory);
   const loadStatus = useStore((s) => s.loadStatus);
+  const loadArgusPath = useStore((s) => s.loadArgusPath);
 
   useEffect(() => {
     loadReport();
     loadHistory();
     loadStatus();
-  }, [loadReport, loadHistory, loadStatus]);
+    loadArgusPath();
+  }, [loadReport, loadHistory, loadStatus, loadArgusPath]);
 
   // Hash routing: each screen is a separate page (#/reports, #/scan, …), with
   // working back/forward and deep links.

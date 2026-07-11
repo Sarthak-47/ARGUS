@@ -9,11 +9,16 @@ const CLOUD_IDS = new Set(["groq", "gemini", "claude", "openrouter"]);
 export function Settings() {
   const s = useStore();
   const [keyInput, setKeyInput] = useState("");
+  const [pathInput, setPathInput] = useState("");
 
   useEffect(() => {
-    if (s.isDesktop) s.loadStatus();
+    if (s.isDesktop) { s.loadStatus(); s.checkArgusAvailable(); s.loadArgusPath(); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s.isDesktop]);
+
+  useEffect(() => {
+    setPathInput(s.argusPathSaved ?? "");
+  }, [s.argusPathSaved]);
 
   const selectedId = s.provider.toLowerCase();
   const live = s.isDesktop && s.status;
@@ -23,6 +28,34 @@ export function Settings() {
       <ScreenHeader title="Settings" subtitle={live ? "how Argus is configured" : "demo preview — open in the desktop app for real config"} />
 
       <div style={{ padding: "24px 46px 64px", maxWidth: 1200 }}>
+        {s.isDesktop && s.argusAvailable === false && (
+          <div style={{ border: `1px solid ${C.crimson}`, background: "rgba(165,56,42,0.1)", padding: "16px 20px", marginBottom: 26 }}>
+            <div style={{ fontFamily: FONT.body, fontSize: 14, color: C.crimson, marginBottom: 10 }}>
+              Argus couldn't be reached, so nothing below can save or run yet — set the exact path to
+              your <code style={{ fontFamily: FONT.code }}>argus</code> executable and it'll take effect immediately.
+            </div>
+            <ArgusPathField s={s} pathInput={pathInput} setPathInput={setPathInput} />
+          </div>
+        )}
+
+        <Head>Argus CLI</Head>
+        <div style={{ border: `1px solid ${RF.diluteLo}`, background: RF.glaze, padding: "20px 24px", marginBottom: 44 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: s.argusAvailable ? RF.clay : C.crimson }} />
+            <span style={{ fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: s.argusAvailable ? RF.clayHi : C.crimson }}>
+              {s.argusAvailable === null ? "checking…" : s.argusAvailable ? "found" : "not found"}
+            </span>
+            {s.argusPathSaved && (
+              <span style={{ fontFamily: FONT.code, fontSize: 11, color: RF.dust }}>— using manually-set path</span>
+            )}
+          </div>
+          {s.argusAvailable !== false && <ArgusPathField s={s} pathInput={pathInput} setPathInput={setPathInput} />}
+          <div style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 12, color: RF.dust, marginTop: 10 }}>
+            Auto-detected by default. Set this if Argus lives somewhere non-standard — e.g. a project
+            venv's <code style={{ fontFamily: FONT.code }}>Scripts\argus.exe</code> or <code style={{ fontFamily: FONT.code }}>bin/argus</code>.
+          </div>
+        </div>
+
         <Head>LLM provider</Head>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 8, marginBottom: 18 }}>
           {PROVIDERS.map((p) => {
@@ -111,6 +144,45 @@ export function Settings() {
         </div>
       </div>
     </section>
+  );
+}
+
+function ArgusPathField({
+  s, pathInput, setPathInput,
+}: {
+  s: ReturnType<typeof useStore.getState>;
+  pathInput: string;
+  setPathInput: (v: string) => void;
+}) {
+  return (
+    <>
+      <div style={{ display: "flex", gap: 10 }}>
+        <input
+          value={pathInput}
+          onChange={(e) => setPathInput(e.target.value)}
+          placeholder="e.g. C:\path\to\.venv\Scripts\argus.exe or /usr/local/bin/argus"
+          style={{ flex: 1, background: RF.glazeLo, border: `1px solid ${RF.dilute}`, color: RF.parchment, fontFamily: FONT.code, fontSize: 12, padding: "12px 15px", outline: "none" }}
+        />
+        <button
+          disabled={s.argusPathSaving || !pathInput.trim()}
+          onClick={() => s.setArgusPathOverride(pathInput.trim())}
+          style={{ background: RF.glazeLo, border: `1px solid ${RF.dilute}`, color: RF.clay, fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", padding: "0 20px", cursor: pathInput.trim() ? "pointer" : "not-allowed" }}
+        >
+          {s.argusPathSaving ? "Testing…" : "Save & test"}
+        </button>
+        {s.argusPathSaved && (
+          <button
+            onClick={() => { s.clearArgusPathOverride(); setPathInput(""); }}
+            style={{ background: "transparent", border: `1px solid ${RF.diluteLo}`, color: RF.dust, fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", padding: "0 16px", cursor: "pointer" }}
+          >
+            Reset
+          </button>
+        )}
+      </div>
+      {s.argusPathError && (
+        <div style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 13, color: C.crimson, marginTop: 10 }}>{s.argusPathError}</div>
+      )}
+    </>
   );
 }
 

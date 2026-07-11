@@ -32,7 +32,13 @@ export function NewScan() {
         {s.isDesktop && (
           <div style={{ marginBottom: 32, fontFamily: FONT.body, fontStyle: "italic", fontSize: 13 }}>
             {s.argusAvailable === false && (
-              <span style={{ color: C.crimson }}>`argus` was not found on PATH — install it with <code style={{ fontStyle: "normal" }}>pip install argus-panoptes</code> to run real audits.</span>
+              <span style={{ color: C.crimson }}>
+                `argus` couldn't be reached — install it with <code style={{ fontStyle: "normal" }}>pip install argus-panoptes</code>,
+                or set its exact path in{" "}
+                <button onClick={() => s.setScreen("settings")} style={{ background: "none", border: "none", padding: 0, color: C.crimson, textDecoration: "underline", fontStyle: "italic", fontSize: 13, cursor: "pointer" }}>
+                  Settings
+                </button>.
+              </span>
             )}
             {s.argusAvailable && <span style={{ color: RF.dust }}>Desktop shell detected — this invokes the real Argus engine, not demo data.</span>}
             {s.auditError && <div style={{ color: C.crimson, marginTop: 6 }}>{s.auditError}</div>}

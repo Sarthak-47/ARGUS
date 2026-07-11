@@ -50,6 +50,11 @@ interface State {
   auditElapsedSec: number;
   auditError: string | null;
   argusAvailable: boolean | null;
+  // manual "Argus CLI path" override (Settings' escape hatch for when
+  // auto-detection can't find argus — e.g. a project venv install)
+  argusPathSaved: string | null;
+  argusPathSaving: boolean;
+  argusPathError: string | null;
   // live per-agent events streamed from the running engine (desktop only).
   // Empty when nothing has streamed yet — Live Attack falls back to the clock.
   feed: FeedLine[];
@@ -69,6 +74,9 @@ interface State {
   setTarget: (t: string) => void;
   runRealAudit: () => Promise<void>;
   checkArgusAvailable: () => Promise<void>;
+  loadArgusPath: () => Promise<void>;
+  setArgusPathOverride: (path: string) => Promise<void>;
+  clearArgusPathOverride: () => Promise<void>;
   toggleAgent: (n: string) => void;
   selectAllAgents: () => void;
   togglePhase: (p: "phase1" | "phase2") => void;
@@ -106,6 +114,9 @@ export const useStore = create<State>((set, get) => ({
   auditElapsedSec: 0,
   auditError: null,
   argusAvailable: null,
+  argusPathSaved: null,
+  argusPathSaving: false,
+  argusPathError: null,
   feed: [],
   suppressedIds: new Set(),
   suppressionError: null,
@@ -130,6 +141,45 @@ export const useStore = create<State>((set, get) => ({
       set({ argusAvailable: ok });
     } catch {
       set({ argusAvailable: false });
+    }
+  },
+
+  loadArgusPath: async () => {
+    if (!isTauri()) return;
+    try {
+      const saved = await invoke<string | null>("get_argus_path");
+      set({ argusPathSaved: saved ?? null });
+    } catch {
+      /* nothing saved yet */
+    }
+  },
+
+  // Point the app at a specific argus executable — the fix for when
+  // auto-detection can't find it (a project venv, a non-standard install).
+  // Re-checks availability/status/history immediately on success so every
+  // screen that depends on the engine being reachable updates at once.
+  setArgusPathOverride: async (path) => {
+    set({ argusPathSaving: true, argusPathError: null });
+    try {
+      await invoke("set_argus_path", { path });
+      set({ argusPathSaved: path, argusPathSaving: false });
+      await get().checkArgusAvailable();
+      await get().loadStatus();
+      await get().loadHistory();
+    } catch (err) {
+      set({ argusPathSaving: false, argusPathError: String(err) });
+    }
+  },
+
+  clearArgusPathOverride: async () => {
+    if (!isTauri()) return;
+    try {
+      await invoke("clear_argus_path");
+      set({ argusPathSaved: null, argusPathError: null });
+      await get().checkArgusAvailable();
+      await get().loadStatus();
+    } catch (err) {
+      set({ argusPathError: String(err) });
     }
   },
 

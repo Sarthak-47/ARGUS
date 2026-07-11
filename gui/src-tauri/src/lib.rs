@@ -1,6 +1,6 @@
 use std::io::{BufRead, BufReader, Read};
 use std::process::{Command, Stdio};
-use std::sync::OnceLock;
+use std::sync::Mutex;
 use tauri::{Emitter, Window};
 
 const EVENT_SENTINEL: &str = "@@ARGUS_EVENT@@";
@@ -13,19 +13,73 @@ struct ArgusCli {
   base_args: Vec<String>,
 }
 
-/// Probe a series of ways to reach the Argus CLI and cache the first that
-/// answers `--version`. A GUI launched from the Dock/Start menu does NOT inherit
-/// the shell PATH, so a `pip install`'d `argus` is frequently invisible to the
-/// packaged app even though it works fine in a terminal — the single most common
-/// "it says argus isn't installed but it is" complaint. We fall back to
-/// `python -m argus` (works whenever Python is reachable) and a couple of the
-/// usual user-install bin locations.
+/// `argus` isn't always on the packaged app's PATH — a GUI launched from the
+/// Dock/Start menu doesn't inherit the shell PATH, and `argus` may only exist
+/// inside a project venv the app has no way to guess. If neither auto-detection
+/// nor a manually-configured path can find it, this is what the user needs to
+/// do about it.
+const NOT_FOUND_MSG: &str = "Could not find the Argus CLI. Install it with `pip install argus-panoptes`, \
+  or set its path manually in Settings (e.g. the `argus`/`argus.exe` inside a venv's \
+  Scripts/bin folder).";
+
+/// Where the user's manually-configured Argus CLI path is persisted, so it
+/// survives restarts. Written as plain text (just the path) — no need for a
+/// structured config format for a single value.
+fn override_path_file() -> Option<std::path::PathBuf> {
+  let dir = if let Ok(appdata) = std::env::var("APPDATA") {
+    std::path::PathBuf::from(appdata).join("dev.argussec.desktop")
+  } else if let Ok(home) = std::env::var("HOME") {
+    let base = std::path::PathBuf::from(&home);
+    if cfg!(target_os = "macos") {
+      base.join("Library/Application Support/dev.argussec.desktop")
+    } else {
+      base.join(".config/dev.argussec.desktop")
+    }
+  } else {
+    return None;
+  };
+  Some(dir.join("argus_path.txt"))
+}
+
+fn read_override() -> Option<String> {
+  let path = override_path_file()?;
+  let s = std::fs::read_to_string(path).ok()?;
+  let trimmed = s.trim().to_string();
+  if trimmed.is_empty() { None } else { Some(trimmed) }
+}
+
+fn write_override(path: &str) -> Result<(), String> {
+  let file = override_path_file().ok_or("could not determine a config directory")?;
+  if let Some(parent) = file.parent() {
+    std::fs::create_dir_all(parent).map_err(|e| format!("failed to create config dir: {e}"))?;
+  }
+  std::fs::write(&file, path).map_err(|e| format!("failed to save path: {e}"))
+}
+
+fn probe(program: &str, base_args: &[&str]) -> bool {
+  Command::new(program)
+    .args(base_args)
+    .arg("--version")
+    .output()
+    .map(|o| o.status.success())
+    .unwrap_or(false)
+}
+
+/// Probe a series of ways to reach the Argus CLI and return the first that
+/// answers `--version`: a manually-configured override first (highest
+/// priority — the user told us exactly where it is), then the `argus` script,
+/// then `python -m argus` (works whenever *some* Python on PATH has it
+/// installed), then a couple of the usual user-install bin locations.
 fn detect_argus() -> Option<ArgusCli> {
+  if let Some(path) = read_override() {
+    if probe(&path, &[]) {
+      return Some(ArgusCli { program: path, base_args: vec![] });
+    }
+  }
   let mut candidates: Vec<ArgusCli> = vec![ArgusCli { program: "argus".into(), base_args: vec![] }];
   for py in ["python3", "python", "py"] {
     candidates.push(ArgusCli { program: py.into(), base_args: vec!["-m".into(), "argus".into()] });
   }
-  // Common user-site script locations that a Finder/Start-menu launch misses.
   if let Ok(home) = std::env::var("HOME") {
     candidates.push(ArgusCli { program: format!("{home}/.local/bin/argus"), base_args: vec![] });
   }
@@ -33,22 +87,37 @@ fn detect_argus() -> Option<ArgusCli> {
     candidates.push(ArgusCli { program: format!("{profile}\\.local\\bin\\argus.exe"), base_args: vec![] });
   }
   candidates.into_iter().find(|c| {
-    Command::new(&c.program)
-      .args(&c.base_args)
-      .arg("--version")
-      .output()
-      .map(|o| o.status.success())
-      .unwrap_or(false)
+    let refs: Vec<&str> = c.base_args.iter().map(|s| s.as_str()).collect();
+    probe(&c.program, &refs)
   })
 }
 
-fn argus_cli() -> Result<&'static ArgusCli, String> {
-  static CACHE: OnceLock<Option<ArgusCli>> = OnceLock::new();
-  CACHE.get_or_init(detect_argus).as_ref().ok_or_else(|| {
-    "Could not find the Argus CLI. Install it with `pip install argus-panoptes` \
-     and make sure Python is on your PATH."
-      .to_string()
-  })
+/// Cache of the resolved CLI. Unlike a `OnceLock`, this can be invalidated —
+/// `refresh_argus_cli` (called after the user saves a new override path in
+/// Settings) forces the next call to re-probe instead of being stuck forever
+/// on whatever the very first call happened to find (or not find).
+static ARGUS_CACHE: Mutex<Option<ArgusCli>> = Mutex::new(None);
+
+fn argus_cli() -> Result<ArgusCli, String> {
+  {
+    let cache = ARGUS_CACHE.lock().unwrap();
+    if let Some(cli) = cache.as_ref() {
+      return Ok(cli.clone());
+    }
+  }
+  match detect_argus() {
+    Some(cli) => {
+      *ARGUS_CACHE.lock().unwrap() = Some(cli.clone());
+      Ok(cli)
+    }
+    None => Err(NOT_FOUND_MSG.to_string()),
+  }
+}
+
+/// Force the next `argus_cli()` call to re-probe from scratch instead of
+/// reusing a cached result — used after the user saves a new manual path.
+fn refresh_argus_cli() {
+  *ARGUS_CACHE.lock().unwrap() = None;
 }
 
 /// A fresh `Command` for the resolved Argus CLI, with any `-m argus` base args
@@ -257,12 +326,51 @@ fn check_argus_available() -> bool {
   argus_cli().is_ok()
 }
 
+/// Returns the manually-configured Argus CLI path, if the user has set one —
+/// so Settings can show what's currently saved.
+#[tauri::command]
+fn get_argus_path() -> Option<String> {
+  read_override()
+}
+
+/// Validates and saves a manually-configured Argus CLI path (Settings' escape
+/// hatch for when auto-detection can't find it — e.g. a project venv install).
+/// Rejects a path that doesn't actually answer `--version` rather than saving
+/// something broken and failing confusingly later. On success, invalidates the
+/// resolver cache so the new path takes effect immediately, no restart needed.
+#[tauri::command]
+fn set_argus_path(path: String) -> Result<(), String> {
+  let trimmed = path.trim();
+  if trimmed.is_empty() {
+    return Err("Path can't be empty.".to_string());
+  }
+  if !probe(trimmed, &[]) {
+    return Err(format!("`{trimmed} --version` didn't succeed — check the path points at the argus executable."));
+  }
+  write_override(trimmed)?;
+  refresh_argus_cli();
+  Ok(())
+}
+
+/// Clears a manually-configured path, falling back to auto-detection again.
+#[tauri::command]
+fn clear_argus_path() -> Result<(), String> {
+  if let Some(file) = override_path_file() {
+    if file.exists() {
+      std::fs::remove_file(&file).map_err(|e| format!("failed to clear saved path: {e}"))?;
+    }
+  }
+  refresh_argus_cli();
+  Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
     .invoke_handler(tauri::generate_handler![
       run_audit, check_argus_available, read_source_snippet, read_scan_history,
-      read_scan_comparison, read_status, set_provider, save_provider_key, suppress_finding
+      read_scan_comparison, read_status, set_provider, save_provider_key, suppress_finding,
+      get_argus_path, set_argus_path, clear_argus_path
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {
