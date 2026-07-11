@@ -75,6 +75,11 @@ class AttackContext:
         identity_b=None,
     ):
         self.base_url = base_url.rstrip("/")
+        # The attack surface is deliberately constrained to exactly the origin
+        # the operator supplied.  A target page may contain third-party links,
+        # forms, redirects, or poisoned API-spec entries; those must never turn
+        # into requests against a system outside the engagement's scope.
+        self._origin = self._origin_of(self.base_url)
         self.client = client
         # Two authenticated identities enable cross-user authorization testing
         # (BOLA/BFLA). ``identity_a`` is the session already applied to ``client``;
@@ -93,10 +98,21 @@ class AttackContext:
         self.requests_sent = 0
 
     # ----- attack surface -----
+    @staticmethod
+    def _origin_of(url: str) -> tuple[str, str] | None:
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            return None
+        return parsed.scheme.lower(), parsed.netloc.lower()
+
+    def in_scope(self, url: str) -> bool:
+        """Whether ``url`` is on the exact user-authorized origin."""
+        return self._origin is not None and self._origin_of(url) == self._origin
+
     def add_endpoint(self, ep: Endpoint) -> None:
         # Never add a session-destroying endpoint to the surface — no agent
         # should crawl or attack it and log the whole run out.
-        if _destroys_session(ep.url):
+        if not self.in_scope(ep.url) or _destroys_session(ep.url):
             return
         existing = self.endpoints.get(ep.key())
         if existing:
@@ -143,7 +159,7 @@ class BaseAgent:
         # Refuse to request a session-destroying endpoint even if one slips
         # through as a direct URL (e.g. a crawl following a logout link) —
         # this is the last line keeping the authenticated session alive.
-        if _destroys_session(url):
+        if not ctx.in_scope(url) or _destroys_session(url):
             return None
         kwargs.setdefault("timeout", 15.0)
         async with ctx.semaphore:

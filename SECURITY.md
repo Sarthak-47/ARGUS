@@ -22,8 +22,13 @@ full attack flow without touching anything you don't own.
 ## Safety design
 
 - **Phase 1 (static scan)** never executes target code — it only reads it.
-- **Phase 2 (attack)** only touches the target you point it at (`--url`) or an app
-  Argus itself spins up in an isolated sandbox. It does not scan or pivot beyond it.
+- **Phase 2 (attack)** is origin-scoped: it only sends requests to the exact
+  scheme/host/port you point it at (`--url`). Target-controlled external links,
+  form actions, API specs, and redirects are not followed out of scope.
+- **Sandboxing is containment, not a trust boundary.** Argus isolates a target
+  container from the host and uses a unique Compose project, but a target build
+  can still need outbound network access. Only sandbox repositories you trust;
+  use `--url` for an already-running, separately isolated target.
 - The callback server used for blind-vulnerability detection binds to localhost.
 - Secrets found during scanning are **masked** in output and reports.
 

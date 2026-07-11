@@ -90,6 +90,7 @@ class Sandbox:
         self._container = None
         self._image_id: str | None = None
         self._compose_file: Path | None = None  # set only when running via docker compose
+        self._compose_project: str | None = None
 
     def start(self, timeout: float = 60.0) -> str:
         dockerfile_info = dockerfile_gen.find_existing_dockerfile(self.root) or dockerfile_gen.generate_dockerfile(self.root)
@@ -181,9 +182,13 @@ class Sandbox:
                 "available. Start the stack yourself and use --url instead."
             )
         self._compose_file = compose_file
+        # Never reuse the repository directory's default Compose project name:
+        # doing so could attach to, or tear down, a developer's existing stack.
+        self._compose_project = f"argus-{uuid.uuid4().hex[:10]}"
         try:
             subprocess.run(
-                ["docker", "compose", "-f", str(compose_file), "up", "-d", "--build"],
+                ["docker", "compose", "--project-name", self._compose_project,
+                 "-f", str(compose_file), "up", "-d", "--build"],
                 cwd=str(self.root), capture_output=True, text=True, timeout=300, check=True,
             )
         except subprocess.CalledProcessError as exc:
@@ -215,7 +220,8 @@ class Sandbox:
 
             try:
                 subprocess.run(
-                    ["docker", "compose", "-f", str(self._compose_file), "down", "-v"],
+                    ["docker", "compose", "--project-name", self._compose_project or "argus",
+                     "-f", str(self._compose_file), "down", "-v"],
                     cwd=str(self.root), capture_output=True, text=True, timeout=120,
                 )
             except (subprocess.SubprocessError, OSError):
