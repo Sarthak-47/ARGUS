@@ -237,6 +237,11 @@ def benchmark(
     ),
     fmt: str = typer.Option("markdown", "--format", help="markdown | json"),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="Write the report to this file instead of stdout."),
+    min_detection_rate: Optional[float] = typer.Option(
+        None, "--min-detection-rate",
+        help="Fail (exit 1) if any case's detection rate falls below this (0.0-1.0) — "
+             "for gating a release on a real accuracy regression, not just a setup error.",
+    ),
 ) -> None:
     """Run Argus against known-vulnerable apps and report a real detection rate.
 
@@ -271,6 +276,13 @@ def benchmark(
 
     if any(r.error for r in results):
         raise typer.Exit(code=1)
+
+    if min_detection_rate is not None:
+        regressed = [r for r in results if r.detection_rate < min_detection_rate]
+        if regressed:
+            names_str = ", ".join(f"{r.case} ({r.detection_rate:.0%})" for r in regressed)
+            out.error(f"Detection rate below {min_detection_rate:.0%} threshold: {names_str}")
+            raise typer.Exit(code=1)
 
 
 # --------------------------------------------------------------------------- #

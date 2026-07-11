@@ -1,15 +1,18 @@
 # Benchmarks Argus against known-vulnerable apps (OWASP Juice Shop, DVWA,
 # VAmPI) plus the bundled demo target, and publishes a real detection rate —
 # see argus/benchmark.py and ROADMAP.md's "Proof is marketing" note. Runs on
-# every release and can be triggered manually. ubuntu-latest has a live Docker
-# daemon, so the Docker-based cases genuinely pull and attack real images here
-# even though a local dev machine may not have Docker running.
+# every version tag push — before the draft release is manually published —
+# so a real accuracy regression is visible and failing here is a signal to
+# hold the release, not a fact reported after the release already went out.
+# Also runnable manually. ubuntu-latest has a live Docker daemon, so the
+# Docker-based cases genuinely pull and attack real images here even though a
+# local dev machine may not have Docker running.
 
 name: Benchmark
 
 on:
-  release:
-    types: [published]
+  push:
+    tags: ["v*"]
   workflow_dispatch: {}
 
 jobs:
@@ -34,7 +37,7 @@ jobs:
 
       - name: Run benchmark suite
         run: |
-          argus benchmark --format markdown --output benchmark-results.md
+          argus benchmark --format markdown --output benchmark-results.md --min-detection-rate 0.5
           cat benchmark-results.md >> "$GITHUB_STEP_SUMMARY"
           cat benchmark-results.md
 
