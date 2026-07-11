@@ -5,6 +5,27 @@ use tauri::{Emitter, Window};
 
 const EVENT_SENTINEL: &str = "@@ARGUS_EVENT@@";
 
+/// Windows flashes a visible console window for every spawned console-mode
+/// subprocess (argus, python, py) unless CREATE_NO_WINDOW is set — invisible
+/// on other platforms, but on Windows this GUI app was popping and closing a
+/// cmd window for every single probe/invocation, repeatedly, which is exactly
+/// what looked like the app "flickering and hanging."
+#[cfg(target_os = "windows")]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+/// A `Command` that never flashes a console window on Windows — use this
+/// everywhere instead of `Command::new` directly.
+fn new_command(program: &str) -> Command {
+  #[allow(unused_mut)]
+  let mut cmd = Command::new(program);
+  #[cfg(target_os = "windows")]
+  {
+    use std::os::windows::process::CommandExt;
+    cmd.creation_flags(CREATE_NO_WINDOW);
+  }
+  cmd
+}
+
 /// How to invoke the Argus CLI: either the `argus` console script, or a Python
 /// interpreter with `-m argus`.
 #[derive(Clone)]
@@ -57,7 +78,7 @@ fn write_override(path: &str) -> Result<(), String> {
 }
 
 fn probe(program: &str, base_args: &[&str]) -> bool {
-  Command::new(program)
+  new_command(program)
     .args(base_args)
     .arg("--version")
     .output()
@@ -92,26 +113,29 @@ fn detect_argus() -> Option<ArgusCli> {
   })
 }
 
-/// Cache of the resolved CLI. Unlike a `OnceLock`, this can be invalidated —
+/// Cache of the resolved CLI, memoizing both outcomes: `Some(None)` means "we
+/// already probed this session and found nothing" — not just `None` meaning
+/// "never probed." Without caching the negative case too, every failed check
+/// (New Scan's availability check, Settings loading status, the sidebar,
+/// every screen's mount effect) re-ran the *entire* probe list — the `argus`
+/// script, three Python interpreters, two fallback bin paths — from scratch,
+/// each spawning its own subprocess. On Windows that's what showed up as a
+/// storm of console windows flashing open and closed and the UI feeling stuck
+/// while it churned through all of them, repeatedly, on every navigation.
 /// `refresh_argus_cli` (called after the user saves a new override path in
-/// Settings) forces the next call to re-probe instead of being stuck forever
-/// on whatever the very first call happened to find (or not find).
-static ARGUS_CACHE: Mutex<Option<ArgusCli>> = Mutex::new(None);
+/// Settings) resets this to "never probed" so the next call re-checks fresh.
+static ARGUS_CACHE: Mutex<Option<Option<ArgusCli>>> = Mutex::new(None);
 
 fn argus_cli() -> Result<ArgusCli, String> {
   {
     let cache = ARGUS_CACHE.lock().unwrap();
-    if let Some(cli) = cache.as_ref() {
-      return Ok(cli.clone());
+    if let Some(cached) = cache.as_ref() {
+      return cached.clone().ok_or_else(|| NOT_FOUND_MSG.to_string());
     }
   }
-  match detect_argus() {
-    Some(cli) => {
-      *ARGUS_CACHE.lock().unwrap() = Some(cli.clone());
-      Ok(cli)
-    }
-    None => Err(NOT_FOUND_MSG.to_string()),
-  }
+  let found = detect_argus();
+  *ARGUS_CACHE.lock().unwrap() = Some(found.clone());
+  found.ok_or_else(|| NOT_FOUND_MSG.to_string())
 }
 
 /// Force the next `argus_cli()` call to re-probe from scratch instead of
@@ -124,7 +148,7 @@ fn refresh_argus_cli() {
 /// already applied — append the subcommand and flags as usual.
 fn argus_command() -> Result<Command, String> {
   let cli = argus_cli()?;
-  let mut cmd = Command::new(&cli.program);
+  let mut cmd = new_command(&cli.program);
   cmd.args(&cli.base_args);
   Ok(cmd)
 }

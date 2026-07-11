@@ -5,6 +5,24 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.7] — 2026-07-11
+
+### Fixed
+- **Windows: every backend call flashed a visible console window.** Spawning
+  `argus`/`python` from a GUI app on Windows opens a console window for each
+  subprocess unless explicitly suppressed — the desktop app never suppressed
+  it, so every check flickered a cmd window open and closed.
+- **The same failed check re-ran the entire detection probe from scratch,
+  repeatedly.** Only a *successful* CLI resolution was cached; a failure
+  wasn't, so every screen's mount effect (New Scan, Settings, the sidebar)
+  independently re-probed the full candidate list — the `argus` script, three
+  Python interpreters, two fallback paths — on every navigation. Combined with
+  the console-flash bug, this is what showed up as a storm of windows opening
+  and closing before the app settled back into the same unresolved state.
+  Both outcomes (found and not-found) are now cached for the session, and
+  reset only when the user explicitly saves or clears a manual CLI path in
+  Settings.
+
 ## [1.2.6] — 2026-07-11
 
 ### Fixed
@@ -576,7 +594,8 @@ Initial tagged release.
   universal `.dmg`, Linux `.deb`/`.rpm`/`.AppImage`).
 - Local-first LLM support (Ollama) plus BYOK providers (Groq, Gemini, Claude, OpenRouter).
 
-[Unreleased]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.6...HEAD
+[Unreleased]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.7...HEAD
+[1.2.7]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.6...v1.2.7
 [1.2.6]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.5...v1.2.6
 [1.2.5]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.4...v1.2.5
 [1.2.4]: https://github.com/Sarthak-47/ARGUS/compare/v1.2.3...v1.2.4
