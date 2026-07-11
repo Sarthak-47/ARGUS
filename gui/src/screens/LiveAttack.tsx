@@ -21,9 +21,22 @@ export function LiveAttack() {
           title="Live Attack"
           subtitle={`${s.phase2 ? "Phase 1 + Phase 2" : "Phase 1"} against ${s.target}`}
           action={
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
               <span style={{ width: 9, height: 9, borderRadius: "50%", background: RF.oxbloodHi, animation: "argusPulse 1.4s ease-in-out infinite" }} />
               <span style={{ fontFamily: FONT.display, fontSize: 28, fontWeight: 700, color: RF.clay, letterSpacing: "0.04em", fontVariantNumeric: "tabular-nums" }}>{elapsed}</span>
+              {s.isDesktop && (
+                <button
+                  disabled={s.auditCanceling}
+                  onClick={() => s.cancelAudit()}
+                  style={{
+                    fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase",
+                    color: RF.dust, background: "transparent", border: `1px solid ${RF.diluteLo}`, padding: "8px 16px",
+                    cursor: s.auditCanceling ? "wait" : "pointer",
+                  }}
+                >
+                  {s.auditCanceling ? "Canceling…" : "Cancel"}
+                </button>
+              )}
             </div>
           }
         />
