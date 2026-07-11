@@ -1,7 +1,7 @@
 {
   "bundle": {
     "resources": {
-      "binaries/argus-cli/argus-cli.exe": "argus-cli/argus-cli.exe"
+      "binaries/argus-cli": "argus-cli"
     }
   }
 }

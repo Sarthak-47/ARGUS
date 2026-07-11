@@ -87,6 +87,16 @@ jobs:
             gui/src-tauri/target
           key: ${{ runner.os }}-cargo-${{ hashFiles('gui/src-tauri/Cargo.lock') }}
 
+      - name: Stub the bundled Argus CLI resource
+        # tauri_build::build() (run by cargo's build script, even for `cargo
+        # check`) verifies every declared bundle.resources path exists on disk.
+        # The real binary is only produced by the desktop-release workflow's
+        # PyInstaller step; a fast compile-error-catching job like this one
+        # doesn't need a working binary, just a file at the expected path.
+        run: |
+          mkdir -p gui/src-tauri/binaries/argus-cli
+          touch gui/src-tauri/binaries/argus-cli/argus-cli
+
       - name: cargo check (fast compile-error catch, no full build)
         working-directory: gui/src-tauri
         run: cargo check
