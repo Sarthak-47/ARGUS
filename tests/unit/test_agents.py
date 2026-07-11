@@ -124,6 +124,24 @@ async def test_request_refuses_to_hit_off_origin_url():
     assert ctx.requests_sent == 0  # never even sent
 
 
+@pytest.mark.asyncio
+async def test_request_stops_once_max_requests_budget_is_exhausted():
+    def handler(request):
+        return httpx.Response(200, text="ok")
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    ctx = AttackContext("http://t", client=client, max_requests=2)
+    agent = BaseAgent()
+
+    r1 = await agent.get(ctx, "http://t/a")
+    r2 = await agent.get(ctx, "http://t/b")
+    r3 = await agent.get(ctx, "http://t/c")
+
+    assert r1 is not None and r2 is not None
+    assert r3 is None
+    assert ctx.requests_sent == 2
+
+
 def test_with_param_sets_query():
     url = _with_param("http://t/users", "name", "1' OR '1'='1")
     assert "name=" in url

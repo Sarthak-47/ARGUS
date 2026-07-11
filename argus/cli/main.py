@@ -172,11 +172,16 @@ def attack(
     auth: Optional[str] = typer.Option(None, "--auth", help="Path to a .argus-auth.toml so agents attack the logged-in surface (auto-discovered in the working dir if present)."),
     auth_b: Optional[str] = typer.Option(None, "--auth-b", help="A second identity's auth file — enables BOLA/BFLA cross-user authorization testing (ideally a low-privilege account)."),
     api_spec: Optional[str] = typer.Option(None, "--api-spec", help="OpenAPI/Swagger/Postman/GraphQL spec (file or URL) to seed the attack surface."),
+    max_requests: Optional[int] = typer.Option(
+        None, "--max-requests", help="Hard cap on total requests sent to the target — a safety backstop "
+                                      "against a runaway agent or an overly deep scan hammering the target."
+    ),
 ) -> None:
     """Phase 2 — attack agent. Actively exploit a running app."""
     from argus.pipeline import run_attack
 
-    run_attack(target=target, url=url, agents=agents, auth=auth, auth_b=auth_b, api_spec=api_spec)
+    run_attack(target=target, url=url, agents=agents, auth=auth, auth_b=auth_b,
+               api_spec=api_spec, max_requests=max_requests)
 
 
 # --------------------------------------------------------------------------- #
@@ -190,11 +195,16 @@ def audit(
     auth: Optional[str] = typer.Option(None, "--auth", help="Path to a .argus-auth.toml so Phase 2 attacks the logged-in surface."),
     auth_b: Optional[str] = typer.Option(None, "--auth-b", help="A second identity's auth file — enables BOLA/BFLA cross-user authorization testing."),
     api_spec: Optional[str] = typer.Option(None, "--api-spec", help="OpenAPI/Swagger/Postman/GraphQL spec (file or URL) to seed the attack surface."),
+    max_requests: Optional[int] = typer.Option(
+        None, "--max-requests", help="Hard cap on total requests sent to the target during Phase 2 — a safety "
+                                      "backstop against a runaway agent or an overly deep scan."
+    ),
 ) -> None:
     """Full pipeline — Phase 1 static analysis then Phase 2 attack."""
     from argus.pipeline import run_audit
 
-    run_audit(target, fix=fix, agents=agents, auth=auth, auth_b=auth_b, api_spec=api_spec)
+    run_audit(target, fix=fix, agents=agents, auth=auth, auth_b=auth_b,
+              api_spec=api_spec, max_requests=max_requests)
 
 
 # --------------------------------------------------------------------------- #

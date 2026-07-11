@@ -67,6 +67,7 @@ class AttackContext:
         *,
         client: httpx.AsyncClient,
         concurrency: int = 10,
+        max_requests: int | None = None,
         prior_findings: list[Finding] | None = None,
         callback=None,
         provider=None,
@@ -96,6 +97,12 @@ class AttackContext:
         self.semaphore = asyncio.Semaphore(concurrency)
         self._on_event = on_event
         self.requests_sent = 0
+        # A hard ceiling on total requests against the target, independent of
+        # concurrency (which only bounds how many run *at once*, not how many
+        # run in total) — a safety backstop against a runaway agent or a
+        # misconfigured deep scan hammering someone else's production system.
+        self.max_requests = max_requests
+        self._budget_exhausted_notified = False
 
     # ----- attack surface -----
     @staticmethod
@@ -160,6 +167,12 @@ class BaseAgent:
         # through as a direct URL (e.g. a crawl following a logout link) —
         # this is the last line keeping the authenticated session alive.
         if not ctx.in_scope(url) or _destroys_session(url):
+            return None
+        if ctx.max_requests is not None and ctx.requests_sent >= ctx.max_requests:
+            if not ctx._budget_exhausted_notified:
+                ctx._budget_exhausted_notified = True
+                ctx.emit("engine", f"request budget of {ctx.max_requests} reached — "
+                                    "remaining probes are being skipped", "crit")
             return None
         kwargs.setdefault("timeout", 15.0)
         async with ctx.semaphore:
