@@ -92,20 +92,23 @@ jobs:
           # strip that indentation back out so the release notes render as normal
           # left-aligned markdown instead of an indented code block.
           sed -i 's/^          //' /tmp/release_notes.md
-          gh release create "$TAG" --draft --title "Argus Desktop $TAG" --notes-file /tmp/release_notes.md
-          # Same direct by-tag lookup as above, with a short retry: even a GET
-          # (not a list) has occasionally needed a beat to reflect a write that
-          # just happened microseconds earlier.
-          NEW_ID=""
-          for i in 1 2 3 4 5; do
-            if NEW_ID=$(gh api "repos/${{ github.repository }}/releases/tags/$TAG" --jq .id 2>/dev/null); then
-              break
-            fi
-            NEW_ID=""
-            sleep 2
-          done
+          # A raw API POST, not `gh release create` — GitHub's tag<->release
+          # association lags behind the release write itself just enough that
+          # *any* follow-up lookup (list-and-filter, or even a direct GET by
+          # tag with retries) intermittently 404ed against a release that
+          # unquestionably existed (`gh release create` even printed an
+          # "untagged-<sha>" URL for it once, before the tag association had
+          # caught up). Reading the id straight out of the creation response
+          # itself has no such race — there's no second request to be stale.
+          NEW_ID=$(gh api "repos/${{ github.repository }}/releases" -X POST \
+            -f tag_name="$TAG" \
+            -f name="Argus Desktop $TAG" \
+            -f body=@/tmp/release_notes.md \
+            -F draft=true \
+            -F prerelease=false \
+            --jq .id)
           if [ -z "$NEW_ID" ]; then
-            echo "::error::Could not resolve the release id for $TAG after creating it"
+            echo "::error::Release creation returned no id"
             exit 1
           fi
           echo "Created release $NEW_ID for $TAG"
