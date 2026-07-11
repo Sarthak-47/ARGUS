@@ -13,9 +13,80 @@ on:
     tags: ["v*"]
 
 jobs:
-  build:
+  # Creates the draft release once, up front. The three platform builds below
+  # run in parallel and each used to independently ask tauri-action to
+  # "create or find a release for this tag" — under that race, more than one
+  # build found nothing yet and created its own release, silently splitting
+  # the installers across two separate drafts for the same tag (each job
+  # still reported success). Pre-creating it here and having every build job
+  # attach to that one release id removes the race entirely.
+  create-release:
     permissions:
-      contents: write   # tauri-action creates/updates the GitHub Release
+      contents: write
+    runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.create.outputs.id }}
+    steps:
+      - name: Create draft release
+        id: create
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          EXISTING_ID=$(gh api "repos/${{ github.repository }}/releases" --jq ".[] | select(.tag_name==\"$TAG\") | .id" | head -1)
+          if [ -n "$EXISTING_ID" ]; then
+            echo "Reusing existing release $EXISTING_ID for $TAG"
+            echo "id=$EXISTING_ID" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          cat > /tmp/release_notes.md <<'BODY'
+          **Argus** is an AI-powered security audit tool — point it at a repo, it reads the
+          code, spins up the app, and attacks it.
+
+          This release is the desktop app: five screens (Dashboard, New Scan, Live Attack,
+          Reports, Settings) that can run the real Argus engine against a target.
+
+          ## Install
+
+          | Platform | Download |
+          |---|---|
+          | Windows | the `.exe` installer (or `.msi`) |
+          | macOS (Intel or Apple Silicon) | the `universal.dmg` |
+          | Debian / Ubuntu | the `.deb` |
+          | Fedora / RHEL / openSUSE | the `.rpm` |
+          | Any Linux, no install | the `.AppImage` (`chmod +x` and run) |
+
+          The `Source code` assets are just the repo snapshot at this tag, not something to
+          install.
+
+          ## Before you run a real scan
+
+          The desktop app drives the `argus` CLI. Install the engine first — `pip install
+          argus-panoptes`, or if that package isn't published yet, build from source: clone this
+          repo, then `pip install -e .`. Without it, the app still opens, but falls back to
+          bundled demo data.
+
+          ## Known limitations
+
+          - **Unsigned build** — Windows SmartScreen / macOS Gatekeeper will warn on first
+            launch. Expected for now; code signing is on the roadmap.
+
+          Full docs: [README](https://github.com/Sarthak-47/ARGUS#readme) ·
+          [Security policy](https://github.com/Sarthak-47/ARGUS/blob/main/SECURITY.md)
+          BODY
+          # The heredoc above is indented to stay inside this YAML `run:` block —
+          # strip that indentation back out so the release notes render as normal
+          # left-aligned markdown instead of an indented code block.
+          sed -i 's/^          //' /tmp/release_notes.md
+          gh release create "$TAG" --draft --title "Argus Desktop $TAG" --notes-file /tmp/release_notes.md
+          NEW_ID=$(gh api "repos/${{ github.repository }}/releases" --jq ".[] | select(.tag_name==\"$TAG\") | .id" | head -1)
+          echo "Created release $NEW_ID for $TAG"
+          echo "id=$NEW_ID" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: create-release
+    permissions:
+      contents: write   # tauri-action uploads assets to the pre-created release
     strategy:
       fail-fast: false
       matrix:
@@ -58,42 +129,5 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: gui
-          tagName: ${{ github.ref_name }}
-          releaseName: "Argus Desktop ${{ github.ref_name }}"
-          releaseBody: |
-            **Argus** is an AI-powered security audit tool — point it at a repo, it reads the
-            code, spins up the app, and attacks it.
-
-            This release is the desktop app: five screens (Dashboard, New Scan, Live Attack,
-            Reports, Settings) that can run the real Argus engine against a target.
-
-            ## Install
-
-            | Platform | Download |
-            |---|---|
-            | Windows | the `.exe` installer (or `.msi`) |
-            | macOS (Intel or Apple Silicon) | the `universal.dmg` |
-            | Debian / Ubuntu | the `.deb` |
-            | Fedora / RHEL / openSUSE | the `.rpm` |
-            | Any Linux, no install | the `.AppImage` (`chmod +x` and run) |
-
-            The `Source code` assets are just the repo snapshot at this tag, not something to
-            install.
-
-            ## Before you run a real scan
-
-            The desktop app drives the `argus` CLI. Install the engine first — `pip install
-            argus-panoptes`, or if that package isn't published yet, build from source: clone this
-            repo, then `pip install -e .`. Without it, the app still opens, but falls back to
-            bundled demo data.
-
-            ## Known limitations
-
-            - **Unsigned build** — Windows SmartScreen / macOS Gatekeeper will warn on first
-              launch. Expected for now; code signing is on the roadmap.
-
-            Full docs: [README](https://github.com/Sarthak-47/ARGUS#readme) ·
-            [Security policy](https://github.com/Sarthak-47/ARGUS/blob/main/SECURITY.md)
-          releaseDraft: true
-          prerelease: false
+          releaseId: ${{ needs.create-release.outputs.release_id }}
           args: ${{ matrix.platform == 'macos-latest' && '--target universal-apple-darwin' || '' }}
