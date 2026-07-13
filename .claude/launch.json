@@ -7,6 +7,13 @@
       "runtimeArgs": ["run", "dev"],
       "port": 5173,
       "cwd": "gui"
+    },
+    {
+      "name": "argus-website",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "4321"],
+      "port": 4321,
+      "cwd": "website"
     }
   ]
 }
