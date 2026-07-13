@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Download — Argus</title>
+<meta name="description" content="Download the Argus desktop app for Windows, macOS, or Linux, or install the CLI from PyPI. No account, no telemetry." />
+<link rel="icon" type="image/png" href="../assets/argus-logo.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../assets/style.css" />
+</head>
+<body>
+
+<div class="meander top"></div>
+<header>
+  <nav class="wrap">
+    <div class="brand"><a href=".." style="display:flex;align-items:center;gap:12px;color:inherit;"><img src="../assets/argus-logo.png" alt="" />ARGUS</a></div>
+    <div class="links">
+      <a href="../docs/">Docs</a>
+      <a href="." class="active">Download</a>
+      <a href="../changelog/">Changelog</a>
+      <a href="https://github.com/Sarthak-47/ARGUS" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </nav>
+</header>
+
+<section class="hero small wrap">
+  <div class="crest small"><img src="../assets/argus-logo.png" alt="" /></div>
+  <div class="eyebrow">v1.2.12 · Free · Open Source</div>
+  <h1 class="wordmark page">No account. No telemetry. Ever.</h1>
+  <p class="sub">Every installer below is built and published by the same public CI that builds every Argus release — see the <a href="https://github.com/Sarthak-47/ARGUS/blob/main/.github/workflows/desktop-release.yml" target="_blank" rel="noopener">workflow</a> yourself.</p>
+</section>
+
+<section class="num tight">
+  <div class="wrap">
+    <div class="num-head"><span class="idx">01</span><span class="kicker">Desktop app</span></div>
+    <h2>The full engine, in a native shell.</h2>
+    <p class="lede">Tauri wraps the same Python engine that powers the CLI — live attack feed, reports, and settings, driving real scans, not demo data.</p>
+    <div class="os-grid">
+      <div class="os-card">
+        <h4>Windows</h4>
+        <p>NSIS installer (.exe) or MSI — x86_64</p>
+        <a href="https://github.com/Sarthak-47/ARGUS/releases/latest" target="_blank" rel="noopener">Latest release →</a>
+      </div>
+      <div class="os-card">
+        <h4>macOS</h4>
+        <p>Universal .dmg — Apple Silicon (M1+) and Intel</p>
+        <a href="https://github.com/Sarthak-47/ARGUS/releases/latest" target="_blank" rel="noopener">Latest release →</a>
+      </div>
+      <div class="os-card">
+        <h4>Linux</h4>
+        <p>.deb (Debian/Ubuntu) · .rpm (Fedora/RHEL) · .AppImage (any distro)</p>
+        <a href="https://github.com/Sarthak-47/ARGUS/releases/latest" target="_blank" rel="noopener">Latest release →</a>
+      </div>
+    </div>
+    <p style="font-size:15.5px; color:var(--dust);">All 7 installer assets are attached to every
+    <a href="https://github.com/Sarthak-47/ARGUS/releases" target="_blank" rel="noopener">GitHub release</a> —
+    the version number is baked into the filename, so grab whatever's newest from the releases page rather
+    than a link that goes stale next release.</p>
+  </div>
+</section>
+
+<section class="num alt tight">
+  <div class="wrap">
+    <div class="num-head"><span class="idx">02</span><span class="kicker">Command line</span></div>
+    <h2>One package, every OS.</h2>
+    <div><code class="install" onclick="copyInstall(this)"><span>pip install argus-panoptes</span><span class="copy">COPY</span></code></div>
+    <p class="lede" style="margin-top:0;">Then run <code style="font-family:var(--code); color:var(--clayHi);">argus demo</code> — a zero-setup showcase against a bundled, intentionally-vulnerable app, nothing external touched.</p>
+    <p style="font-size:15.5px; color:var(--dust);">Need the optional extras? <code style="font-family:var(--code);">pip install 'argus-panoptes[sandbox,browser,mcp]'</code> adds Docker sandboxing, JS-aware crawling, and the MCP server.</p>
+  </div>
+</section>
+
+<section class="num tight">
+  <div class="wrap">
+    <div class="num-head"><span class="idx">03</span><span class="kicker">Docker</span></div>
+    <h2>Bundled Semgrep, zero local install.</h2>
+    <div class="terminal">
+      <div class="bar"><span></span><span></span><span></span></div>
+      <pre>docker build -t argus .
+docker run --rm -v "$PWD:/src" argus scan /src --no-llm</pre>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="meander" style="margin-bottom:40px;"></div>
+  <div class="wrap">
+    <div class="motto">It never slept. It saw everything.</div>
+    <div class="flinks">
+      <a href="../">Home</a>
+      <a href="../docs/">Docs</a>
+      <a href="../changelog/">Changelog</a>
+      <a href="https://github.com/Sarthak-47/ARGUS" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://pypi.org/project/argus-panoptes/" target="_blank" rel="noopener">PyPI</a>
+    </div>
+    <div class="legal">© 2026 Argus. Built for the AI-agent era, not just the AI-code era.</div>
+  </div>
+</footer>
+
+<script>
+function copyInstall(el){
+  const text = el.querySelector('span').textContent;
+  navigator.clipboard?.writeText(text);
+  const label = el.querySelector('.copy');
+  const prev = label.textContent;
+  label.textContent = 'COPIED';
+  setTimeout(()=>label.textContent = prev, 1400);
+}
+</script>
+
+</body>
+</html>

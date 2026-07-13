@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Docs — Argus</title>
+<meta name="description" content="How to install and use Argus — CLI commands, CI integration, authenticated scanning, the MCP server, and the pre-commit hook." />
+<link rel="icon" type="image/png" href="../assets/argus-logo.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../assets/style.css" />
+</head>
+<body>
+
+<div class="meander top"></div>
+<header>
+  <nav class="wrap">
+    <div class="brand"><a href=".." style="display:flex;align-items:center;gap:12px;color:inherit;"><img src="../assets/argus-logo.png" alt="" />ARGUS</a></div>
+    <div class="links">
+      <a href="." class="active">Docs</a>
+      <a href="../download/">Download</a>
+      <a href="../changelog/">Changelog</a>
+      <a href="https://github.com/Sarthak-47/ARGUS" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </nav>
+</header>
+
+<section class="hero small wrap">
+  <div class="crest small"><img src="../assets/argus-logo.png" alt="" /></div>
+  <div class="eyebrow">Documentation</div>
+  <h1 class="wordmark page">How to use Argus</h1>
+  <p class="sub">Every command below is real — copied straight from what ships, nothing aspirational.</p>
+</section>
+
+<section class="num tight">
+  <div class="wrap">
+    <div class="docs-nav">
+      <a href="#install">Install &amp; commands</a>
+      <a href="#docker">Docker</a>
+      <a href="#ci">CI</a>
+      <a href="#auth">Auth &amp; API specs</a>
+      <a href="#mcp">MCP server</a>
+      <a href="#precommit">Pre-commit</a>
+      <a href="#fix">Auto-fix PRs</a>
+      <a href="#export">DefectDojo / Jira / VEX</a>
+    </div>
+
+    <div class="doc-block" id="install">
+      <h3>Install &amp; use</h3>
+      <pre><code>pip install argus-panoptes
+
+argus demo                                # zero-setup showcase — see it work in 30s
+argus setup                               # first-time wizard (detects GPU, picks an LLM)
+argus scan &lt;repo-url|path&gt;                # Phase 1 — static analysis
+argus scan &lt;path&gt; --deep                  # + full LLM free-form review of high-risk files
+argus scan &lt;path&gt; --taint                 # + LLM taint-tracing: only complete source-to-sink flows
+argus attack --url http://localhost:3000  # Phase 2 — attack a running app
+argus audit &lt;repo-url&gt;                    # Phase 1 + Phase 2
+argus fix &lt;path&gt;                          # generate patches for fixable findings (dry-run)
+argus fix &lt;path&gt; --apply                  # write the patches to disk
+argus fix &lt;path&gt; --apply --pr             # + commit to a branch, push, and open a GitHub PR
+argus report --format html                # export the last scan (html|json|markdown|sarif|sbom|vex|jira|pdf)
+argus history                             # risk-score trend across past scans
+argus compare                             # what's new/fixed since the last scan
+argus suppress "&lt;finding title&gt;"          # mark a finding ignored — stops it recurring
+argus surface                             # endpoints remembered across attack runs
+argus status                              # resolved LLM provider, detected GPU, configured defaults</code></pre>
+      <p>No LLM configured? Argus still runs the full deterministic scan — built-in rules, dependency
+      audit, secret detection. Pick a <b style="color:var(--clayHi);">local model</b> via Ollama (private,
+      offline) or bring your own Groq/Gemini/Claude/OpenRouter key. <code>argus setup</code> detects your
+      GPU and recommends a model that fits your VRAM.</p>
+    </div>
+
+    <div class="doc-block" id="docker">
+      <h3>Run in Docker</h3>
+      <p>Bundles Semgrep and the dependency auditors, so the container gets Argus's fullest static
+      analysis without installing anything locally.</p>
+      <pre><code>docker build -t argus .
+docker run --rm -v "$PWD:/src" argus scan /src --no-llm</code></pre>
+    </div>
+
+    <div class="doc-block" id="ci">
+      <h3>Put it in CI</h3>
+      <p>Add Argus to any repo and publish findings to GitHub's <b style="color:var(--clayHi);">Security tab</b>:</p>
+      <pre><code>- uses: Sarthak-47/ARGUS@main
+  id: argus
+  with:
+    target: "."
+    fail-on: "critical"      # fail the build on critical findings
+- uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: ${{ steps.argus.outputs.sarif-file }}</code></pre>
+      <p>For finer control than one severity threshold, drop a <code>.argus-policy.toml</code> at the repo
+      root (or pass <code>--policy &lt;file&gt;</code>) to fail/warn/ignore per category, detector, or
+      confirmed status. <code>--diff-base main</code> reports only findings in files a PR changed, so a
+      pre-existing backlog doesn't fail the build — or snapshot that backlog once with
+      <code>--write-baseline</code> and scan against it forever after with <code>--baseline</code>.
+      Add <code>pr-comments: "true"</code> to the Action and Argus posts each new finding as an inline
+      PR review comment too (idempotent — safe to leave on unconditionally).</p>
+    </div>
+
+    <div class="doc-block" id="auth">
+      <h3>Attack behind a login</h3>
+      <p>Most real apps hide their interesting surface behind auth. Give Argus a session and the whole
+      swarm — including ReconBot's crawl — acts as the logged-in user:</p>
+      <pre><code>argus attack --url http://localhost:3000 --auth .argus-auth.toml</code></pre>
+      <p>A <code>.argus-auth.toml</code> supports a bearer token, arbitrary headers, session cookies, HTTP
+      basic, a CSRF-aware form login, and OAuth2 client-credentials. Add a second identity with
+      <code>--auth-b &lt;file&gt;</code> and Argus tests broken object/function-level authorization
+      (BOLA/BFLA) — only the "protected-from-anonymous yet reachable-cross-user" pattern is flagged, so
+      public endpoints never false-positive.</p>
+      <p>Modern APIs are spec-defined, not link-crawlable — hand Argus the spec directly:</p>
+      <pre><code>argus attack --url http://localhost:3000 --api-spec openapi.yaml</code></pre>
+      <p>Accepts OpenAPI 3.x, Swagger 2.0, Postman v2, and a GraphQL introspection dump — file or URL. No
+      flag? ReconBot auto-discovers a spec on its own at the usual paths.</p>
+    </div>
+
+    <div class="doc-block" id="mcp">
+      <h3>Run it from your editor (MCP server)</h3>
+      <pre><code>pip install 'argus-panoptes[mcp]'
+argus mcp-server</code></pre>
+      <p>Exposes <code>argus_scan</code>, <code>argus_attack</code>, and <code>argus_fix</code> as MCP
+      tools, so Copilot, Cursor, or Claude Code can run a real scan/attack/fix directly — point your MCP
+      client's config at the <code>argus mcp-server</code> command (stdio transport).</p>
+    </div>
+
+    <div class="doc-block" id="precommit">
+      <h3>Catch it before it commits</h3>
+      <p>The cheapest way to use Argus: block a hardcoded secret or an obvious vulnerable pattern before
+      it ever lands in git history. Add to <code>.pre-commit-config.yaml</code>:</p>
+      <pre><code>repos:
+  - repo: https://github.com/Sarthak-47/ARGUS
+    rev: v1.2.12
+    hooks:
+      - id: argus            # blocks on HIGH+ findings (use argus-strict for MEDIUM+)</code></pre>
+      <p>Then <code>pre-commit install</code>. Deterministic passes only (secrets + built-in rules) — no
+      LLM, no network — fast enough for every commit. Standalone: <code>argus precommit</code> scans your
+      currently-staged files.</p>
+    </div>
+
+    <div class="doc-block" id="fix">
+      <h3>Auto-fix pull requests</h3>
+      <p><code>argus fix --apply</code> writes safe, reverified patches to disk — re-scans afterward to
+      confirm each patch actually closed the finding. Add <code>--pr</code> and it commits them to a new
+      branch, pushes it, and opens a real GitHub pull request with each finding's explanation in the
+      description.</p>
+    </div>
+
+    <div class="doc-block" id="export">
+      <h3>Send findings to DefectDojo, Jira, or export VEX</h3>
+      <p><b style="color:var(--clayHi);">DefectDojo</b>: no new format needed — <code>argus scan --format
+      sarif</code> is DefectDojo-compatible as-is via its built-in SARIF import type.</p>
+      <p><b style="color:var(--clayHi);">Jira</b>: <code>argus report --format jira</code> writes a
+      ready-to-import CSV — one issue per finding, priority mapped from severity. No Jira API or
+      credentials needed.</p>
+      <p><b style="color:var(--clayHi);">VEX</b>: <code>argus report --format vex</code> writes a
+      CycloneDX 1.5 VEX document — a per-CVE exploitability statement for every dependency finding, driven
+      by the same reachability analysis that already downgrades unimported packages.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="meander" style="margin-bottom:40px;"></div>
+  <div class="wrap">
+    <div class="motto">It never slept. It saw everything.</div>
+    <div class="flinks">
+      <a href="../">Home</a>
+      <a href="../download/">Download</a>
+      <a href="../changelog/">Changelog</a>
+      <a href="https://github.com/Sarthak-47/ARGUS" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://pypi.org/project/argus-panoptes/" target="_blank" rel="noopener">PyPI</a>
+    </div>
+    <div class="legal">© 2026 Argus. Built for the AI-agent era, not just the AI-code era.</div>
+  </div>
+</footer>
+
+</body>
+</html>

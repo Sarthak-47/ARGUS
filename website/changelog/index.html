@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Changelog — Argus</title>
+<meta name="description" content="What's changed in Argus, release by release." />
+<link rel="icon" type="image/png" href="../assets/argus-logo.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../assets/style.css" />
+</head>
+<body>
+
+<div class="meander top"></div>
+<header>
+  <nav class="wrap">
+    <div class="brand"><a href=".." style="display:flex;align-items:center;gap:12px;color:inherit;"><img src="../assets/argus-logo.png" alt="" />ARGUS</a></div>
+    <div class="links">
+      <a href="../docs/">Docs</a>
+      <a href="../download/">Download</a>
+      <a href="." class="active">Changelog</a>
+      <a href="https://github.com/Sarthak-47/ARGUS" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </nav>
+</header>
+
+<section class="hero small wrap">
+  <div class="crest small"><img src="../assets/argus-logo.png" alt="" /></div>
+  <div class="eyebrow">Changelog</div>
+  <h1 class="wordmark page">What changed, and why.</h1>
+  <p class="sub">The recent history below is a copy of <a href="https://github.com/Sarthak-47/ARGUS/blob/main/CHANGELOG.md" target="_blank" rel="noopener">CHANGELOG.md</a> — see that file for the complete record back to v0.1.0.</p>
+</section>
+
+<section class="num tight">
+  <div class="wrap">
+
+    <div class="rel-entry">
+      <h3>1.2.12</h3>
+      <span class="date">2026-07-11</span>
+      <h4>Fixed</h4>
+      <ul>
+        <li><b>Path-probing agents (ReconBot, CrawlerBot) reported fake findings on any site with a catch-all/SPA-fallback handler.</b> A site that serves the same page with HTTP 200 for every unmatched route was misread as "found <code>/.env</code>" (CRITICAL), fake Jenkins/phpMyAdmin/WordPress panels, and more — reproduced live: 28 fake findings, risk score 99/CRITICAL, on a static site with zero real exposure. Fixed with shared, correctly-truncated baseline-comparison helpers used by both agents. Verified: the same target now correctly scores 46/MEDIUM.</li>
+        <li>The same false-positive class existed in three more agents, found via a full audit: AuthzTester (BOLA/BFLA), HeaderPoker (access-control-bypass-via-header), and Injector (time-based blind SQLi reusing a stale baseline timing). All three now confirm a genuine, baseline-distinct signal before reporting.</li>
+        <li>Risk scoring itself was not miscalibrated — a single real HIGH-severity finding is deliberately meant to floor the score at 70+. The "always above 70" symptom was these false-positive findings manufacturing a floor that shouldn't have applied.</li>
+      </ul>
+    </div>
+
+    <div class="rel-entry">
+      <h3>1.2.11</h3>
+      <span class="date">2026-07-11</span>
+      <h4>Security</h4>
+      <ul>
+        <li><b>Off-origin links/forms/redirects on a target page could enter the attack surface and be requested.</b> Every request now enforces the exact scheme+host+port the operator authorized.</li>
+        <li>TLS certificate verification and redirect-following were disabled on the main attack client — both are now on/off by default.</li>
+        <li>The desktop app shipped with <code>csp: null</code> — replaced with a strict policy scoped to the app's own origin.</li>
+        <li>Docker-compose sandbox runs now use a unique project name per run.</li>
+      </ul>
+      <h4>Added</h4>
+      <ul>
+        <li>Live Attack has a working Cancel button.</li>
+        <li><code>--max-requests</code> hard cap on Phase 2 traffic, independent of the concurrency limit.</li>
+        <li><code>argus benchmark --min-detection-rate</code> gates a release on a genuine accuracy regression; the benchmark workflow now runs before the draft release is published, not after.</li>
+      </ul>
+    </div>
+
+    <div class="rel-entry">
+      <h3>1.2.9</h3>
+      <span class="date">2026-07-11</span>
+      <h4>Fixed</h4>
+      <ul>
+        <li>Dashboard showed a different risk band than Reports for the same scan — a threshold mismatch between the frontend and backend, now matched exactly.</li>
+        <li>"Strike the app" (Live Attack) showed nothing for a Docker-unavailable or URL-shaped target — both fixed: URL targets bypass Docker entirely, and a genuine skip now streams a real event instead of going silent.</li>
+      </ul>
+      <h4>Changed</h4>
+      <ul>
+        <li>Settings: removed the Argus CLI section — no longer needed now that the backend is bundled directly inside the installer.</li>
+        <li>Settings: pick your own local Ollama model instead of only ever seeing the one size-recommended default.</li>
+      </ul>
+    </div>
+
+    <div class="rel-entry">
+      <h3>1.2.8</h3>
+      <span class="date">2026-07-11</span>
+      <h4>Changed</h4>
+      <ul>
+        <li>The desktop app now bundles the Argus CLI directly inside the installer instead of depending on a separately <code>pip install</code>'d <code>argus</code> reachable on PATH — the root cause behind every "argus not found" report.</li>
+      </ul>
+    </div>
+
+    <p style="margin-top:20px;"><a href="https://github.com/Sarthak-47/ARGUS/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Full history back to v0.1.0 on GitHub →</a></p>
+  </div>
+</section>
+
+<footer>
+  <div class="meander" style="margin-bottom:40px;"></div>
+  <div class="wrap">
+    <div class="motto">It never slept. It saw everything.</div>
+    <div class="flinks">
+      <a href="../">Home</a>
+      <a href="../docs/">Docs</a>
+      <a href="../download/">Download</a>
+      <a href="https://github.com/Sarthak-47/ARGUS" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://pypi.org/project/argus-panoptes/" target="_blank" rel="noopener">PyPI</a>
+    </div>
+    <div class="legal">© 2026 Argus. Built for the AI-agent era, not just the AI-code era.</div>
+  </div>
+</footer>
+
+</body>
+</html>

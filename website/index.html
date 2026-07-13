@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Argus — the hundred-eyed security auditor</title>
 <meta name="description" content="Argus reads your code, then spins your app up and actually attacks it. Named after Argus Panoptes — the hundred-eyed giant who never slept and saw everything. Free, open source, local-model capable." />
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%230d0906'/%3E%3Cpath d='M8 50 Q50 14 92 50 Q50 86 8 50 Z' fill='none' stroke='%23c56a33' stroke-width='5'/%3E%3Ccircle cx='50' cy='50' r='14' fill='%23a5382a'/%3E%3Ccircle cx='50' cy='50' r='5' fill='%230d0906'/%3E%3C/svg%3E" />
+<link rel="icon" type="image/png" href="assets/argus-logo.png" />
 <meta property="og:title" content="Argus — the hundred-eyed security auditor" />
 <meta property="og:description" content="Static scanners tell you what looks wrong. Argus proves it — it attacks your app for real, then explains every finding in plain English." />
 <meta property="og:image" content="assets/og-image.svg" />
@@ -13,158 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<style>
-  :root{
-    --obsidian:#0d0906; --glaze:#17110a; --glazeLo:#0d0906; --relief:#5c3a1e;
-    --clay:#c56a33; --clayHi:#e0a163; --clayLo:#a9552a; --dilute:#7d4f28; --diluteLo:#5c3a1e;
-    --oxblood:#a5382a; --oxbloodHi:#c24a30; --ivory:#ece0c6; --parchment:#cbbb9c; --dust:#9d7c54;
-    --display:'Cinzel', 'Trajan Pro', Georgia, serif;
-    --body:'Cormorant Garamond', Palatino, Georgia, serif;
-    --code:'JetBrains Mono', 'Consolas', monospace;
-  }
-  *{box-sizing:border-box;}
-  html{scroll-behavior:smooth;}
-  body{
-    margin:0; background:var(--obsidian); color:var(--parchment); font-family:var(--body);
-    font-size:19px; line-height:1.65; -webkit-font-smoothing:antialiased;
-  }
-  a{color:var(--clayHi); text-decoration:none;}
-  a:hover{text-decoration:underline; text-decoration-color:var(--dilute);}
-  .wrap{max-width:1080px; margin:0 auto; padding:0 28px;}
-
-  /* texture */
-  body::before{
-    content:""; position:fixed; inset:0; pointer-events:none; z-index:5; opacity:.05;
-    mix-blend-mode:overlay;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  }
-
-  .meander{
-    height:16px; background-repeat:repeat-x; background-position:center; opacity:.75;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='16' viewBox='0 0 44 16'%3E%3Cg fill='none' stroke='%23c56a33' stroke-width='1.4'%3E%3Cpath d='M0 13 H44 M5 13 V4 H17 V10 H10 V7 M27 13 V4 H39 V10 H32 V7'/%3E%3C/g%3E%3C/svg%3E");
-  }
-  .meander.top{border-bottom:1px solid var(--relief);}
-  .meander.bottom{border-top:1px solid var(--relief);}
-
-  header{position:sticky; top:0; z-index:20; background:rgba(13,9,6,.92); backdrop-filter:blur(6px);}
-  nav.wrap{display:flex; align-items:center; justify-content:space-between; padding:16px 28px;}
-  .brand{display:flex; align-items:center; gap:12px; font-family:var(--display); letter-spacing:.14em; font-size:16px; color:var(--clayHi);}
-  .brand svg{display:block;}
-  nav .links{display:flex; gap:26px; font-family:var(--display); font-size:11px; letter-spacing:.14em; text-transform:uppercase;}
-  nav .links a{color:var(--dust);}
-  nav .links a:hover{color:var(--clayHi);}
-
-  /* hero */
-  .hero{padding:96px 0 70px; text-align:center; position:relative;}
-  .hero .crest{width:110px; height:auto; margin:0 auto 30px; opacity:.92; animation:breathe 5.5s ease-in-out infinite;}
-  .hero .crest svg{display:block;}
-  @keyframes breathe{0%,100%{opacity:.78; transform:scale(1);} 50%{opacity:1; transform:scale(1.035);}}
-  .eyebrow{font-family:var(--display); font-size:11px; letter-spacing:.32em; text-transform:uppercase; color:var(--dust); margin-bottom:18px;}
-  h1.wordmark{font-family:var(--display); font-weight:700; font-size:clamp(48px,8vw,88px); letter-spacing:.08em; margin:0; color:var(--ivory);
-    text-shadow:0 0 40px rgba(197,106,51,.18);}
-  .hero .tagline{font-style:italic; font-size:24px; color:var(--parchment); max-width:640px; margin:22px auto 8px;}
-  .hero .sub{font-size:19px; color:var(--dust); max-width:620px; margin:0 auto 38px;}
-  .cta-row{display:flex; gap:16px; justify-content:center; flex-wrap:wrap; margin-bottom:34px;}
-  .btn{font-family:var(--display); font-size:12px; letter-spacing:.14em; text-transform:uppercase; padding:15px 28px;
-    border:1px solid var(--dilute); cursor:pointer; transition:.15s;}
-  .btn.primary{background:linear-gradient(180deg, var(--clay), var(--clayLo)); color:#1b1006; border-color:var(--clay);}
-  .btn.primary:hover{filter:brightness(1.1); text-decoration:none;}
-  .btn.ghost{background:transparent; color:var(--clayHi);}
-  .btn.ghost:hover{background:var(--glaze); text-decoration:none;}
-  .install{display:inline-flex; align-items:center; gap:12px; font-family:var(--code); font-size:14px; color:var(--parchment);
-    background:var(--glaze); border:1px solid var(--diluteLo); padding:13px 20px; margin-bottom:38px; cursor:pointer;}
-  .install:hover{border-color:var(--dilute);}
-  .install .copy{color:var(--dust); font-size:11px; letter-spacing:.08em;}
-
-  .stats{display:flex; justify-content:center; gap:0; flex-wrap:wrap; border-top:1px solid var(--relief); border-bottom:1px solid var(--relief); padding:26px 0;}
-  .stat{padding:0 34px; text-align:center; border-right:1px solid var(--relief);}
-  .stat:last-child{border-right:none;}
-  .stat .n{font-family:var(--display); font-size:26px; color:var(--clayHi);}
-  .stat .l{font-family:var(--display); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--dust); margin-top:6px;}
-
-  /* sections */
-  section.num{padding:86px 0;}
-  section.num.alt{background:var(--glaze);}
-  .num-head{display:flex; align-items:baseline; gap:18px; margin-bottom:14px;}
-  .num-head .idx{font-family:var(--display); font-size:14px; color:var(--dilute); letter-spacing:.1em;}
-  .num-head .kicker{font-family:var(--display); font-size:11px; letter-spacing:.24em; text-transform:uppercase; color:var(--dust);}
-  h2{font-family:var(--display); font-weight:600; font-size:clamp(28px,4vw,38px); color:var(--ivory); margin:0 0 20px; line-height:1.25;}
-  .lede{font-size:20px; color:var(--parchment); max-width:640px; margin-bottom:38px;}
-  .lede i{color:var(--clayHi); font-style:italic;}
-
-  /* terminal */
-  .terminal{background:#0a0704; border:1px solid var(--diluteLo); font-family:var(--code); font-size:13.5px; overflow-x:auto;}
-  .terminal .bar{display:flex; gap:7px; padding:11px 16px; border-bottom:1px solid var(--diluteLo); background:var(--glaze);}
-  .terminal .bar span{width:9px; height:9px; border-radius:50%; background:var(--diluteLo);}
-  .terminal pre{margin:0; padding:22px 26px; color:var(--parchment); white-space:pre-wrap; line-height:1.7;}
-  .terminal .ok{color:var(--clayHi);}
-  .terminal .crit{color:var(--oxbloodHi);}
-  .terminal .dim{color:var(--dust);}
-
-  /* two-phase */
-  .phase-grid{display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--relief); border:1px solid var(--relief);}
-  .phase{background:var(--obsidian); padding:32px;}
-  .phase .ph-n{font-family:var(--display); font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--dust); margin-bottom:10px;}
-  .phase h3{font-family:var(--display); font-size:20px; color:var(--clayHi); margin:0 0 12px;}
-  .phase p{font-size:17px; color:var(--parchment); margin:0;}
-
-  /* eye grid — the swarm */
-  .swarm{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:2px; background:var(--relief); border:1px solid var(--relief);}
-  .agent{background:var(--glaze); padding:20px 16px; position:relative; cursor:default; transition:.15s;}
-  .agent:hover{background:var(--ember,#221a10);}
-  .agent svg{display:block; margin-bottom:10px;}
-  .agent .name{font-family:var(--display); font-size:11.5px; letter-spacing:.06em; color:var(--clayHi);}
-  .agent .desc{display:none; font-size:13.5px; color:var(--dust); margin-top:8px; line-height:1.4;}
-  .agent:hover .desc{display:block;}
-
-  /* benchmark scoreboard */
-  .bench{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:1px; background:var(--relief); border:1px solid var(--relief); margin-bottom:26px;}
-  .bcell{background:var(--obsidian); padding:26px 20px; text-align:center;}
-  .bcell .pct{font-family:var(--display); font-size:34px; color:var(--clayHi);}
-  .bcell .target{font-family:var(--code); font-size:12px; color:var(--dust); margin-top:8px;}
-  .honest{font-size:16.5px; color:var(--dust); font-style:italic; max-width:680px;}
-
-  /* meets-you-grid */
-  .meet{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1px; background:var(--relief); border:1px solid var(--relief);}
-  .meet div{background:var(--glaze); padding:26px 24px;}
-  .meet h4{font-family:var(--display); font-size:14px; letter-spacing:.05em; color:var(--clayHi); margin:0 0 8px;}
-  .meet p{font-size:15.5px; color:var(--dust); margin:0;}
-  .meet code{font-family:var(--code); font-size:12px; color:var(--parchment); background:var(--ember,#221a10); padding:2px 6px;}
-
-  /* comparison table */
-  table.cmp{width:100%; border-collapse:collapse; font-size:15.5px;}
-  table.cmp th, table.cmp td{border:1px solid var(--relief); padding:12px 14px; text-align:center;}
-  table.cmp th{font-family:var(--display); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--dust); font-weight:500;}
-  table.cmp td:first-child, table.cmp th:first-child{text-align:left; font-family:var(--display); font-size:13px; color:var(--parchment);}
-  table.cmp tr.us td{color:var(--clayHi); font-weight:600; background:rgba(197,106,51,.06);}
-  table.cmp tr.us td:first-child{color:var(--clayHi);}
-
-  /* download */
-  .os-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-bottom:30px;}
-  .os-card{border:1px solid var(--diluteLo); padding:26px 24px; background:var(--glaze);}
-  .os-card h4{font-family:var(--display); font-size:15px; color:var(--clayHi); margin:0 0 6px;}
-  .os-card p{font-size:14.5px; color:var(--dust); margin:0 0 16px;}
-  .os-card a{font-family:var(--display); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ivory);}
-
-  /* faq */
-  details{border-bottom:1px solid var(--relief); padding:20px 0;}
-  details summary{font-family:var(--display); font-size:16px; color:var(--parchment); cursor:pointer; list-style:none;}
-  details summary::-webkit-details-marker{display:none;}
-  details summary::before{content:"◇ "; color:var(--clay);}
-  details[open] summary::before{content:"◆ "; color:var(--oxbloodHi);}
-  details p{font-size:16.5px; color:var(--dust); margin:14px 0 0 20px;}
-
-  footer{padding:60px 0 48px; text-align:center;}
-  footer .motto{font-family:var(--display); font-style:normal; font-size:13px; letter-spacing:.18em; text-transform:uppercase; color:var(--dust); margin-bottom:18px;}
-  footer .flinks{display:flex; gap:22px; justify-content:center; font-family:var(--display); font-size:11px; letter-spacing:.1em; text-transform:uppercase; margin-bottom:20px;}
-  footer .flinks a{color:var(--dust);}
-  footer .flinks a:hover{color:var(--clayHi);}
-  footer .legal{font-size:13px; color:var(--relief);}
-
-  @media (max-width:720px){
-    .phase-grid{grid-template-columns:1fr;}
-  }
-</style>
+<link rel="stylesheet" href="assets/style.css" />
 </head>
 <body>
 
@@ -172,18 +21,14 @@
 <header>
   <nav class="wrap">
     <div class="brand">
-      <svg width="26" height="26" viewBox="0 0 100 100" aria-hidden="true">
-        <circle cx="50" cy="50" r="46" fill="none" stroke="#7d4f28" stroke-width="2.5"/>
-        <path d="M8 50 Q50 14 92 50 Q50 86 8 50 Z" fill="none" stroke="#c56a33" stroke-width="4"/>
-        <circle cx="50" cy="50" r="13" fill="#a5382a" stroke="#7d4f28" stroke-width="2"/>
-        <circle cx="50" cy="50" r="4" fill="#0d0906"/>
-      </svg>
+      <img src="assets/argus-logo.png" alt="" />
       ARGUS
     </div>
     <div class="links">
       <a href="#swarm">Swarm</a>
-      <a href="#proof">Proof</a>
-      <a href="#download">Download</a>
+      <a href="docs/">Docs</a>
+      <a href="download/">Download</a>
+      <a href="changelog/">Changelog</a>
       <a href="https://github.com/Sarthak-47/ARGUS" target="_blank" rel="noopener">GitHub</a>
     </div>
   </nav>
@@ -191,22 +36,7 @@
 
 <section class="hero wrap">
   <div class="crest" role="img" aria-label="Argus crest">
-    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-      <g fill="none" stroke="#c56a33" stroke-width="4">
-        <circle cx="100" cy="100" r="92"/>
-      </g>
-      <g fill="#c56a33">
-        <path d="M100 20 L112 52 L100 44 L88 52 Z"/>
-        <path d="M42 34 L64 60 L52 56 L44 68 Z"/>
-        <path d="M158 34 L136 60 L148 56 L156 68 Z"/>
-        <path d="M100 180 L112 148 L100 156 L88 148 Z"/>
-        <path d="M42 166 L64 140 L52 144 L44 132 Z"/>
-        <path d="M158 166 L136 140 L148 144 L156 132 Z"/>
-      </g>
-      <path d="M18 100 Q100 40 182 100 Q100 160 18 100 Z" fill="none" stroke="#e0a163" stroke-width="5"/>
-      <circle cx="100" cy="100" r="30" fill="#a5382a" stroke="#7d4f28" stroke-width="3"/>
-      <circle cx="100" cy="100" r="10" fill="#0d0906"/>
-    </svg>
+    <img src="assets/argus-logo.png" alt="" />
   </div>
   <div class="eyebrow">Free · Open Source · MIT</div>
   <h1 class="wordmark">ARGUS</h1>
@@ -306,6 +136,7 @@ Risk Score 98/100  [<span class="crit">CRITICAL</span>]
       <div><h4>Pre-commit hook</h4><p>Catch a hardcoded secret or an injectable query before it ever reaches a PR.</p></div>
       <div><h4>Local or BYOK</h4><p>Run fully offline against a local Ollama model, or bring your own Groq/Gemini/Claude/OpenRouter key.</p></div>
     </div>
+    <p style="margin-top:26px;"><a href="docs/">Read the full docs — install flags, CI setup, MCP, pre-commit →</a></p>
   </div>
 </section>
 
@@ -336,6 +167,7 @@ Risk Score 98/100  [<span class="crit">CRITICAL</span>]
       <div class="os-card"><h4>Linux</h4><p>.deb · .rpm · .AppImage</p><a href="https://github.com/Sarthak-47/ARGUS/releases/latest" target="_blank" rel="noopener">Latest release →</a></div>
     </div>
     <div><code class="install" onclick="copyInstall(this)"><span>pip install argus-panoptes</span><span class="copy">COPY</span></code></div>
+    <p style="margin-top:6px;"><a href="download/">All platforms, checksums & verification steps →</a></p>
   </div>
 </section>
 
@@ -367,9 +199,11 @@ Risk Score 98/100  [<span class="crit">CRITICAL</span>]
   <div class="wrap">
     <div class="motto">It never slept. It saw everything.</div>
     <div class="flinks">
+      <a href="docs/">Docs</a>
+      <a href="download/">Download</a>
+      <a href="changelog/">Changelog</a>
       <a href="https://github.com/Sarthak-47/ARGUS" target="_blank" rel="noopener">GitHub</a>
       <a href="https://pypi.org/project/argus-panoptes/" target="_blank" rel="noopener">PyPI</a>
-      <a href="https://github.com/Sarthak-47/ARGUS/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Changelog</a>
       <a href="https://github.com/Sarthak-47/ARGUS/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
     </div>
     <div class="legal">© 2026 Argus. Built for the AI-agent era, not just the AI-code era.</div>
@@ -413,13 +247,15 @@ AGENTS.forEach(([name, desc]) => {
   const card = document.createElement('div');
   card.className = 'agent';
   card.innerHTML = `
-    <svg viewBox="0 0 24 15" width="26" height="16" aria-hidden="true">
-      <g fill="none" stroke="#c56a33" stroke-width="1.6">
-        <path d="M2 7.5 Q12 1 22 7.5 Q12 14 2 7.5 Z" />
-        <circle cx="12" cy="7.5" r="2.6" fill="#7d4f28" stroke="none" />
-      </g>
-    </svg>
-    <div class="name">${name}</div>
+    <div class="face">
+      <svg viewBox="0 0 24 15" width="26" height="16" aria-hidden="true">
+        <g fill="none" stroke="#c56a33" stroke-width="1.6">
+          <path d="M2 7.5 Q12 1 22 7.5 Q12 14 2 7.5 Z" />
+          <circle cx="12" cy="7.5" r="2.6" fill="#7d4f28" stroke="none" />
+        </g>
+      </svg>
+      <div class="name">${name}</div>
+    </div>
     <div class="desc">${desc}</div>
   `;
   grid.appendChild(card);
