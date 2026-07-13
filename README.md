@@ -9,6 +9,8 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-B8860B.svg)](https://www.python.org)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-B8860B.svg)](CONTRIBUTING.md)
 
+**[View the website →](https://sarthak-47.github.io/ARGUS/)**
+
 </div>
 
 ---
