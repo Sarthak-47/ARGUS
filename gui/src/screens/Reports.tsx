@@ -1,6 +1,7 @@
 import { C, RF, FONT, sevColor, bandColor, bandLabel } from "../theme";
 import { useStore } from "../store";
 import { EyeGlyph, EyeField, TerracottaMark, ScreenHeader } from "../components/Panoptes";
+import type { ComparisonFinding } from "../adapter";
 
 const SEV_NAME: Record<string, string> = { CRITICAL: "Critical", HIGH: "High", MEDIUM: "Medium", LOW: "Low", INFO: "Info" };
 
@@ -74,10 +75,26 @@ export function Reports() {
               {mortal > 0 ? ` — ${mortal} of them critical.` : "."}
             </p>
 
-            {s.comparison && (s.comparison.new_findings.length > 0 || s.comparison.fixed_findings.length > 0) && (
-              <div style={{ display: "flex", gap: 34, marginTop: 20, paddingTop: 18, borderTop: `1px solid rgba(125,79,40,0.3)` }}>
-                <ChangeList label="Newly opened" color={C.crimson} items={s.comparison.new_findings.map((f) => f.title)} />
-                <ChangeList label="Closed since" color="#6f9e57" items={s.comparison.fixed_findings.map((f) => f.title)} />
+            {s.comparison && (
+              <div style={{ marginTop: 20, paddingTop: 18, borderTop: `1px solid rgba(125,79,40,0.3)` }}>
+                {s.comparison.new_findings.length === 0 && s.comparison.fixed_findings.length === 0 ? (
+                  <p style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 13, color: C.stoneText, margin: 0 }}>
+                    No change since the last scan of this target
+                    {s.comparison.unchanged_count > 0 ? ` — ${s.comparison.unchanged_count} finding${s.comparison.unchanged_count === 1 ? "" : "s"} carried over.` : "."}
+                  </p>
+                ) : (
+                  <>
+                    <div style={{ display: "flex", gap: 34 }}>
+                      <ChangeList label="Newly opened" color={C.crimson} items={s.comparison.new_findings} />
+                      <ChangeList label="Closed since" color="#6f9e57" items={s.comparison.fixed_findings} />
+                    </div>
+                    {s.comparison.unchanged_count > 0 && (
+                      <p style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 12, color: C.stoneText, margin: "10px 0 0" }}>
+                        {s.comparison.unchanged_count} other finding{s.comparison.unchanged_count === 1 ? "" : "s"} unchanged.
+                      </p>
+                    )}
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -240,7 +257,7 @@ function Section({ title, children, last }: { title: string; children: React.Rea
 function SubCap({ children, color }: { children: React.ReactNode; color: string }) {
   return <div style={{ fontFamily: FONT.display, fontSize: 9, letterSpacing: "0.18em", color, marginBottom: 6 }}>{children}</div>;
 }
-function ChangeList({ label, color, items }: { label: string; color: string; items: string[] }) {
+function ChangeList({ label, color, items }: { label: string; color: string; items: ComparisonFinding[] }) {
   if (items.length === 0) {
     return (
       <div style={{ flex: 1, fontFamily: FONT.body, fontStyle: "italic", fontSize: 13, color: C.stoneText }}>
@@ -254,10 +271,13 @@ function ChangeList({ label, color, items }: { label: string; color: string; ite
     <div style={{ flex: 1 }}>
       <span style={{ fontFamily: FONT.display, fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color }}>{label} ({items.length})</span>
       <ul style={{ margin: "6px 0 0", padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 4 }}>
-        {shown.map((title, i) => (
-          <li key={i} style={{ fontFamily: FONT.body, fontSize: 13, color: C.parchment, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</li>
+        {shown.map((f, i) => (
+          <li key={i} style={{ display: "flex", alignItems: "center", gap: 7, fontFamily: FONT.body, fontSize: 13, color: C.parchment, overflow: "hidden" }}>
+            <span style={{ flex: "0 0 auto", width: 7, height: 7, borderRadius: "50%", background: sevColor(f.severity) }} />
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.title}</span>
+          </li>
         ))}
-        {extra > 0 && <li style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 12, color: C.stoneText }}>+{extra} more</li>}
+        {extra > 0 && <li style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 12, color: C.stoneText, marginLeft: 14 }}>+{extra} more</li>}
       </ul>
     </div>
   );
