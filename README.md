@@ -80,11 +80,12 @@ Risk Score 98/100  [CRITICAL]
 | Phase | What it does |
 |---|---|
 | **1 · Static Analysis** | Reads the codebase without running it: built-in rules, dependency CVEs (`npm/pip audit`), secret detection (regex + Shannon entropy + git history), then an LLM layer that validates, explains and re-rates each finding for *your* code. |
-| **2 · Attack Agent** | Points a swarm of **19 specialised agents** at the running app — orchestrated in a loop, with an out-of-band callback server to confirm *blind* vulnerabilities, and every confirmed finding carries a runnable proof-of-concept (curl command + real request/response), not just a description. |
+| **2 · Attack Agent** | Points a swarm of **20 specialised agents** at the running app — orchestrated in a loop, with an out-of-band callback server to confirm *blind* vulnerabilities, and every confirmed finding carries a runnable proof-of-concept (curl command + real request/response), not just a description. |
 
 ### The attack swarm
 
-`ReconBot` · `CrawlerBot` · `Injector` (SQLi/NoSQL/command) · `AuthBreaker` (JWT/session/MFA) ·
+`ReconBot` · `CrawlerBot` · `Injector` (SQLi/NoSQL/command) · `SSTIProber` (server-side template
+injection) · `AuthBreaker` (JWT/session/MFA) ·
 `IDORHunter` · `XSSHunter` · `SSRFProber` · `HeaderPoker` (CORS) · `CSRFHunter` · `FileAttacker`
 (upload/traversal) · `DataExposure` (excessive data / secrets & PII in API responses) · `Fuzzer` ·
 `RaceCondition` · `GraphQLAgent` · `WebSocketAgent` ·
@@ -368,8 +369,8 @@ Nobody else combines all six. That's the gap Argus owns.
   (`--deep` free-form review, `--taint` source-to-sink taint tracing), reports (HTML/JSON/
   Markdown/SARIF/PDF/Jira CSV), CycloneDX SBOM + VEX export, and OWASP ASVS / PCI-DSS tags per
   finding.
-- ✅ **Phase 2 — Attack swarm** (`argus attack`): **18 agents** (13 original + MCPSecurityAgent,
-  PromptInjectionAgent, BusinessLogicAgent, AuthzTester, and the opt-in DomXSSHunter),
+- ✅ **Phase 2 — Attack swarm** (`argus attack`): **19 agents** (13 original + MCPSecurityAgent,
+  PromptInjectionAgent, BusinessLogicAgent, AuthzTester, SSTIProber, and the opt-in DomXSSHunter),
   orchestration loop,
   Docker auto-sandboxing when no `--url` is given (Django, Flask, FastAPI, Rails, Node/Express/
   Next/Vite, or a `docker-compose.yml` with a published port — falls back to `--url` otherwise),

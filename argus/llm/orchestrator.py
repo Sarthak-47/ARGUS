@@ -32,6 +32,7 @@ from argus.agents.promptinjection import PromptInjectionAgent
 from argus.agents.racecondition import RaceCondition
 from argus.agents.reconbot import ReconBot
 from argus.agents.ssrfprober import SSRFProber
+from argus.agents.sstiprober import SSTIProber
 from argus.agents.websocketagent import WebSocketAgent
 from argus.agents.xsshunter import XSSHunter
 from argus.models import Finding
@@ -41,6 +42,7 @@ AGENT_REGISTRY = {
     "reconbot": ReconBot,
     "crawlerbot": CrawlerBot,
     "injector": Injector,
+    "sstiprober": SSTIProber,
     "authbreaker": AuthBreaker,
     "idorhunter": IDORHunter,
     "authztester": AuthzTester,
@@ -67,7 +69,7 @@ AGENT_REGISTRY = {
 # DomXSSHunter is deliberately NOT in this list — it needs the optional `browser`
 # extra (Playwright + a Chromium download) and only runs via --agents domxss.
 _DEFAULT_ORDER = [
-    "crawlerbot", "injector", "authbreaker", "idorhunter", "authztester", "xsshunter",
+    "crawlerbot", "injector", "sstiprober", "authbreaker", "idorhunter", "authztester", "xsshunter",
     "ssrfprober", "headerpoker", "csrfhunter", "fileattacker", "graphqlagent",
     "websocketagent", "mcpsecurity", "promptinjection", "businesslogic",
     "dataexposure", "fuzzer", "racecondition",
