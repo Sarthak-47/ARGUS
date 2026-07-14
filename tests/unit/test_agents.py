@@ -6,9 +6,11 @@ hit recording, and the orchestrator's agent-ordering logic.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import json
+import time
 
 import httpx
 import pytest
@@ -140,6 +142,41 @@ async def test_request_stops_once_max_requests_budget_is_exhausted():
     assert r1 is not None and r2 is not None
     assert r3 is None
     assert ctx.requests_sent == 2
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_spaces_requests_apart():
+    def handler(request):
+        return httpx.Response(200, text="ok")
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    # 10 req/s -> at least ~0.1s between the 1st and 3rd request (2 intervals).
+    ctx = AttackContext("http://t", client=client, rate_limit=10.0, concurrency=10)
+    agent = BaseAgent()
+
+    start = time.monotonic()
+    await asyncio.gather(*(agent.get(ctx, f"http://t/{i}") for i in range(3)))
+    elapsed = time.monotonic() - start
+
+    assert ctx.requests_sent == 3
+    assert elapsed >= 0.2 - 0.02  # small tolerance for scheduling jitter
+
+
+@pytest.mark.asyncio
+async def test_no_rate_limit_by_default_is_fast():
+    def handler(request):
+        return httpx.Response(200, text="ok")
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    ctx = AttackContext("http://t", client=client)  # rate_limit=None
+    agent = BaseAgent()
+
+    start = time.monotonic()
+    await asyncio.gather(*(agent.get(ctx, f"http://t/{i}") for i in range(5)))
+    elapsed = time.monotonic() - start
+
+    assert ctx.requests_sent == 5
+    assert elapsed < 0.2  # no artificial spacing
 
 
 def test_with_param_sets_query():

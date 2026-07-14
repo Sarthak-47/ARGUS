@@ -176,12 +176,16 @@ def attack(
         None, "--max-requests", help="Hard cap on total requests sent to the target — a safety backstop "
                                       "against a runaway agent or an overly deep scan hammering the target."
     ),
+    rate_limit: Optional[float] = typer.Option(
+        None, "--rate-limit", help="Cap requests/second across the whole swarm — --max-requests bounds total "
+                                    "volume but not burst rate; this keeps traffic steady on a fragile target."
+    ),
 ) -> None:
     """Phase 2 — attack agent. Actively exploit a running app."""
     from argus.pipeline import run_attack
 
     run_attack(target=target, url=url, agents=agents, auth=auth, auth_b=auth_b,
-               api_spec=api_spec, max_requests=max_requests)
+               api_spec=api_spec, max_requests=max_requests, rate_limit=rate_limit)
 
 
 # --------------------------------------------------------------------------- #
@@ -199,12 +203,15 @@ def audit(
         None, "--max-requests", help="Hard cap on total requests sent to the target during Phase 2 — a safety "
                                       "backstop against a runaway agent or an overly deep scan."
     ),
+    rate_limit: Optional[float] = typer.Option(
+        None, "--rate-limit", help="Cap requests/second across the whole swarm during Phase 2."
+    ),
 ) -> None:
     """Full pipeline — Phase 1 static analysis then Phase 2 attack."""
     from argus.pipeline import run_audit
 
     run_audit(target, fix=fix, agents=agents, auth=auth, auth_b=auth_b,
-              api_spec=api_spec, max_requests=max_requests)
+              api_spec=api_spec, max_requests=max_requests, rate_limit=rate_limit)
 
 
 # --------------------------------------------------------------------------- #

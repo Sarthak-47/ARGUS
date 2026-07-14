@@ -68,6 +68,7 @@ class AttackContext:
         client: httpx.AsyncClient,
         concurrency: int = 10,
         max_requests: int | None = None,
+        rate_limit: float | None = None,
         prior_findings: list[Finding] | None = None,
         callback=None,
         provider=None,
@@ -103,6 +104,14 @@ class AttackContext:
         # misconfigured deep scan hammering someone else's production system.
         self.max_requests = max_requests
         self._budget_exhausted_notified = False
+        # --max-requests caps *total* volume; it does nothing to stop a burst —
+        # concurrency=10 can still fire 10 requests in the same instant. This
+        # is a real requests-per-second throttle, shared across every agent
+        # via this one context, so a fragile target sees a steady rate no
+        # matter how many agents are hammering it concurrently.
+        self.rate_limit = rate_limit
+        self._rate_lock = asyncio.Lock()
+        self._last_request_at = 0.0
 
     # ----- attack surface -----
     @staticmethod
@@ -176,6 +185,13 @@ class BaseAgent:
             return None
         kwargs.setdefault("timeout", 15.0)
         async with ctx.semaphore:
+            if ctx.rate_limit:
+                async with ctx._rate_lock:
+                    min_interval = 1.0 / ctx.rate_limit
+                    wait = ctx._last_request_at + min_interval - time.monotonic()
+                    if wait > 0:
+                        await asyncio.sleep(wait)
+                    ctx._last_request_at = time.monotonic()
             try:
                 resp = await ctx.client.request(method, url, **kwargs)
                 ctx.requests_sent += 1
