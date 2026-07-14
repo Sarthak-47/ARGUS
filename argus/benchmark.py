@@ -23,8 +23,10 @@ vulnerability classes no agent claims to find, which isn't an honest number.
 
 from __future__ import annotations
 
+import threading
 import time
 from dataclasses import dataclass, field
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from argus.models import Finding
@@ -61,7 +63,7 @@ class GroundTruthEntry:
 class BenchmarkCase:
     name: str
     description: str
-    kind: str  # "local" | "docker"
+    kind: str  # "local" | "clean" | "docker"
     ground_truth: list[GroundTruthEntry]
     # docker cases only:
     image: str | None = None
@@ -115,13 +117,22 @@ class BenchmarkResult:
             return 0.0
         return self.unmatched_findings / self.total_findings
 
+    @property
+    def is_clean_target(self) -> bool:
+        """A case with no documented vulnerabilities at all — every finding it
+        produces is, by definition, a false positive. ``detection_rate`` is
+        meaningless here (0/0); ``total_findings`` is the real signal."""
+        return self.ground_truth_count == 0
+
     def to_dict(self) -> dict:
         return {
             "case": self.case,
+            "is_clean_target": self.is_clean_target,
             "detection_rate": round(self.detection_rate, 3),
             "detected": len(self.detected), "ground_truth_count": self.ground_truth_count,
             "missed": self.missed,
             "total_findings": self.total_findings,
+            "false_positives": self.total_findings if self.is_clean_target else None,
             "unmatched_findings": self.unmatched_findings,
             "unmatched_rate": round(self.unmatched_rate, 3),
             "duration_s": round(self.duration_s, 1),
@@ -175,6 +186,82 @@ _ARGUS_DEMO_GROUND_TRUTH = [
     GroundTruthEntry("Path traversal via /download?file=", detector_prefix="fileattacker"),
     GroundTruthEntry("GraphQL introspection enabled", detector_prefix="graphqlagent"),
 ]
+
+
+class _CleanSPAHandler(BaseHTTPRequestHandler):
+    """Serves the exact same HTML body with HTTP 200 for *every* path — a
+    minimal, faithful reproduction of the Netlify/Vercel/any-client-routed-app
+    catch-all fallback that caused ReconBot/CrawlerBot/AuthzTester/HeaderPoker
+    to manufacture dozens of fake findings on a real site (see CHANGELOG
+    v1.2.12). There is nothing vulnerable here — zero findings is the only
+    correct result, and this case exists specifically so a future regression
+    of that bug class fails a benchmark run instead of needing to be
+    rediscovered by hand against someone's real production site again."""
+
+    _BODY = (
+        b"<!doctype html><html><head><title>Clean SPA</title></head>"
+        b"<body><div id=\"root\">Nothing to see here \xe2\x80\x94 every route "
+        b"renders this same client-side app shell.</div></body></html>"
+    )
+
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html")
+        self.send_header("Content-Length", str(len(self._BODY)))
+        # A genuinely clean target needs real security headers too — a first
+        # version of this fixture omitted them and (correctly) tripped
+        # ReconBot's "missing security headers" and CSRFHunter's clickjacking
+        # checks. Those were true positives against a badly-configured
+        # fixture, not false positives in Argus; the fix belongs here; not in
+        # the detectors.
+        self.send_header("Content-Security-Policy", "default-src 'self'")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Strict-Transport-Security", "max-age=63072000")
+        self.end_headers()
+        self.wfile.write(self._BODY)
+
+    def log_message(self, *a):  # quiet — this runs on every benchmark invocation
+        pass
+
+
+class _CleanSPAServer:
+    """Threaded clean-target server on an ephemeral localhost port — mirrors
+    argus.demo.target.DemoServer's shape."""
+
+    def __init__(self, host: str = "127.0.0.1"):
+        self._httpd = ThreadingHTTPServer((host, 0), _CleanSPAHandler)
+        self.host = host
+        self.port = self._httpd.server_address[1]
+        self._thread: threading.Thread | None = None
+
+    @property
+    def url(self) -> str:
+        return f"http://{self.host}:{self.port}"
+
+    def start(self) -> "_CleanSPAServer":
+        self._thread = threading.Thread(target=self._httpd.serve_forever, daemon=True)
+        self._thread.start()
+        time.sleep(0.2)
+        return self
+
+    def stop(self) -> None:
+        try:
+            self._httpd.shutdown()
+            self._httpd.server_close()
+        except Exception:  # noqa: BLE001
+            pass
+
+
+def _run_local_clean_spa() -> list[Finding]:
+    from argus.llm.orchestrator import run_attack_sync
+
+    server = _CleanSPAServer().start()
+    try:
+        findings, _reports, _eps = run_attack_sync(server.url, use_callback=False)
+        return findings
+    finally:
+        server.stop()
 
 
 def _run_local_demo() -> list[Finding]:
@@ -240,6 +327,12 @@ CASES: dict[str, BenchmarkCase] = {
     "argus_demo": BenchmarkCase(
         name="argus_demo", description="Argus's own bundled vulnerable app (local, no Docker needed)",
         kind="local", ground_truth=_ARGUS_DEMO_GROUND_TRUTH,
+    ),
+    "clean_spa": BenchmarkCase(
+        name="clean_spa",
+        description="A minimal clean SPA-fallback target (local, no Docker needed) — "
+                     "measures the false-positive rate, not detection rate. Zero findings is correct.",
+        kind="clean", ground_truth=[],
     ),
     "juice_shop": BenchmarkCase(
         name="juice_shop", description="OWASP Juice Shop", kind="docker",
@@ -395,7 +488,12 @@ def _run_docker_target(case: BenchmarkCase, timeout: float = 90.0) -> list[Findi
 def run_case(case: BenchmarkCase) -> BenchmarkResult:
     start = time.time()
     try:
-        findings = _run_local_demo() if case.kind == "local" else _run_docker_target(case)
+        if case.kind == "local":
+            findings = _run_local_demo()
+        elif case.kind == "clean":
+            findings = _run_local_clean_spa()
+        else:
+            findings = _run_docker_target(case)
     except Exception as exc:  # noqa: BLE001 — a benchmark run must report, never crash the suite
         return BenchmarkResult(
             case=case.name, total_findings=0, ground_truth_count=len(case.ground_truth),
@@ -422,6 +520,10 @@ def render_markdown(results: list[BenchmarkResult]) -> str:
     for r in results:
         if r.error:
             lines.append(f"| {r.case} | — | — | — | — | — | {r.duration_s:.1f} (error: {r.error}) |")
+            continue
+        if r.is_clean_target:
+            verdict = "0 false positives ✓" if r.total_findings == 0 else f"{r.total_findings} false positive(s) ✗"
+            lines.append(f"| {r.case} | clean target | — | — | {r.total_findings} | {verdict} | {r.duration_s:.1f} |")
             continue
         lines.append(
             f"| {r.case} | {r.detection_rate:.0%} | {len(r.detected)}/{r.ground_truth_count} | "

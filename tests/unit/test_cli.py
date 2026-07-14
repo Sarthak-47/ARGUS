@@ -118,3 +118,25 @@ def test_benchmark_min_detection_rate_passes_at_or_above_threshold(monkeypatch):
     monkeypatch.setattr("argus.benchmark.run_suite", lambda names=None: [high])
     result = runner.invoke(app, ["benchmark", "--min-detection-rate", "0.5"])
     assert result.exit_code == 0
+
+
+def test_benchmark_fails_on_any_finding_against_a_clean_target(monkeypatch):
+    from argus.benchmark import BenchmarkResult
+
+    # ground_truth_count=0 -> is_clean_target=True; any finding here is a
+    # false positive by definition, regardless of --min-detection-rate.
+    dirty = BenchmarkResult(case="clean_spa", total_findings=2, ground_truth_count=0)
+    monkeypatch.setattr("argus.benchmark.run_suite", lambda names=None: [dirty])
+    result = runner.invoke(app, ["benchmark"])
+    assert result.exit_code != 0
+
+
+def test_benchmark_clean_target_with_zero_findings_is_not_gated_by_detection_rate(monkeypatch):
+    from argus.benchmark import BenchmarkResult
+
+    clean = BenchmarkResult(case="clean_spa", total_findings=0, ground_truth_count=0)
+    monkeypatch.setattr("argus.benchmark.run_suite", lambda names=None: [clean])
+    # A clean-target case's detection_rate is always 0.0 (0/0) — it must not
+    # be treated as a detection-rate regression.
+    result = runner.invoke(app, ["benchmark", "--min-detection-rate", "0.5"])
+    assert result.exit_code == 0

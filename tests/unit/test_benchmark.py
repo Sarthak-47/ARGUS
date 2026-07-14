@@ -173,6 +173,40 @@ def test_argus_demo_case_runs_end_to_end_with_full_detection():
     assert result.total_findings > 0
 
 
+def test_clean_spa_case_registered():
+    assert "clean_spa" in CASES
+    assert CASES["clean_spa"].kind == "clean"
+    assert CASES["clean_spa"].ground_truth == []
+
+
+def test_is_clean_target_true_only_for_zero_ground_truth():
+    from argus.benchmark import BenchmarkResult
+
+    assert BenchmarkResult(case="x", total_findings=0, ground_truth_count=0).is_clean_target
+    assert not BenchmarkResult(case="x", total_findings=0, ground_truth_count=1).is_clean_target
+
+
+def test_clean_spa_case_runs_end_to_end_with_zero_findings():
+    # Regression test for the exact bug class fixed in v1.2.12: path-probing
+    # agents manufacturing fake findings against a site that serves the same
+    # 200 body for every route. This is the one benchmark case where the
+    # correct, only acceptable result is zero findings.
+    result = run_case(CASES["clean_spa"])
+    assert result.error is None
+    assert result.total_findings == 0, (
+        f"false positives against a known-clean target: {result.total_findings} finding(s)"
+    )
+
+
+def test_render_markdown_shows_clean_target_row_distinctly():
+    from argus.benchmark import BenchmarkResult
+
+    clean = BenchmarkResult(case="clean_spa", total_findings=0, ground_truth_count=0)
+    md = render_markdown([clean])
+    assert "clean target" in md
+    assert "0 false positives" in md
+
+
 def test_docker_cases_registered_with_images():
     for name in ("juice_shop", "dvwa", "vampi"):
         case = CASES[name]

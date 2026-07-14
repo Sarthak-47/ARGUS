@@ -287,8 +287,20 @@ def benchmark(
     if any(r.error for r in results):
         raise typer.Exit(code=1)
 
+    # A clean-target case (empty ground truth) has no detection rate to speak
+    # of — every finding it produces is a false positive by definition, not a
+    # missed-detection. This isn't opt-in like --min-detection-rate: any
+    # finding at all on a clean target is always a regression (the exact bug
+    # class fixed in v1.2.12 — a scanner reporting fake vulnerabilities on a
+    # site with none — should never again ship silently).
+    false_positive_cases = [r for r in results if r.is_clean_target and r.total_findings > 0]
+    if false_positive_cases:
+        names_str = ", ".join(f"{r.case} ({r.total_findings} finding(s))" for r in false_positive_cases)
+        out.error(f"False positives on a known-clean target: {names_str}")
+        raise typer.Exit(code=1)
+
     if min_detection_rate is not None:
-        regressed = [r for r in results if r.detection_rate < min_detection_rate]
+        regressed = [r for r in results if not r.is_clean_target and r.detection_rate < min_detection_rate]
         if regressed:
             names_str = ", ".join(f"{r.case} ({r.detection_rate:.0%})" for r in regressed)
             out.error(f"Detection rate below {min_detection_rate:.0%} threshold: {names_str}")
