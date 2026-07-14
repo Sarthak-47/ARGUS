@@ -179,6 +179,50 @@ async def test_no_rate_limit_by_default_is_fast():
     assert elapsed < 0.2  # no artificial spacing
 
 
+@pytest.mark.asyncio
+async def test_request_log_disabled_by_default():
+    def handler(request):
+        return httpx.Response(200, text="ok")
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    ctx = AttackContext("http://t", client=client)  # log_requests=False
+    await BaseAgent().get(ctx, "http://t/a")
+    assert ctx.request_log == []
+
+
+@pytest.mark.asyncio
+async def test_request_log_records_agent_method_url_status():
+    def handler(request):
+        return httpx.Response(201, text="created")
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    ctx = AttackContext("http://t", client=client, log_requests=True)
+    await BaseAgent().get(ctx, "http://t/a")
+
+    assert len(ctx.request_log) == 1
+    entry = ctx.request_log[0]
+    assert entry["agent"] == "agent"  # BaseAgent's default name
+    assert entry["method"] == "GET"
+    assert entry["url"] == "http://t/a"
+    assert entry["status"] == 201
+    assert "latency_ms" in entry and "timestamp" in entry
+
+
+@pytest.mark.asyncio
+async def test_request_log_records_errors_too():
+    def handler(request):
+        raise httpx.ConnectError("refused")
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    ctx = AttackContext("http://t", client=client, log_requests=True)
+    resp = await BaseAgent().get(ctx, "http://t/a")
+
+    assert resp is None
+    assert len(ctx.request_log) == 1
+    assert ctx.request_log[0]["status"] is None
+    assert "error" in ctx.request_log[0]
+
+
 def test_with_param_sets_query():
     url = _with_param("http://t/users", "name", "1' OR '1'='1")
     assert "name=" in url

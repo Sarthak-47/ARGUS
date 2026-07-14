@@ -435,6 +435,7 @@ def run_attack(
     api_spec: str | None = None,
     max_requests: int | None = None,
     rate_limit: float | None = None,
+    request_log_path: str | None = None,
     assume_authorized: bool = False,
     banner: bool = True,
 ) -> ScanResult | None:
@@ -570,11 +571,13 @@ def run_attack(
                 base_url, requested_agents=requested, prior_findings=prior_findings,
                 provider=provider, on_event=feed, seed_endpoints=seed or None,
                 auth=auth_cfg, identity_b=auth_b_cfg, max_requests=max_requests,
-                rate_limit=rate_limit,
+                rate_limit=rate_limit, request_log_path=request_log_path,
             )
         except AuthError as exc:
             out.error(f"Authentication failed — aborting attack: {exc}")
             raise typer.Exit(code=1)
+        if request_log_path:
+            out.success(f"Request log written → [wheat1]{request_log_path}[/]")
         if surface_key:
             save_surface(surface_key, endpoints)
 
@@ -623,7 +626,8 @@ def _attack_summary(reports) -> None:
 def run_audit(target: str, fix: bool = False, agents: str | None = None,
               auth: str | None = None, auth_b: str | None = None,
               api_spec: str | None = None, max_requests: int | None = None,
-              rate_limit: float | None = None, assume_authorized: bool = False) -> None:
+              rate_limit: float | None = None, request_log_path: str | None = None,
+              assume_authorized: bool = False) -> None:
     from argus.sandbox.docker_manager import docker_available
 
     out.banner()
@@ -643,8 +647,8 @@ def run_audit(target: str, fix: bool = False, agents: str | None = None,
     if target_is_url or docker_available():
         run_attack(target=target, agents=agents, auth=auth, auth_b=auth_b,
                    api_spec=api_spec, max_requests=max_requests,
-                   rate_limit=rate_limit, assume_authorized=assume_authorized,
-                   banner=False)
+                   rate_limit=rate_limit, request_log_path=request_log_path,
+                   assume_authorized=assume_authorized, banner=False)
     else:
         out.info("Phase 1 complete. Phase 2 needs Docker to sandbox the target automatically — "
                  "point Argus at a running instance instead:")

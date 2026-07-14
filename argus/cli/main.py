@@ -185,13 +185,18 @@ def attack(
         help="Skip the interactive authorization prompt — required for CI/non-interactive use. "
              "Only run Phase 2 against systems you own or are explicitly authorized to test."
     ),
+    request_log: Optional[str] = typer.Option(
+        None, "--request-log", help="Write a JSON log of every request sent (agent, method, url, "
+                                     "status, latency) to this path — for diagnosing a false positive "
+                                     "or a slow run without manually re-probing by hand."
+    ),
 ) -> None:
     """Phase 2 — attack agent. Actively exploit a running app."""
     from argus.pipeline import run_attack
 
     run_attack(target=target, url=url, agents=agents, auth=auth, auth_b=auth_b,
                api_spec=api_spec, max_requests=max_requests, rate_limit=rate_limit,
-               assume_authorized=yes_i_am_authorized)
+               request_log_path=request_log, assume_authorized=yes_i_am_authorized)
 
 
 # --------------------------------------------------------------------------- #
@@ -217,12 +222,16 @@ def audit(
         help="Skip the interactive authorization prompt before Phase 2 — required for CI/non-interactive "
              "use. Only run Phase 2 against systems you own or are explicitly authorized to test."
     ),
+    request_log: Optional[str] = typer.Option(
+        None, "--request-log", help="Write a JSON log of every request sent during Phase 2 to this path."
+    ),
 ) -> None:
     """Full pipeline — Phase 1 static analysis then Phase 2 attack."""
     from argus.pipeline import run_audit
 
     run_audit(target, fix=fix, agents=agents, auth=auth, auth_b=auth_b,
               api_spec=api_spec, max_requests=max_requests, rate_limit=rate_limit,
+              request_log_path=request_log,
               assume_authorized=yes_i_am_authorized)
 
 

@@ -69,6 +69,7 @@ class AttackContext:
         concurrency: int = 10,
         max_requests: int | None = None,
         rate_limit: float | None = None,
+        log_requests: bool = False,
         prior_findings: list[Finding] | None = None,
         callback=None,
         provider=None,
@@ -112,6 +113,14 @@ class AttackContext:
         self.rate_limit = rate_limit
         self._rate_lock = asyncio.Lock()
         self._last_request_at = 0.0
+        # Opt-in (memory cost on a long run otherwise): a structured record of
+        # every request an agent actually sent — which agent, method, URL,
+        # response status, latency. Exists so a false positive (or a "why did
+        # this take so long") can be diagnosed from a log instead of manually
+        # re-curling candidate paths by hand, which is how the SPA-fallback
+        # false-positive bug class in v1.2.12 was originally tracked down.
+        self.log_requests = log_requests
+        self.request_log: list[dict[str, Any]] = []
 
     # ----- attack surface -----
     @staticmethod
@@ -192,12 +201,27 @@ class BaseAgent:
                     if wait > 0:
                         await asyncio.sleep(wait)
                     ctx._last_request_at = time.monotonic()
+            sent_at = time.monotonic()
             try:
                 resp = await ctx.client.request(method, url, **kwargs)
                 ctx.requests_sent += 1
+                if ctx.log_requests:
+                    ctx.request_log.append({
+                        "agent": self.name, "method": method, "url": url,
+                        "status": resp.status_code,
+                        "latency_ms": round((time.monotonic() - sent_at) * 1000, 1),
+                        "timestamp": time.time(),
+                    })
                 return resp
-            except httpx.HTTPError:
+            except httpx.HTTPError as exc:
                 ctx.requests_sent += 1
+                if ctx.log_requests:
+                    ctx.request_log.append({
+                        "agent": self.name, "method": method, "url": url,
+                        "status": None, "error": str(exc),
+                        "latency_ms": round((time.monotonic() - sent_at) * 1000, 1),
+                        "timestamp": time.time(),
+                    })
                 return None
 
     async def get(self, ctx: AttackContext, url: str, **kwargs: Any) -> httpx.Response | None:

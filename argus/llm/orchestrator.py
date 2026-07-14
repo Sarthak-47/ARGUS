@@ -99,6 +99,7 @@ async def run_attack_async(
     concurrency: int = 10,
     max_requests: int | None = None,
     rate_limit: float | None = None,
+    request_log_path: str | None = None,
     on_event=None,
     seed_endpoints=None,
     auth=None,
@@ -109,6 +110,11 @@ async def run_attack_async(
     ``seed_endpoints`` (from a persisted surface inventory) pre-populate the
     attack surface before recon runs, so later agents benefit from endpoints a
     prior run found even if this run's recon misses them.
+
+    ``request_log_path``, if given, writes a JSON array of every request sent
+    (agent, method, url, status, latency_ms, timestamp) once the run
+    completes — for diagnosing a false positive or a slow run without
+    manually re-probing candidate paths by hand.
 
     Returns (findings, reports, discovered_endpoints).
     """
@@ -138,6 +144,7 @@ async def run_attack_async(
                 concurrency=concurrency,
                 max_requests=max_requests,
                 rate_limit=rate_limit,
+                log_requests=bool(request_log_path),
                 prior_findings=prior,
                 callback=callback,
                 provider=provider,
@@ -173,6 +180,7 @@ async def run_attack_async(
                 # Recon couldn't even reach the target — every other agent would
                 # just re-discover the same dead connection. Stop here instead of
                 # burning a timeout per agent against a host we know is down.
+                _write_request_log(ctx, request_log_path)
                 return ctx.findings, reports, ctx.endpoint_list()
 
             # 2) Ordered post-recon agents
@@ -186,10 +194,20 @@ async def run_attack_async(
                     reports.append(AgentReport(agent=agent.name, status="error", notes=[str(exc)]))
                     ctx.emit(agent.name, f"agent error: {exc}", "crit")
 
+            _write_request_log(ctx, request_log_path)
             return ctx.findings, reports, ctx.endpoint_list()
     finally:
         if callback is not None:
             callback.stop()
+
+
+def _write_request_log(ctx: AttackContext, path: str | None) -> None:
+    if not path:
+        return
+    import json as _json
+
+    with open(path, "w", encoding="utf-8") as f:
+        _json.dump(ctx.request_log, f, indent=2)
 
 
 def run_attack_sync(base_url: str, **kwargs):
