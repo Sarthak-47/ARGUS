@@ -5,6 +5,49 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.13] — 2026-07-14
+
+### Added
+- **`argus scan --targets-file repos.txt`** — batch-scan every target in a
+  file, one aggregate summary table. A bad target (typo'd path, unreachable
+  repo) is recorded as an error row instead of aborting the rest of the
+  batch; `--fail-on` gates only after every target has been scanned.
+- **`SSTIProber`** — a new agent detecting server-side template injection
+  across Jinja2/Twig, FreeMarker/Velocity/Thymeleaf, Ruby/JSF EL, and ERB,
+  confirming the *evaluated* result appears (not the payload merely
+  reflected back) before reporting.
+- **`--rate-limit <req/s>`** — caps requests/second across the whole attack
+  swarm, a companion to `--max-requests` (which bounds total volume but not
+  burst rate).
+- **`--request-log <path>`** — writes a JSON log of every request sent
+  during Phase 2 (agent, method, url, status, latency) for diagnosing a
+  false positive or a slow run without manually re-probing by hand.
+- **Explicit, logged authorization before Phase 2.** `attack`/`audit` now
+  ask for interactive confirmation before sending a single request, or
+  require `--yes-i-am-authorized` for CI/non-interactive use — every
+  confirmation is appended to `~/.argus/authorizations.jsonl`. `argus demo`
+  and the desktop GUI (whose button click is itself the consent gesture)
+  are exempted.
+- **Benchmark suite now measures false positives, not just detection
+  rate.** A new `clean_spa` case — a minimal target that serves the same
+  body for every path with real security headers set — has empty ground
+  truth, so any finding at all fails the run unconditionally. Existed
+  specifically because the v1.2.12 false-positive bug class would have
+  sailed through every prior benchmark run undetected.
+- The desktop Reports screen's scan-to-scan diff view now shows a
+  severity-colored dot per changed finding, surfaces the unchanged count,
+  and shows an explicit "no change" message instead of silently vanishing
+  when nothing changed.
+- A new marketing website at
+  [sarthak-47.github.io/ARGUS](https://sarthak-47.github.io/ARGUS/), with
+  Docs/Download/Changelog/Security pages, published via GitHub Pages.
+
+### Fixed
+- A regression-guard test now fails if a future refactor drops the
+  fetch_fallback_baseline/response_matches_fallback usage from the four
+  agents that probe path/header existence, silently reintroducing the
+  v1.2.12 false-positive bug class.
+
 ## [1.2.12] — 2026-07-11
 
 ### Fixed

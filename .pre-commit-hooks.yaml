@@ -2,7 +2,7 @@
 #
 #   repos:
 #     - repo: https://github.com/Sarthak-47/ARGUS
-#       rev: v1.2.12
+#       rev: v1.2.13
 #       hooks:
 #         - id: argus
 #

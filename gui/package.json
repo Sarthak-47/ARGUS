@@ -1,7 +1,7 @@
 {
   "name": "argus-gui",
   "private": true,
-  "version": "1.2.12",
+  "version": "1.2.13",
   "type": "module",
   "description": "Argus desktop GUI — carved in stone.",
   "scripts": {
