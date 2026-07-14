@@ -135,6 +135,13 @@ argus status                              # resolved LLM provider, detected GPU,
 argus config --show
 ```
 
+Phase 2 (`attack`/`audit`) asks you to confirm authorization interactively before it sends a single
+request — type `yes` to proceed. Scripting it (CI, a non-interactive shell)? Pass
+`--yes-i-am-authorized` explicitly; every confirmation, interactive or flagged, is appended to a local
+audit log (`~/.argus/authorizations.jsonl`) with who/what target/when. `--max-requests <n>` and
+`--rate-limit <req/s>` cap total volume and burst rate respectively — independent safety backstops
+against a runaway agent or an overly deep scan hammering a fragile target.
+
 ### Run in Docker (bundles Semgrep + auditors)
 
 ```bash

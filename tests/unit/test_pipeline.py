@@ -179,8 +179,23 @@ def test_run_attack_treats_url_shaped_target_as_already_running(monkeypatch):
     # A closed local port refuses the connection immediately — ReconBot's own
     # unreachable-target handling completes the run without ever needing a
     # real server (see test_orchestrator.py's matching test).
-    result = run_attack(target="http://127.0.0.1:1", url=None)
+    result = run_attack(target="http://127.0.0.1:1", url=None, assume_authorized=True)
     assert not sandbox_started, "a URL-shaped target must never be Docker-sandboxed"
+    assert result is not None
+    assert result.target == "http://127.0.0.1:1"
+
+
+def test_run_attack_refuses_without_authorization_confirmation(monkeypatch, capsys):
+    monkeypatch.setattr("argus.authorization.confirm_authorization", lambda target, assume_yes: False)
+    with pytest.raises(typer.Exit) as exc_info:
+        run_attack(target=None, url="http://127.0.0.1:1")
+    assert exc_info.value.exit_code == 1
+    assert "not authorized" in capsys.readouterr().out.lower()
+
+
+def test_run_attack_proceeds_when_authorization_confirmed(monkeypatch):
+    monkeypatch.setattr("argus.authorization.confirm_authorization", lambda target, assume_yes: True)
+    result = run_attack(target=None, url="http://127.0.0.1:1")
     assert result is not None
     assert result.target == "http://127.0.0.1:1"
 

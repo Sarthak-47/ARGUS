@@ -435,6 +435,7 @@ def run_attack(
     api_spec: str | None = None,
     max_requests: int | None = None,
     rate_limit: float | None = None,
+    assume_authorized: bool = False,
     banner: bool = True,
 ) -> ScanResult | None:
     from argus.auth import AuthError, load_auth
@@ -498,6 +499,17 @@ def run_attack(
             raise typer.Exit(code=1)
         out.success(f"Sandbox reachable at [wheat1]{base_url}[/]")
         _stream_event("system", f"Sandbox reachable at {base_url}", "ok")
+
+    from argus.authorization import confirm_authorization
+
+    if not confirm_authorization(base_url, assume_yes=assume_authorized):
+        out.error(
+            f"Not authorized to attack {base_url!r}. Only run Phase 2 against systems you "
+            "own or are explicitly authorized to test — confirm interactively, or pass "
+            "--yes-i-am-authorized for CI/non-interactive use."
+        )
+        _stream_event("system", "Attack refused — authorization not confirmed.", "crit")
+        raise typer.Exit(code=1)
 
     try:
         requested = [a.strip().lower() for a in agents.split(",")] if agents else None
@@ -611,7 +623,7 @@ def _attack_summary(reports) -> None:
 def run_audit(target: str, fix: bool = False, agents: str | None = None,
               auth: str | None = None, auth_b: str | None = None,
               api_spec: str | None = None, max_requests: int | None = None,
-              rate_limit: float | None = None) -> None:
+              rate_limit: float | None = None, assume_authorized: bool = False) -> None:
     from argus.sandbox.docker_manager import docker_available
 
     out.banner()
@@ -631,7 +643,8 @@ def run_audit(target: str, fix: bool = False, agents: str | None = None,
     if target_is_url or docker_available():
         run_attack(target=target, agents=agents, auth=auth, auth_b=auth_b,
                    api_spec=api_spec, max_requests=max_requests,
-                   rate_limit=rate_limit, banner=False)
+                   rate_limit=rate_limit, assume_authorized=assume_authorized,
+                   banner=False)
     else:
         out.info("Phase 1 complete. Phase 2 needs Docker to sandbox the target automatically — "
                  "point Argus at a running instance instead:")

@@ -43,7 +43,11 @@ def run_demo(attack: bool = True) -> None:
             server = DemoServer().start()
             try:
                 out.info(f"Bundled target running at [wheat1]{server.url}[/]")
-                run_attack(url=server.url, banner=False)
+                # This is Argus's own bundled, throwaway local demo target —
+                # authorization is definitionally not in question, so the
+                # interactive confirmation gate (SECURITY.md's authorized-use
+                # requirement, meant for real targets) doesn't apply here.
+                run_attack(url=server.url, banner=False, assume_authorized=True)
             finally:
                 server.stop()
     finally:

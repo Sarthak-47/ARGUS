@@ -180,12 +180,18 @@ def attack(
         None, "--rate-limit", help="Cap requests/second across the whole swarm — --max-requests bounds total "
                                     "volume but not burst rate; this keeps traffic steady on a fragile target."
     ),
+    yes_i_am_authorized: bool = typer.Option(
+        False, "--yes-i-am-authorized",
+        help="Skip the interactive authorization prompt — required for CI/non-interactive use. "
+             "Only run Phase 2 against systems you own or are explicitly authorized to test."
+    ),
 ) -> None:
     """Phase 2 — attack agent. Actively exploit a running app."""
     from argus.pipeline import run_attack
 
     run_attack(target=target, url=url, agents=agents, auth=auth, auth_b=auth_b,
-               api_spec=api_spec, max_requests=max_requests, rate_limit=rate_limit)
+               api_spec=api_spec, max_requests=max_requests, rate_limit=rate_limit,
+               assume_authorized=yes_i_am_authorized)
 
 
 # --------------------------------------------------------------------------- #
@@ -206,12 +212,18 @@ def audit(
     rate_limit: Optional[float] = typer.Option(
         None, "--rate-limit", help="Cap requests/second across the whole swarm during Phase 2."
     ),
+    yes_i_am_authorized: bool = typer.Option(
+        False, "--yes-i-am-authorized",
+        help="Skip the interactive authorization prompt before Phase 2 — required for CI/non-interactive "
+             "use. Only run Phase 2 against systems you own or are explicitly authorized to test."
+    ),
 ) -> None:
     """Full pipeline — Phase 1 static analysis then Phase 2 attack."""
     from argus.pipeline import run_audit
 
     run_audit(target, fix=fix, agents=agents, auth=auth, auth_b=auth_b,
-              api_spec=api_spec, max_requests=max_requests, rate_limit=rate_limit)
+              api_spec=api_spec, max_requests=max_requests, rate_limit=rate_limit,
+              assume_authorized=yes_i_am_authorized)
 
 
 # --------------------------------------------------------------------------- #

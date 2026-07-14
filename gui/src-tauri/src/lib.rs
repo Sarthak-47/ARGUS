@@ -220,7 +220,11 @@ fn run_audit(window: Window, target: String, mode: String, agents: Option<String
     }
   } else {
     let mut cmd = argus_command()?;
-    cmd.args(["audit", &target]);
+    // The GUI has no TTY for the CLI's interactive authorization prompt, and
+    // clicking "Strike the app" here *is* the operator's explicit consent
+    // gesture — pass the same flag a CI/non-interactive CLI invocation would
+    // need, rather than the subprocess silently hanging on stdin forever.
+    cmd.args(["audit", &target, "--yes-i-am-authorized"]);
     if let Some(a) = agents.filter(|a| !a.is_empty()) {
       cmd.args(["--agents", &a]);
     }
