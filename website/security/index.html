@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Security &amp; Responsible Use — Argus</title>
+<meta name="description" content="Argus is an offensive security tool — only run it against systems you own or are explicitly authorized to test. How its safety design actually works." />
+<link rel="canonical" href="https://sarthak-47.github.io/ARGUS/security/" />
+<meta property="og:title" content="Security & Responsible Use — Argus" />
+<meta property="og:description" content="Argus is an offensive security tool — only run it against systems you own or are explicitly authorized to test." />
+<meta property="og:image" content="https://sarthak-47.github.io/ARGUS/assets/og-image.png" />
+<meta property="og:type" content="website" />
+<link rel="icon" type="image/png" href="../assets/argus-logo.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../assets/style.css" />
+</head>
+<body>
+
+<div class="meander top"></div>
+<header>
+  <nav class="wrap">
+    <div class="brand"><a href=".." style="display:flex;align-items:center;gap:12px;color:inherit;"><img src="../assets/argus-logo.png" alt="" />ARGUS</a></div>
+    <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">☰</button>
+    <div class="links">
+      <a href="../docs/">Docs</a>
+      <a href="../download/">Download</a>
+      <a href="../changelog/">Changelog</a>
+      <a href="https://github.com/Sarthak-47/ARGUS" target="_blank" rel="noopener">GitHub</a>
+    </div>
+  </nav>
+</header>
+
+<section class="hero small wrap">
+  <div class="crest small"><img src="../assets/argus-logo.png" alt="" /></div>
+  <div class="eyebrow">Security &amp; Responsible Use</div>
+  <h1 class="wordmark page">Only run it against what you're authorized to test.</h1>
+  <p class="sub">Argus is an <b style="color:var(--clayHi);">offensive</b> security tool: its Phase-2 agents actively attack a target. That power comes with responsibility.</p>
+</section>
+
+<section class="num tight">
+  <div class="wrap">
+    <div class="doc-block">
+      <h3>Authorized use only</h3>
+      <p><b style="color:var(--oxbloodHi);">Only run Argus against systems you own or are explicitly authorized to test.</b>
+      Attacking systems without permission is illegal in most jurisdictions. You are solely
+      responsible for how you use this tool.</p>
+      <p>Argus is built for:</p>
+      <ul style="font-size:17.5px; color:var(--parchment); line-height:1.7;">
+        <li>Auditing your own applications and repositories</li>
+        <li>Sanctioned penetration-testing engagements (with written authorization)</li>
+        <li>CTF competitions and purpose-built vulnerable targets (DVWA, Juice Shop, WebGoat)</li>
+        <li>Security research and education</li>
+      </ul>
+      <p><code>argus demo</code> ships a bundled, self-contained vulnerable app so you can see
+      the full attack flow without touching anything you don't own.</p>
+    </div>
+
+    <div class="doc-block">
+      <h3>Safety design</h3>
+      <ul style="font-size:17.5px; color:var(--parchment); line-height:1.7;">
+        <li><b style="color:var(--clayHi);">Phase 1 (static scan)</b> never executes target code — it only reads it.</li>
+        <li><b style="color:var(--clayHi);">Phase 2 (attack)</b> is origin-scoped: it only sends requests to the exact scheme/host/port you point it at (<code>--url</code>). Target-controlled external links, form actions, API specs, and redirects are not followed out of scope.</li>
+        <li><b style="color:var(--clayHi);">Sandboxing is containment, not a trust boundary.</b> Argus isolates a target container from the host and uses a unique Compose project, but a target build can still need outbound network access. Only sandbox repositories you trust; use <code>--url</code> for an already-running, separately isolated target.</li>
+        <li>The callback server used for blind-vulnerability detection binds to localhost.</li>
+        <li>Secrets found during scanning are <b style="color:var(--clayHi);">masked</b> in output and reports.</li>
+      </ul>
+    </div>
+
+    <div class="doc-block">
+      <h3>Reporting a vulnerability in Argus</h3>
+      <p>If you find a security issue in Argus itself, please <b style="color:var(--oxbloodHi);">do not open a public issue</b>.
+      Instead, report it privately via
+      <a href="https://github.com/Sarthak-47/ARGUS/security/advisories" target="_blank" rel="noopener">GitHub Security Advisories</a>
+      on the repository. We aim to acknowledge reports within a few days.</p>
+      <p style="font-size:15.5px; color:var(--dust);">The full, canonical version of this policy lives in
+      <a href="https://github.com/Sarthak-47/ARGUS/blob/main/SECURITY.md" target="_blank" rel="noopener">SECURITY.md</a>
+      on GitHub — this page mirrors it.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="meander" style="margin-bottom:40px;"></div>
+  <div class="wrap">
+    <div class="motto">It never slept. It saw everything.</div>
+    <div class="flinks">
+      <a href="../">Home</a>
+      <a href="../docs/">Docs</a>
+      <a href="../download/">Download</a>
+      <a href="../changelog/">Changelog</a>
+      <a href="https://github.com/Sarthak-47/ARGUS" target="_blank" rel="noopener">GitHub</a>
+    </div>
+    <div class="legal">© 2026 Argus. Built for the AI-agent era, not just the AI-code era.</div>
+  </div>
+</footer>
+
+<script src="../assets/site.js"></script>
+</body>
+</html>

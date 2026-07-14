@@ -6,14 +6,34 @@
 <title>Argus — the hundred-eyed security auditor</title>
 <meta name="description" content="Argus reads your code, then spins your app up and actually attacks it. Named after Argus Panoptes — the hundred-eyed giant who never slept and saw everything. Free, open source, local-model capable." />
 <link rel="icon" type="image/png" href="assets/argus-logo.png" />
+<link rel="canonical" href="https://sarthak-47.github.io/ARGUS/" />
 <meta property="og:title" content="Argus — the hundred-eyed security auditor" />
 <meta property="og:description" content="Static scanners tell you what looks wrong. Argus proves it — it attacks your app for real, then explains every finding in plain English." />
-<meta property="og:image" content="assets/og-image.svg" />
+<meta property="og:image" content="https://sarthak-47.github.io/ARGUS/assets/og-image.png" />
+<meta property="og:url" content="https://sarthak-47.github.io/ARGUS/" />
 <meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Argus — the hundred-eyed security auditor" />
+<meta name="twitter:description" content="Static scanners tell you what looks wrong. Argus proves it — it attacks your app for real, then explains every finding in plain English." />
+<meta name="twitter:image" content="https://sarthak-47.github.io/ARGUS/assets/og-image.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="assets/style.css" />
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Argus",
+  "applicationCategory": "SecurityApplication",
+  "operatingSystem": "Windows, macOS, Linux",
+  "description": "AI-powered security audit agent — reads your code, spins your app up, and actually attacks it.",
+  "url": "https://sarthak-47.github.io/ARGUS/",
+  "downloadUrl": "https://github.com/Sarthak-47/ARGUS/releases/latest",
+  "license": "https://github.com/Sarthak-47/ARGUS/blob/main/LICENSE",
+  "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}
+}
+</script>
 </head>
 <body>
 
@@ -24,6 +44,7 @@
       <img src="assets/argus-logo.png" alt="" />
       ARGUS
     </div>
+    <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">☰</button>
     <div class="links">
       <a href="#swarm">Swarm</a>
       <a href="docs/">Docs</a>
@@ -46,13 +67,14 @@
   <div><code class="install" onclick="copyInstall(this)"><span>pip install argus-panoptes</span><span class="copy">COPY</span></code></div>
 
   <div class="cta-row">
-    <a class="btn primary" href="#download">Download the desktop app</a>
+    <a class="btn primary" href="https://github.com/Sarthak-47/ARGUS/releases/latest" target="_blank" rel="noopener" data-os-download>Download the desktop app</a>
     <a class="btn ghost" href="https://github.com/Sarthak-47/ARGUS" target="_blank" rel="noopener">View on GitHub</a>
   </div>
 
   <div class="stats">
     <div class="stat"><div class="n">2</div><div class="l">Phases</div></div>
     <div class="stat"><div class="n">19</div><div class="l">Attack agents</div></div>
+    <div class="stat"><div class="n" data-stat="stars">★</div><div class="l">GitHub stars</div></div>
     <div class="stat"><div class="n">0</div><div class="l">Telemetry</div></div>
     <div class="stat"><div class="n">MIT</div><div class="l">License</div></div>
   </div>
@@ -167,7 +189,7 @@ Risk Score 98/100  [<span class="crit">CRITICAL</span>]
       <div class="os-card"><h4>Linux</h4><p>.deb · .rpm · .AppImage</p><a href="https://github.com/Sarthak-47/ARGUS/releases/latest" target="_blank" rel="noopener">Latest release →</a></div>
     </div>
     <div><code class="install" onclick="copyInstall(this)"><span>pip install argus-panoptes</span><span class="copy">COPY</span></code></div>
-    <p style="margin-top:6px;"><a href="download/">All platforms, checksums & verification steps →</a></p>
+    <p style="margin-top:6px;"><a href="download/">All platforms, Docker, and CLI extras →</a></p>
   </div>
 </section>
 
@@ -185,7 +207,7 @@ Risk Score 98/100  [<span class="crit">CRITICAL</span>]
     </details>
     <details>
       <summary>Is active attacking (Phase 2) safe to run?</summary>
-      <p>Argus only attacks the exact origin you authorize — off-origin links, redirects, and API specs on a target page can't pull it out of scope. Read <a href="https://github.com/Sarthak-47/ARGUS/blob/main/SECURITY.md" target="_blank" rel="noopener">SECURITY.md</a> before pointing it at anything you don't own.</p>
+      <p>Argus only attacks the exact origin you authorize — off-origin links, redirects, and API specs on a target page can't pull it out of scope. Read the <a href="security/">security &amp; responsible use policy</a> before pointing it at anything you don't own.</p>
     </details>
     <details>
       <summary>Where do I report bugs or request features?</summary>
@@ -202,6 +224,7 @@ Risk Score 98/100  [<span class="crit">CRITICAL</span>]
       <a href="docs/">Docs</a>
       <a href="download/">Download</a>
       <a href="changelog/">Changelog</a>
+      <a href="security/">Security</a>
       <a href="https://github.com/Sarthak-47/ARGUS" target="_blank" rel="noopener">GitHub</a>
       <a href="https://pypi.org/project/argus-panoptes/" target="_blank" rel="noopener">PyPI</a>
       <a href="https://github.com/Sarthak-47/ARGUS/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
@@ -210,57 +233,7 @@ Risk Score 98/100  [<span class="crit">CRITICAL</span>]
   </div>
 </footer>
 
-<script>
-function copyInstall(el){
-  const text = el.querySelector('span').textContent;
-  navigator.clipboard?.writeText(text);
-  const label = el.querySelector('.copy');
-  const prev = label.textContent;
-  label.textContent = 'COPIED';
-  setTimeout(()=>label.textContent = prev, 1400);
-}
-
-const AGENTS = [
-  ["ReconBot","Maps the attack surface — links, forms, headers — before anything else runs."],
-  ["CrawlerBot","Wordlist-based discovery for backup files, admin panels, and forgotten endpoints."],
-  ["Injector","SQL, NoSQL, and command injection — error-based, boolean-blind, and time-based."],
-  ["AuthBreaker","JWT forgery, weak secrets, broken session and MFA logic."],
-  ["IDORHunter","Insecure direct object references — reading what isn't yours."],
-  ["AuthzTester","Broken object/function-level authorization — BOLA/BFLA across two identities."],
-  ["XSSHunter","Reflected, stored, and DOM-based cross-site scripting."],
-  ["SSRFProber","Server-side request forgery, including blind confirmation via callback."],
-  ["HeaderPoker","CORS misconfiguration and access-control bypass headers."],
-  ["CSRFHunter","Missing tokens, clickjacking, forced state change."],
-  ["FileAttacker","Upload abuse and path traversal — arbitrary file read/write."],
-  ["DataExposure","Excessive data exposure — secrets and PII leaking through API responses."],
-  ["Fuzzer","Parameter fuzzing across every discovered endpoint."],
-  ["RaceCondition","Concurrency bugs — double-spends, missing locks."],
-  ["GraphQLAgent","Introspection abuse, batching attacks, depth-limit bypass."],
-  ["WebSocketAgent","Origin validation and message-injection over WebSockets."],
-  ["MCPSecurityAgent","Tool poisoning and dangerous capabilities in exposed MCP servers."],
-  ["PromptInjectionAgent","Fires a canary token at your app's AI features to prove injection."],
-  ["BusinessLogicAgent","LLM-reasoned abuse of app-specific workflow rules."],
-];
-
-const grid = document.getElementById('swarm-grid');
-AGENTS.forEach(([name, desc]) => {
-  const card = document.createElement('div');
-  card.className = 'agent';
-  card.innerHTML = `
-    <div class="face">
-      <svg viewBox="0 0 24 15" width="26" height="16" aria-hidden="true">
-        <g fill="none" stroke="#c56a33" stroke-width="1.6">
-          <path d="M2 7.5 Q12 1 22 7.5 Q12 14 2 7.5 Z" />
-          <circle cx="12" cy="7.5" r="2.6" fill="#7d4f28" stroke="none" />
-        </g>
-      </svg>
-      <div class="name">${name}</div>
-    </div>
-    <div class="desc">${desc}</div>
-  `;
-  grid.appendChild(card);
-});
-</script>
+<script src="assets/site.js"></script>
 
 </body>
 </html>

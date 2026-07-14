@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Download — Argus</title>
 <meta name="description" content="Download the Argus desktop app for Windows, macOS, or Linux, or install the CLI from PyPI. No account, no telemetry." />
+<link rel="canonical" href="https://sarthak-47.github.io/ARGUS/download/" />
+<meta property="og:title" content="Download — Argus" />
+<meta property="og:description" content="Download the Argus desktop app for Windows, macOS, or Linux, or install the CLI from PyPI. No account, no telemetry." />
+<meta property="og:image" content="https://sarthak-47.github.io/ARGUS/assets/og-image.png" />
+<meta property="og:type" content="website" />
 <link rel="icon" type="image/png" href="../assets/argus-logo.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -17,6 +22,7 @@
 <header>
   <nav class="wrap">
     <div class="brand"><a href=".." style="display:flex;align-items:center;gap:12px;color:inherit;"><img src="../assets/argus-logo.png" alt="" />ARGUS</a></div>
+    <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">☰</button>
     <div class="links">
       <a href="../docs/">Docs</a>
       <a href="." class="active">Download</a>
@@ -39,17 +45,17 @@
     <h2>The full engine, in a native shell.</h2>
     <p class="lede">Tauri wraps the same Python engine that powers the CLI — live attack feed, reports, and settings, driving real scans, not demo data.</p>
     <div class="os-grid">
-      <div class="os-card">
+      <div class="os-card" data-os-card="Windows">
         <h4>Windows</h4>
         <p>NSIS installer (.exe) or MSI — x86_64</p>
         <a href="https://github.com/Sarthak-47/ARGUS/releases/latest" target="_blank" rel="noopener">Latest release →</a>
       </div>
-      <div class="os-card">
+      <div class="os-card" data-os-card="macOS">
         <h4>macOS</h4>
         <p>Universal .dmg — Apple Silicon (M1+) and Intel</p>
         <a href="https://github.com/Sarthak-47/ARGUS/releases/latest" target="_blank" rel="noopener">Latest release →</a>
       </div>
-      <div class="os-card">
+      <div class="os-card" data-os-card="Linux">
         <h4>Linux</h4>
         <p>.deb (Debian/Ubuntu) · .rpm (Fedora/RHEL) · .AppImage (any distro)</p>
         <a href="https://github.com/Sarthak-47/ARGUS/releases/latest" target="_blank" rel="noopener">Latest release →</a>
@@ -92,6 +98,7 @@ docker run --rm -v "$PWD:/src" argus scan /src --no-llm</pre>
       <a href="../">Home</a>
       <a href="../docs/">Docs</a>
       <a href="../changelog/">Changelog</a>
+      <a href="../security/">Security</a>
       <a href="https://github.com/Sarthak-47/ARGUS" target="_blank" rel="noopener">GitHub</a>
       <a href="https://pypi.org/project/argus-panoptes/" target="_blank" rel="noopener">PyPI</a>
     </div>
@@ -99,16 +106,7 @@ docker run --rm -v "$PWD:/src" argus scan /src --no-llm</pre>
   </div>
 </footer>
 
-<script>
-function copyInstall(el){
-  const text = el.querySelector('span').textContent;
-  navigator.clipboard?.writeText(text);
-  const label = el.querySelector('.copy');
-  const prev = label.textContent;
-  label.textContent = 'COPIED';
-  setTimeout(()=>label.textContent = prev, 1400);
-}
-</script>
+<script src="../assets/site.js"></script>
 
 </body>
 </html>

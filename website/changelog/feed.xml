@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Argus Changelog</title>
+    <link>https://sarthak-47.github.io/ARGUS/changelog/</link>
+    <description>Release history for Argus, the hundred-eyed security auditor.</description>
+    <language>en-us</language>
+    <item>
+      <title>1.2.12</title>
+      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.12</link>
+      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.12</guid>
+      <pubDate>Fri, 11 Jul 2026 00:00:00 GMT</pubDate>
+      <description>Fixed path-probing agents (ReconBot, CrawlerBot) reporting fake findings on SPA-fallback sites, plus the same false-positive class in AuthzTester, HeaderPoker, and Injector.</description>
+    </item>
+    <item>
+      <title>1.2.11</title>
+      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.11</link>
+      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.11</guid>
+      <pubDate>Fri, 11 Jul 2026 00:00:00 GMT</pubDate>
+      <description>Origin-scope enforcement on every request, TLS verification restored, strict desktop CSP, Live Attack cancel button, --max-requests cap, and a pre-publish benchmark gate.</description>
+    </item>
+    <item>
+      <title>1.2.9</title>
+      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.9</link>
+      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.9</guid>
+      <pubDate>Fri, 11 Jul 2026 00:00:00 GMT</pubDate>
+      <description>Fixed the Dashboard/Reports risk-band mismatch and Live Attack silently doing nothing; Settings can now pick your own local Ollama model.</description>
+    </item>
+    <item>
+      <title>1.2.8</title>
+      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.8</link>
+      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.8</guid>
+      <pubDate>Fri, 11 Jul 2026 00:00:00 GMT</pubDate>
+      <description>The desktop app now bundles the Argus CLI directly inside the installer instead of depending on a PATH-reachable install.</description>
+    </item>
+  </channel>
+</rss>

@@ -38,6 +38,26 @@ nav .links{display:flex; gap:26px; font-family:var(--display); font-size:11px; l
 nav .links a{color:var(--dust);}
 nav .links a:hover, nav .links a.active{color:var(--clayHi);}
 
+.nav-toggle{display:none; background:none; border:1px solid var(--diluteLo); color:var(--clayHi); width:38px; height:38px; cursor:pointer; font-size:16px;}
+@media (max-width:640px){
+  .nav-toggle{display:block;}
+  nav .links{
+    display:none; position:absolute; top:100%; left:0; right:0; flex-direction:column; gap:0;
+    background:var(--glaze); border-top:1px solid var(--relief); border-bottom:1px solid var(--relief);
+    padding:8px 0;
+  }
+  nav .links.open{display:flex;}
+  nav .links a{padding:14px 28px; border-bottom:1px solid var(--diluteLo);}
+  nav .links a:last-child{border-bottom:none;}
+}
+
+/* keyboard accessibility — every interactive element gets a visible ring */
+a:focus-visible, button:focus-visible, summary:focus-visible, .agent:focus-visible{
+  outline:2px solid var(--clayHi); outline-offset:3px;
+}
+.agent:focus-visible .face{opacity:0; transform:translateY(-6px);}
+.agent:focus-visible .desc{opacity:1; transform:translateY(0);}
+
 /* hero */
 .hero{padding:96px 0 70px; text-align:center; position:relative;}
 .hero.small{padding:64px 0 48px;}
@@ -138,10 +158,14 @@ table.cmp tr.us td:first-child{color:var(--clayHi);}
 
 /* download */
 .os-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-bottom:30px;}
-.os-card{border:1px solid var(--diluteLo); padding:26px 24px; background:var(--glaze);}
+.os-card{border:1px solid var(--diluteLo); padding:26px 24px; background:var(--glaze); position:relative;}
+.os-card.recommended{border-color:var(--clay); background:linear-gradient(180deg, rgba(197,106,51,.08), var(--glaze));}
 .os-card h4{font-family:var(--display); font-size:15px; color:var(--clayHi); margin:0 0 6px;}
 .os-card p{font-size:14.5px; color:var(--dust); margin:0 0 16px;}
 .os-card a{font-family:var(--display); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ivory);}
+.os-badge{display:block; font-family:var(--display); font-size:9.5px; letter-spacing:.12em; text-transform:uppercase;
+  color:var(--clayHi); margin-bottom:10px;}
+.os-badge::before{content:"◆ "; color:var(--oxbloodHi);}
 
 /* faq */
 details{border-bottom:1px solid var(--relief); padding:20px 0;}
