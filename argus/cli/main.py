@@ -76,7 +76,12 @@ def demo(
 # --------------------------------------------------------------------------- #
 @app.command()
 def scan(
-    target: str = typer.Argument(..., help="Repo URL or local path to scan."),
+    target: Optional[str] = typer.Argument(None, help="Repo URL or local path to scan. Omit with --targets-file."),
+    targets_file: Optional[str] = typer.Option(
+        None, "--targets-file", help="Scan every target listed in this file (one per line, "
+                                      "'#'-prefixed comments ignored) instead of a single TARGET — "
+                                      "for auditing many repos in one CI run with one aggregate summary."
+    ),
     deep: bool = typer.Option(False, "--deep", help="Full LLM free-form review of high-risk files."),
     taint: bool = typer.Option(
         False, "--taint", help="LLM taint-tracing: report only complete source-to-sink flows in high-risk files."
@@ -101,6 +106,22 @@ def scan(
     ),
 ) -> None:
     """Phase 1 — static analysis. Read and understand the code without running it."""
+    from argus.cli import output as out
+
+    if targets_file:
+        if target is not None:
+            out.error("Pass either TARGET or --targets-file, not both.")
+            raise typer.Exit(code=1)
+        from argus.pipeline import run_scan_batch
+
+        run_scan_batch(targets_file, deep=deep, depth=depth, no_llm=no_llm, taint=taint,
+                       export_format=fmt, fail_on=fail_on)
+        return
+
+    if target is None:
+        out.error("Provide a TARGET, or --targets-file to scan a list of targets.")
+        raise typer.Exit(code=1)
+
     from argus.pipeline import run_scan
 
     run_scan(target, deep=deep, depth=depth, no_llm=no_llm, taint=taint, export_format=fmt,

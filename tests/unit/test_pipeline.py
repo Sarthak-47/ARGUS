@@ -8,7 +8,7 @@ import typer
 import pytest
 
 import argus.pipeline as pipeline
-from argus.pipeline import run_scan, run_attack, run_audit, run_fix, run_pr_comment, export_last, _export, _reverify_fixes, _run_llm
+from argus.pipeline import run_scan, run_scan_batch, parse_targets_file, run_attack, run_audit, run_fix, run_pr_comment, export_last, _export, _reverify_fixes, _run_llm
 from argus.compare import finding_signature
 from argus.models import CodebaseMap, Finding, ScanResult, Severity
 from argus.fix import AppliedFix
@@ -95,6 +95,59 @@ def test_explicit_fail_on_takes_precedence_over_auto_discovered_policy(tmp_path)
     )
     result = run_scan(str(repo), deep=False, depth=None, no_llm=True, fail_on="critical")
     assert result is not None  # --fail-on critical didn't trip; auto-policy was skipped
+
+
+def test_parse_targets_file_skips_blank_lines_and_comments(tmp_path):
+    f = tmp_path / "targets.txt"
+    f.write_text("# a comment\n\nrepo-one\n  repo-two  \n# another\n", encoding="utf-8")
+    assert parse_targets_file(str(f)) == ["repo-one", "repo-two"]
+
+
+def test_run_scan_batch_empty_file_exits_cleanly(tmp_path, capsys):
+    f = tmp_path / "empty.txt"
+    f.write_text("# only comments\n\n", encoding="utf-8")
+    with pytest.raises(typer.Exit) as exc_info:
+        run_scan_batch(str(f), no_llm=True)
+    assert exc_info.value.exit_code == 1
+    assert "no targets" in capsys.readouterr().out.lower()
+
+
+def test_run_scan_batch_scans_every_target_and_continues_past_a_bad_one(tmp_path, vuln_repo):
+    clean = tmp_path / "clean"
+    clean.mkdir()
+    (clean / "app.py").write_text("print('hi')\n", encoding="utf-8")
+
+    targets_file = tmp_path / "targets.txt"
+    targets_file.write_text(
+        f"{vuln_repo}\n{clean}\n{tmp_path / 'nonexistent'}\n", encoding="utf-8",
+    )
+
+    results = run_scan_batch(str(targets_file), no_llm=True)
+    # One bad target is skipped, not fatal — the other two still ran.
+    assert len(results) == 2
+    assert any(r.findings for r in results)  # vuln_repo
+
+
+def test_run_scan_batch_fail_on_gates_after_scanning_everything(tmp_path, vuln_repo, capsys):
+    clean = tmp_path / "clean"
+    clean.mkdir()
+    (clean / "app.py").write_text("print('hi')\n", encoding="utf-8")
+
+    targets_file = tmp_path / "targets.txt"
+    targets_file.write_text(f"{vuln_repo}\n{clean}\n", encoding="utf-8")
+
+    with pytest.raises(typer.Exit) as exc_info:
+        run_scan_batch(str(targets_file), no_llm=True, fail_on="critical")
+    assert exc_info.value.exit_code == 2
+    out_text = capsys.readouterr().out.lower()
+    assert "1 target(s) have a finding" in out_text  # the failing target is named, not just "something failed"
+
+
+def test_run_scan_batch_no_fail_on_never_raises(tmp_path, vuln_repo):
+    targets_file = tmp_path / "targets.txt"
+    targets_file.write_text(f"{vuln_repo}\n", encoding="utf-8")
+    results = run_scan_batch(str(targets_file), no_llm=True)  # fail_on=None
+    assert len(results) == 1
 
 
 def test_run_scan_diff_base_keeps_only_changed_file_findings(tmp_path):

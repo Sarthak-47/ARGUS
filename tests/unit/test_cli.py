@@ -33,6 +33,30 @@ def test_scan_nonexistent_path_exits_nonzero(tmp_path):
     assert result.exit_code != 0
 
 
+def test_scan_without_target_or_targets_file_exits_nonzero():
+    result = runner.invoke(app, ["scan"])
+    assert result.exit_code != 0
+
+
+def test_scan_with_both_target_and_targets_file_exits_nonzero(tmp_path):
+    f = tmp_path / "targets.txt"
+    f.write_text("repo-one\n", encoding="utf-8")
+    result = runner.invoke(app, ["scan", "some-target", "--targets-file", str(f)])
+    assert result.exit_code != 0
+
+
+def test_scan_targets_file_scans_a_real_repo(tmp_path):
+    repo = tmp_path / "clean"
+    repo.mkdir()
+    (repo / "app.py").write_text("print('hi')\n", encoding="utf-8")
+    targets_file = tmp_path / "targets.txt"
+    targets_file.write_text(f"{repo}\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["scan", "--targets-file", str(targets_file), "--no-llm"])
+    assert result.exit_code == 0
+    assert "batch summary" in result.stdout.lower()
+
+
 def test_report_without_prior_scan_exits_nonzero():
     result = runner.invoke(app, ["report", "--format", "html"])
     assert result.exit_code != 0

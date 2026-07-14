@@ -164,6 +164,35 @@ def findings_table(result: ScanResult, limit: int | None = None) -> None:
     console.print(table)
 
 
+def batch_summary_table(rows: list[tuple[str, str, str, int]]) -> None:
+    """One row per target from `argus scan --targets-file`: (target, band-or-
+    "ERROR", score-or-error-message, finding count)."""
+    table = Table(
+        show_header=True,
+        header_style=f"bold {GOLD}",
+        border_style="grey30",
+        expand=True,
+        row_styles=["", "on grey7"],
+    )
+    table.add_column("TARGET", ratio=3, style=PARCHMENT)
+    table.add_column("BAND", width=10)
+    table.add_column("SCORE / ERROR", ratio=2, style=STONE)
+    table.add_column("FINDINGS", width=9, justify="right")
+
+    band_style = {
+        "CRITICAL": "bold red", "HIGH": "dark_orange3", "MEDIUM": "yellow3",
+        "LOW": "grey58", "ERROR": CRIMSON,
+    }
+    for target, band, score_or_error, count in rows:
+        table.add_row(
+            target,
+            Text(band, style=band_style.get(band, "grey58")),
+            score_or_error,
+            str(count) if band != "ERROR" else "—",
+        )
+    console.print(table)
+
+
 def codebase_summary(result: ScanResult) -> None:
     """One-line-per-fact summary of what ingestion understood."""
     cm = result.codebase_map

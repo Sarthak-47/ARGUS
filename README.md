@@ -120,6 +120,7 @@ argus setup                               # first-time wizard (detects GPU, pick
 argus scan <repo-url|path>                # Phase 1 — static analysis
 argus scan <path> --deep                  # + full LLM free-form review of high-risk files
 argus scan <path> --taint                 # + LLM taint-tracing: only complete source-to-sink flows
+argus scan --targets-file repos.txt       # scan every target in a file, one aggregate summary
 argus attack --url http://localhost:3000  # Phase 2 — attack a running app
 argus audit <repo-url>                    # Phase 1 + Phase 2
 argus fix <path>                          # generate patches for fixable findings (dry-run)

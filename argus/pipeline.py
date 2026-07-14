@@ -237,6 +237,89 @@ def run_scan(
     return result
 
 
+def parse_targets_file(path: str) -> list[str]:
+    """One target per line; blank lines and ``#``-prefixed comments ignored."""
+    lines = Path(path).expanduser().read_text(encoding="utf-8").splitlines()
+    return [ln.strip() for ln in lines if ln.strip() and not ln.strip().startswith("#")]
+
+
+def run_scan_batch(
+    targets_file: str,
+    *,
+    deep: bool = False,
+    depth: str | None = None,
+    no_llm: bool = False,
+    taint: bool = False,
+    export_format: str | None = None,
+    fail_on: str | None = None,
+) -> list[ScanResult]:
+    """Scan every target listed in ``targets_file``, one Phase-1 run each.
+
+    A single bad target (a typo'd path, an unreachable repo URL) doesn't
+    abort the whole batch — it's recorded as an error row in the summary and
+    scanning continues. Gating (``--fail-on``) is deferred until every target
+    has been scanned, so the aggregate table is the CI signal, not a
+    first-target failure that hides everything after it. ``--policy``
+    per-target gating isn't supported in batch mode — different targets
+    plausibly have different policy files at their own root, which
+    ``--fail-on``'s single severity threshold sidesteps entirely.
+    """
+    targets = parse_targets_file(targets_file)
+    if not targets:
+        out.error(f"No targets found in {targets_file!r} (blank file, or every line was a comment).")
+        raise typer.Exit(code=1)
+
+    out.banner()
+    out.rule(f"BATCH SCAN — {len(targets)} target(s)")
+
+    results: list[tuple[str, ScanResult | None, str | None]] = []
+    for i, target in enumerate(targets, 1):
+        out.console.print()
+        out.step(f"[{i}/{len(targets)}] {target}")
+        try:
+            result = run_scan(
+                target, deep=deep, depth=depth, no_llm=no_llm, taint=taint,
+                export_format=export_format, gate=False,
+            )
+            results.append((target, result, None))
+        except typer.Exit:
+            # run_scan already printed the real reason via out.error() before
+            # exiting (bad path, gate failure, etc.) — nothing more to add.
+            results.append((target, None, "scan aborted — see log above"))
+        except Exception as exc:  # noqa: BLE001 — one bad target must not sink the batch
+            out.error(f"{target}: {exc}")
+            results.append((target, None, str(exc)))
+
+    out.console.print()
+    out.rule("BATCH SUMMARY")
+    table_rows = []
+    for target, result, error in results:
+        if error is not None:
+            table_rows.append((target, "ERROR", error, 0))
+        else:
+            table_rows.append((target, result.risk_band, f"{result.risk_score}/100", len(result.findings)))
+    out.batch_summary_table(table_rows)
+
+    if fail_on:
+        from argus.models import Severity
+
+        threshold = Severity.coerce(fail_on)
+        failing = [
+            target for target, result, error in results
+            if result is not None and any(f.severity.rank >= threshold.rank for f in result.findings)
+        ]
+        errored = [target for target, _r, error in results if error is not None]
+        if failing or errored:
+            if failing:
+                out.error(f"{len(failing)} target(s) have a finding at/above {fail_on.upper()}: "
+                          f"{', '.join(failing)}")
+            if errored:
+                out.error(f"{len(errored)} target(s) failed to scan: {', '.join(errored)}")
+            raise typer.Exit(code=2)
+
+    return [r for _t, r, _e in results if r is not None]
+
+
 def _filter_to_changed_files(target: str, result: ScanResult, diff_base: str) -> None:
     """Keep only findings in files changed vs ``diff_base`` (PR-gate model).
 
