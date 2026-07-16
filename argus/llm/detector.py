@@ -97,22 +97,36 @@ def recommend_model(vram_gb: float) -> str | None:
     return best
 
 
-def list_ollama_models(host: str | None = None) -> list[str]:
-    """Every model name Ollama actually has pulled on this machine, via its
-    `/api/tags` endpoint — so Settings can offer a real choice among models the
-    user already has installed, not just the one size-recommended default.
-    Returns `[]` (never raises) if Ollama isn't running or isn't reachable —
-    this is a nice-to-have list, not something that should break `status`.
+def probe_ollama(host: str | None = None) -> tuple[bool, list[str]]:
+    """One HTTP call to Ollama's `/api/tags` — returns (reachable, sorted
+    model names). Ollama's own API has been observed taking 2+ seconds to
+    respond even when running locally with models already loaded; `argus
+    status` used to pay that cost *twice* per invocation (once via
+    OllamaProvider.available(), once via the old list_ollama_models()) for no
+    reason — both were hitting this exact endpoint independently. Callers
+    that need both facts should use this instead of two separate calls.
     """
     import httpx
 
     base = (host or PROVIDER_ENDPOINTS["ollama"]).replace("/api/chat", "")
     try:
-        r = httpx.get(f"{base}/api/tags", timeout=2.0)
+        r = httpx.get(f"{base}/api/tags", timeout=3.0)
         if r.status_code != 200:
-            return []
+            return False, []
         data = r.json()
         names = [m.get("name") for m in data.get("models", []) if m.get("name")]
-        return sorted(names)
+        return True, sorted(names)
     except (httpx.HTTPError, ValueError):
-        return []
+        return False, []
+
+
+def list_ollama_models(host: str | None = None) -> list[str]:
+    """Every model name Ollama actually has pulled on this machine — so
+    Settings can offer a real choice among models the user already has
+    installed, not just the one size-recommended default. Returns `[]`
+    (never raises) if Ollama isn't running or isn't reachable — this is a
+    nice-to-have list, not something that should break `status`. Prefer
+    `probe_ollama()` directly if you also need reachability, to avoid a
+    second round-trip.
+    """
+    return probe_ollama(host)[1]

@@ -15,7 +15,7 @@ from argus.config import load_settings
 
 
 def _status_payload() -> dict:
-    from argus.llm.detector import detect_gpu, list_ollama_models, recommend_model
+    from argus.llm.detector import detect_gpu, list_ollama_models, probe_ollama, recommend_model
     from argus.llm.orchestrator import AGENT_REGISTRY
     from argus.llm.provider import build_provider
 
@@ -23,19 +23,33 @@ def _status_payload() -> dict:
     resolved = settings.resolve_provider()
     model = None
     available = False
+    local_models: list[str] = []
+    already_probed_ollama = False
     if resolved:
         provider = build_provider(resolved, settings)
         if provider is not None:
             model = provider.model
-            available = provider.available()
+            if provider.name == "local":
+                # OllamaProvider.available() and the local-models list both
+                # hit the exact same /api/tags endpoint — Ollama's own API
+                # has been observed taking 2+ seconds to answer even when
+                # already running, so paying that cost twice turned every
+                # `argus status` call (and every Settings-screen interaction
+                # in the desktop app, which calls this on every click) into
+                # a 4-5+ second stall for no reason. One call now covers both.
+                available, local_models = probe_ollama()
+                already_probed_ollama = True
+            else:
+                available = provider.available()
 
     gpu = detect_gpu()
     recommended = recommend_model(gpu.vram_gb) if gpu.detected else None
-    # Every model actually pulled in the local Ollama install, so Settings can
-    # offer a real choice among what's already on this machine — not just the
-    # one size-recommended default. Empty when Ollama isn't running; cheap
-    # either way (a 2s-timeout local HTTP call).
-    local_models = list_ollama_models()
+    # Local models are useful in the picker even when a different provider is
+    # currently active (e.g. resolved to Groq but Ollama also has models
+    # pulled) — only skip the fetch when the branch above already made this
+    # exact call.
+    if not already_probed_ollama:
+        local_models = list_ollama_models()
 
     return {
         "resolved_provider": resolved,
