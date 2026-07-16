@@ -5,6 +5,20 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.16] — 2026-07-16
+
+### Fixed
+- A systematic full-codebase audit (GUI, backend pipeline, attack agents)
+  found and fixed: the provider-display bug from 1.2.15 recurring in New
+  Scan and the sidebar badge; `argus attack` never applying suppressions
+  (an ignored finding kept resurfacing); three more attack agents
+  (PromptInjectionAgent, RaceCondition, IDORHunter) missing the
+  fallback-baseline false-positive guard shipped for BusinessLogicAgent in
+  1.2.14; synthesized attack-chain findings always reporting flat "high"
+  confidence regardless of a weak constituent finding; two unguarded
+  concurrent-write races in local state files; and three config options
+  that were silently no-ops. Full detail in the commit message.
+
 ## [1.2.15] — 2026-07-16
 
 ### Fixed
