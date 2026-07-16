@@ -20,7 +20,14 @@ import json
 import re
 from urllib.parse import urljoin
 
-from argus.agents.base import AgentReport, AttackContext, BaseAgent, build_http_poc
+from argus.agents.base import (
+    AgentReport,
+    AttackContext,
+    BaseAgent,
+    build_http_poc,
+    fetch_fallback_baseline,
+    response_matches_fallback,
+)
 from argus.llm.prompts import BIZLOGIC_SYSTEM, build_bizlogic_user
 from argus.models import Finding, Severity
 
@@ -56,9 +63,19 @@ class BusinessLogicAgent(BaseAgent):
             report.status = "complete"
             return report
 
+        # The LLM proposes step paths itself — it isn't constrained to the
+        # discovered endpoint list, and readily invents plausible-looking
+        # admin/monitoring paths (jenkins/, phpmyadmin/, actuator, swagger-ui)
+        # that were never actually found. On a target with a catch-all
+        # handler (an SPA fallback, a generic error page) every one of those
+        # invented paths "succeeds" with an identical response, which used to
+        # read as a confirmed HIGH finding. Fetched once per run, reused
+        # across every plan below.
+        fallback_baseline = await fetch_fallback_baseline(self, ctx)
+
         confirmed = 0
         for plan in plans[:_MAX_PLANS]:
-            if await self._execute_plan(ctx, plan):
+            if await self._execute_plan(ctx, plan, fallback_baseline):
                 confirmed += 1
 
         report.requests_sent = ctx.requests_sent
@@ -106,7 +123,7 @@ class BusinessLogicAgent(BaseAgent):
 
         return []
 
-    async def _execute_plan(self, ctx: AttackContext, plan: dict) -> bool:
+    async def _execute_plan(self, ctx: AttackContext, plan: dict, fallback_baseline: str | None) -> bool:
         title = str(plan.get("title", "Business logic abuse"))[:120]
         rationale = str(plan.get("rationale", "")).strip()
         expect = str(plan.get("expect_vulnerable_if", "")).strip()
@@ -149,6 +166,13 @@ class BusinessLogicAgent(BaseAgent):
         # repeat/abuse but didn't. This can false-positive on legitimately idempotent
         # endpoints, so confidence is deliberately "medium", not "high".
         if not all(r.status_code < 400 for _, _, r in responses):
+            return False
+
+        # Every step "succeeding" is meaningless if every step got back the
+        # exact same catch-all page a nonexistent path would too — that's a
+        # target-wide fallback handler, not a confirmed logic flaw. Require
+        # at least one response to be genuinely distinct from the baseline.
+        if all(response_matches_fallback(r.text or "", fallback_baseline) for _, _, r in responses):
             return False
 
         last_method, last_url, last_resp = responses[-1]

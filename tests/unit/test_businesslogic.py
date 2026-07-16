@@ -77,6 +77,39 @@ async def test_confirms_abuse_when_every_replayed_step_succeeds():
 
 
 @pytest.mark.asyncio
+async def test_no_finding_when_llm_invents_a_path_on_an_spa_fallback_site():
+    # Regression: the LLM proposes step paths itself, unconstrained by the
+    # discovered endpoint list, and readily invents plausible admin-panel
+    # paths (jenkins/, phpmyadmin/, actuator, swagger-ui) that were never
+    # actually found. Reproduced live against a real site: a catch-all
+    # handler (an SPA fallback) made every one of those invented paths
+    # "succeed" with an identical response, reported as a confirmed HIGH
+    # "Business logic" finding. The only correct result here is none.
+    fallback_body = "<!doctype html>" + "x" * 2000  # a realistic SPA index.html
+
+    async def handler(request):
+        return httpx.Response(200, text=fallback_body, headers={"content-type": "text/html"})
+
+    invented_plan = [{
+        "title": "Jenkins Access",
+        "rationale": "An exposed CI panel might allow unauthenticated access.",
+        "steps": [
+            {"method": "GET", "path": "/jenkins/"},
+            {"method": "GET", "path": "/jenkins/"},
+        ],
+        "expect_vulnerable_if": "the panel is reachable without authentication",
+    }]
+    provider = _FakePlanProvider(invented_plan)
+    async with _mock_client(handler) as client:
+        ctx = AttackContext("http://t", client=client, provider=provider)
+        ctx.add_endpoint(Endpoint(url="http://t/", method="GET"))  # the only real endpoint
+        report = await BusinessLogicAgent().run(ctx)
+
+    assert report.status == "complete"
+    assert [f for f in ctx.findings if f.detector == "businesslogic"] == []
+
+
+@pytest.mark.asyncio
 async def test_corrects_method_to_match_known_endpoint():
     """Regression test for a real observation with a live local model (qwen2.5:7b):
     it proposed GET for a step even though the endpoint list explicitly says the
@@ -85,12 +118,15 @@ async def test_corrects_method_to_match_known_endpoint():
     seen_methods = []
 
     async def handler(request):
-        seen_methods.append(request.method)
         if request.url.path == "/api/redeem":
+            seen_methods.append(request.method)
             if request.method == "POST":
                 return httpx.Response(200, json={"status": "redeemed"})
             return httpx.Response(404)  # GET is not handled — the real bug being guarded against
-        return httpx.Response(404)
+        # Anything else (including the agent's own fallback-baseline probe)
+        # is deliberately distinct from the real endpoint's response, so it
+        # can't be mistaken for a target-wide catch-all.
+        return httpx.Response(404, text="not found")
 
     plan = [{
         "title": "Coupon reuse",
