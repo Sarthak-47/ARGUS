@@ -5,6 +5,28 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.14] — 2026-07-16
+
+### Fixed
+- **Settings page no longer feels frozen.** `argus status` was calling
+  Ollama's local API twice per invocation for the same data (once via
+  `provider.available()`, once via `list_ollama_models()`) — each call
+  taking ~2.2s on a typical machine. Merged into a single probe, roughly
+  halving load time (5.5–7.9s → 3.3–4.4s). The remaining wait now shows a
+  visible "Refreshing…" indicator instead of a silent hang.
+- **New Scan / Live Attack was silently hiding 5 real agents** (SSTIProber,
+  AuthzTester, MCPSecurityAgent, PromptInjectionAgent, BusinessLogicAgent) —
+  the GUI's agent list had drifted out of sync with the backend registry, so
+  they ran on every scan but weren't selectable or visible in the live feed.
+- **`BusinessLogicAgent` no longer reports fake findings on SPA-fallback
+  targets.** Its LLM-proposed abuse paths aren't constrained to real
+  discovered endpoints, and could invent plausible admin paths (jenkins/,
+  phpmyadmin/, actuator, swagger-ui) that "succeed" against any catch-all
+  handler. Now requires at least one response to be genuinely distinct from
+  a baseline fallback response before confirming a finding.
+- **Reports screen's "Export report" button was dead** (no handler at all)
+  — now exports via `argus report` and shows the resulting file path.
+
 ## [1.2.13] — 2026-07-14
 
 ### Added
