@@ -31,9 +31,23 @@ export function Reports() {
           title="Report"
           subtitle={target}
           action={
-            <button style={{ fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: RF.clayHi, background: "transparent", border: `1px solid ${RF.dilute}`, padding: "10px 16px", cursor: "pointer" }}>
-              Export report
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              {s.exportReportResult && (
+                <span style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 12, color: "#6f9e57", maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={s.exportReportResult}>
+                  {s.exportReportResult}
+                </span>
+              )}
+              {s.exportReportError && (
+                <span style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 12, color: C.crimson }}>{s.exportReportError}</span>
+              )}
+              <button
+                disabled={s.exportingReport}
+                onClick={() => s.exportReport("html")}
+                style={{ fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: RF.clayHi, background: "transparent", border: `1px solid ${RF.dilute}`, padding: "10px 16px", cursor: s.exportingReport ? "wait" : "pointer" }}
+              >
+                {s.exportingReport ? "Exporting…" : "Export report"}
+              </button>
+            </div>
           }
         />
 

@@ -415,6 +415,51 @@ fn save_provider_key(name: String, key: String) -> Result<(), String> {
   Ok(())
 }
 
+/// Exports the last scan result via `argus report --format <fmt>` — the
+/// Reports screen's "Export report" button. Returns the resolved output path
+/// (parsed from the CLI's "Report written → <path>" success line, with Rich's
+/// `[style]...[/]` markup tags stripped) so the GUI can show the user exactly
+/// where the file landed instead of a bare "done".
+#[tauri::command]
+fn export_report(fmt: String) -> Result<String, String> {
+  let output = argus_command()?
+    .args(["report", "--format", &fmt])
+    .output()
+    .map_err(|e| format!("failed to launch argus: {e}"))?;
+  if !output.status.success() {
+    let err = String::from_utf8_lossy(&output.stderr).into_owned();
+    return Err(if err.trim().is_empty() {
+      "export failed".into()
+    } else {
+      err
+    });
+  }
+  let stdout = String::from_utf8_lossy(&output.stdout);
+  for line in stdout.lines() {
+    if line.contains("Report written") {
+      return Ok(strip_rich_markup(line).trim().to_string());
+    }
+  }
+  Ok("Report exported.".to_string())
+}
+
+/// Strips Rich's `[style]...[/]` markup tags (e.g. `[wheat1]`, `[/]`) from a
+/// line of CLI output — just enough to make a success message readable in
+/// the GUI without pulling in a regex crate for one bracket-stripping job.
+fn strip_rich_markup(line: &str) -> String {
+  let mut out = String::with_capacity(line.len());
+  let mut in_tag = false;
+  for ch in line.chars() {
+    match ch {
+      '[' => in_tag = true,
+      ']' => in_tag = false,
+      _ if !in_tag => out.push(ch),
+      _ => {}
+    }
+  }
+  out
+}
+
 /// Marks a finding ignored/reviewing/open via `argus suppress`. `search`
 /// must uniquely match one finding's title in the last scan (same rule the
 /// CLI enforces) — an ambiguous or missing match surfaces as an error the
@@ -484,7 +529,7 @@ pub fn run() {
     .invoke_handler(tauri::generate_handler![
       run_audit, cancel_audit, check_argus_available, read_source_snippet, read_scan_history,
       read_scan_comparison, read_status, set_provider, set_local_model, save_provider_key,
-      suppress_finding, get_argus_path, set_argus_path, clear_argus_path
+      suppress_finding, get_argus_path, set_argus_path, clear_argus_path, export_report
     ])
     .setup(|app| {
       if let Ok(dir) = app.path().resource_dir() {

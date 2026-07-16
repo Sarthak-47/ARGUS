@@ -45,6 +45,9 @@ interface State {
   statusLoading: boolean;
   connectionTestResult: "ok" | "unreachable" | null;
   savingKey: boolean;
+  exportingReport: boolean;
+  exportReportResult: string | null;
+  exportReportError: string | null;
   // real desktop-invoked scan (only possible inside the Tauri shell)
   target: string;
   isDesktop: boolean;
@@ -74,6 +77,7 @@ interface State {
   testConnection: () => Promise<void>;
   saveProviderKey: (provider: string, key: string) => Promise<void>;
   suppressFinding: (id: number, title: string, status: "ignored" | "reviewing", reason?: string) => Promise<void>;
+  exportReport: (fmt: string) => Promise<void>;
   setTarget: (t: string) => void;
   runRealAudit: () => Promise<void>;
   cancelAudit: () => Promise<void>;
@@ -115,6 +119,9 @@ export const useStore = create<State>((set, get) => ({
   statusLoading: false,
   connectionTestResult: null,
   savingKey: false,
+  exportingReport: false,
+  exportReportResult: null,
+  exportReportError: null,
   target: "",
   isDesktop: isTauri(),
   auditRunning: false,
@@ -139,6 +146,20 @@ export const useStore = create<State>((set, get) => ({
       set((s) => ({ suppressedIds: new Set(s.suppressedIds).add(id), selectedId: null }));
     } catch (err) {
       set({ suppressionError: String(err) });
+    }
+  },
+
+  exportReport: async (fmt) => {
+    if (!isTauri()) {
+      set({ exportReportError: "Exporting only works in the desktop app." });
+      return;
+    }
+    set({ exportingReport: true, exportReportResult: null, exportReportError: null });
+    try {
+      const path = await invoke<string>("export_report", { fmt });
+      set({ exportingReport: false, exportReportResult: path });
+    } catch (err) {
+      set({ exportingReport: false, exportReportError: String(err) });
     }
   },
 
