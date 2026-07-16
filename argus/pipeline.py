@@ -27,6 +27,14 @@ from argus.models import Finding, ScanResult
 _EVENT_SENTINEL = "@@ARGUS_EVENT@@"
 
 
+def _looks_like_git_remote(target: str) -> bool:
+    """A git clone URL, not a running app to send HTTP attack traffic at —
+    same shape ``argus/scanner/ingestion.py``'s ``_looks_like_url`` treats as
+    "clone this", just narrowed to exclude a plain running-app URL (which
+    *should* still be attacked directly)."""
+    return target.endswith(".git") or target.startswith(("git@", "ssh://"))
+
+
 def _stream_event(agent: str, text: str, sev: str) -> None:
     import os
 
@@ -562,16 +570,52 @@ def run_attack(
     out.rule("ATTACK AGENT")
 
     base_url = url
+    if base_url and _looks_like_git_remote(base_url):
+        # Guards an explicit `--url`/GUI "running app URL" too, not just the
+        # implicit target-as-URL fallback below — a git remote is never a
+        # sensible attack target regardless of which field it arrived through.
+        out.error(
+            f"{base_url!r} looks like a git remote, not a running app — Phase 2 sends real "
+            "HTTP requests and needs an already-running instance's URL, not a clone URL."
+        )
+        _stream_event(
+            "system",
+            f"Refused to attack {base_url!r} directly — it's a git remote URL, not a running app.",
+            "crit",
+        )
+        raise typer.Exit(code=1)
     sandbox: Sandbox | None = None
     # `target` is normally a repo to spin up in a Docker sandbox — but if it's
-    # already a URL (e.g. the desktop app's single Target field carries
-    # whatever the user typed, with no separate "already running" field), treat
-    # it as an already-running app instead of trying to Docker-sandbox a URL
-    # string as though it were a repo path. Skips the Docker requirement
-    # entirely for this case.
-    if not base_url and target and re.match(r"^https?://", target, re.IGNORECASE):
+    # already a URL, treat it as an already-running app instead of trying to
+    # Docker-sandbox a URL string as though it were a repo path. Skips the
+    # Docker requirement entirely for this case.
+    #
+    # A `.git`-suffixed / `git@`/`ssh://` remote is explicitly excluded here:
+    # it's a clone target, not a running app to send HTTP requests at. Without
+    # this exclusion, an `https://github.com/user/repo.git` target got treated
+    # as `base_url` and the swarm sent real attack traffic straight at
+    # github.com itself — every "finding" was actually GitHub's own server
+    # responding to a guessed path (a 301 redirect misread as a confirmed
+    # "admin panel", generic 404s misread as "exposed backup files"), nothing
+    # to do with the target repo's actual application security.
+    if not base_url and target and re.match(r"^https?://", target, re.IGNORECASE) and not _looks_like_git_remote(target):
         base_url = target
         target = None
+
+    if not base_url and target and _looks_like_git_remote(target):
+        out.error(
+            f"{target!r} looks like a git remote, not a running app or a local checkout — "
+            "Phase 2 sends real HTTP requests and needs something to send them at. Use "
+            "[wheat1]--url http://your-running-app[/] for an already-running instance, or "
+            "point Phase 2 at a local path to a cloned copy of the repo."
+        )
+        _stream_event(
+            "system",
+            f"Refused to attack {target!r} directly — it's a git remote URL, not a running "
+            "app. Use --url for an already-running instance instead.",
+            "crit",
+        )
+        raise typer.Exit(code=1)
 
     if not base_url:
         if not target:
@@ -762,7 +806,15 @@ def run_audit(target: str, fix: bool = False, agents: str | None = None,
     # outer check blocked Phase 2 even when nothing here required Docker,
     # which is exactly what made "Strike the app" against a URL silently do
     # nothing in the desktop app (no event ever streamed to explain why).
-    target_is_url = bool(target and re.match(r"^https?://", target, re.IGNORECASE))
+    #
+    # Excludes a `.git`/`git@`/`ssh://` remote — that's a clone target for
+    # Phase 1, not a running app Phase 2 can send HTTP traffic at. run_attack
+    # itself now refuses this case with a clear error either way; this just
+    # keeps that error consistent (rather than skipping straight past the
+    # "needs Docker" messaging as if the target really were attackable).
+    target_is_url = bool(
+        target and re.match(r"^https?://", target, re.IGNORECASE) and not _looks_like_git_remote(target)
+    )
     if target_is_url or docker_available():
         run_attack(target=target, agents=agents, auth=auth, auth_b=auth_b,
                    api_spec=api_spec, max_requests=max_requests,

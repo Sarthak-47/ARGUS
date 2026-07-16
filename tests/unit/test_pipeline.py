@@ -238,6 +238,30 @@ def test_run_attack_treats_url_shaped_target_as_already_running(monkeypatch):
     assert result.target == "http://127.0.0.1:1"
 
 
+def test_run_attack_refuses_a_git_remote_url_passed_as_target(capsys):
+    # Reproduced live: a `.git` clone URL is not a running app, but the old
+    # URL-shaped-target detection matched any https:// string and sent real
+    # attack traffic straight at github.com itself — every "finding" was
+    # actually GitHub's own server responding to a guessed path (a redirect
+    # misread as a confirmed admin panel, a 404 misread as an exposed file),
+    # nothing to do with the target repo's actual security.
+    with pytest.raises(typer.Exit) as exc_info:
+        run_attack(target="https://github.com/user/repo.git", url=None, assume_authorized=True)
+    assert exc_info.value.exit_code == 1
+    out = capsys.readouterr().out.lower()
+    assert "git remote" in out
+
+
+def test_run_attack_refuses_a_git_remote_url_passed_as_explicit_url(capsys):
+    # Same bug, reached through the explicit --url flag (or the desktop app's
+    # "running app URL" field) instead of the positional target.
+    with pytest.raises(typer.Exit) as exc_info:
+        run_attack(target=None, url="https://github.com/user/repo.git", assume_authorized=True)
+    assert exc_info.value.exit_code == 1
+    out = capsys.readouterr().out.lower()
+    assert "git remote" in out
+
+
 def test_run_attack_refuses_without_authorization_confirmation(monkeypatch, capsys):
     monkeypatch.setattr("argus.authorization.confirm_authorization", lambda target, assume_yes: False)
     with pytest.raises(typer.Exit) as exc_info:
