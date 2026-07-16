@@ -57,12 +57,17 @@ export function Dashboard() {
           )}
           {audits.map((a, i) => (
             <button key={`${a.name}-${i}`} className="row-hover" onClick={() => setScreen("report")} style={{
-              display: "grid", gridTemplateColumns: "34px 1fr 60px 150px 70px", alignItems: "center", gap: 20, padding: "16px 22px",
+              display: "grid", gridTemplateColumns: "34px 1fr 68px 150px 70px", alignItems: "center", gap: 20, padding: "16px 22px",
               background: "transparent", border: "none", borderBottom: `1px solid rgba(125,79,40,0.22)`, cursor: "pointer", textAlign: "left", width: "100%",
             }}>
               <EyeGlyph wounded={a.score >= 70} w={28} h={18} />
               <span style={{ fontFamily: FONT.code, fontSize: 13, color: RF.ivory, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</span>
-              <span style={{ fontFamily: FONT.display, fontSize: 26, fontWeight: 700, color: bandColor(a.score), textAlign: "right" }}>{a.score}</span>
+              {/* fontVariantNumeric keeps every digit the same width and the
+                  wider column stops "100" (3 digits) from crowding the bar/
+                  band-label column next to it the way a single-digit score
+                  wouldn't — same fixed width, inconsistent visual weight
+                  depending on the value, is what read as "bad alignment". */}
+              <span style={{ fontFamily: FONT.display, fontSize: 26, fontWeight: 700, color: bandColor(a.score), textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{a.score}</span>
               <span style={{ display: "flex", flexDirection: "column", gap: 6, width: 150 }}>
                 <span style={{ fontFamily: FONT.display, fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: bandColor(a.score) }}>{bandLabel(a.score)}</span>
                 <span style={{ height: 4, background: RF.diluteLo, width: "100%" }}>

@@ -112,7 +112,11 @@ export function EyeField({ findings, onSelect }: { findings: Finding[]; onSelect
               onMouseLeave={() => setHover(null)}
               onClick={() => wounded && onSelect?.(e.hits[0].id)}
               style={{ display: "inline-flex", cursor: wounded && onSelect ? "pointer" : "default", lineHeight: 0, opacity: wounded ? 1 : 0.82 }}
-              title={wounded ? `${e.name} — ${e.hits.length} found` : `${e.name} — checked, clean`}
+              // No native `title` here on purpose: it was firing alongside the
+              // custom hover panel below (its own delayed OS tooltip stacking
+              // on top of the instant custom one, sometimes outliving the
+              // mouseleave that should've cleared it) — the panel already
+              // shows everything the title attribute would have.
             >
               <EyeGlyph wounded={wounded} />
             </span>

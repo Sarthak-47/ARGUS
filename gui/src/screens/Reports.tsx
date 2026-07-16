@@ -60,8 +60,15 @@ export function Reports() {
             </div>
             <div style={{ marginTop: 22 }}>
               <div style={{ fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.3em", textTransform: "uppercase", color: RF.dust }}>Risk score</div>
-              <div style={{ fontFamily: FONT.display, fontWeight: 700, fontSize: 66, lineHeight: 0.9, color: bandColor(live.riskScore) }}>
-                {live.riskScore}<span style={{ fontSize: 20, color: RF.diluteLo }}> / 100</span>
+              {/* Mixing a 66px and a 20px span on one inline text line left them
+                  sitting at default (mismatched) baselines — flexbox with an
+                  explicit baseline alignment keeps "/100" pinned to the big
+                  number's actual text baseline regardless of font metrics. */}
+              <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                <span style={{ fontFamily: FONT.display, fontWeight: 700, fontSize: 66, lineHeight: 0.9, color: bandColor(live.riskScore), fontVariantNumeric: "tabular-nums" }}>
+                  {live.riskScore}
+                </span>
+                <span style={{ fontFamily: FONT.display, fontSize: 20, color: RF.diluteLo }}>/ 100</span>
               </div>
               <div style={{ fontFamily: FONT.display, fontSize: 13, letterSpacing: "0.34em", textTransform: "uppercase", color: bandColor(live.riskScore), marginTop: 4 }}>
                 {live.band || bandLabel(live.riskScore)}

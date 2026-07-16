@@ -29,15 +29,28 @@ static AUDIT_CANCELED: Mutex<bool> = Mutex::new(false);
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
-/// A `Command` that never flashes a console window on Windows — use this
-/// everywhere instead of `Command::new` directly.
+/// A scan/attack/audit child does real, sustained CPU-heavy work (static
+/// analysis over a whole repo, local LLM inference) that was competing for
+/// CPU on equal footing with the GUI's own window/render thread — on a
+/// loaded machine that's exactly what made the *app window itself* go
+/// "Not Responding" mid-scan, not just the operation feeling slow. Running
+/// the CLI child at a below-normal priority lets the OS scheduler favor the
+/// GUI's own thread whenever they contend, without meaningfully slowing the
+/// scan (I/O- and model-inference-bound work isn't CPU-priority-sensitive
+/// the way a tight compute loop would be).
+#[cfg(target_os = "windows")]
+const BELOW_NORMAL_PRIORITY_CLASS: u32 = 0x0000_4000;
+
+/// A `Command` that never flashes a console window on Windows and runs at a
+/// priority that won't starve the GUI's own thread — use this everywhere
+/// instead of `Command::new` directly.
 fn new_command(program: &str) -> Command {
   #[allow(unused_mut)]
   let mut cmd = Command::new(program);
   #[cfg(target_os = "windows")]
   {
     use std::os::windows::process::CommandExt;
-    cmd.creation_flags(CREATE_NO_WINDOW);
+    cmd.creation_flags(CREATE_NO_WINDOW | BELOW_NORMAL_PRIORITY_CLASS);
   }
   cmd
 }
@@ -211,8 +224,27 @@ fn argus_command() -> Result<Command, String> {
 /// `url` is only meaningful for "attack": when set, the swarm attacks that
 /// already-running app directly (`--url`) instead of trying to Docker-sandbox
 /// `target` as a repo.
+///
+/// Runs the whole spawn/stream/wait sequence inside `spawn_blocking` rather
+/// than as a plain synchronous command body — a scan/attack/audit is minutes
+/// of real blocking work (`child.wait()`, a blocking stdout read loop), and
+/// this makes it explicit and guaranteed that none of it can ever run on —
+/// or compete with — the thread driving the app's own window, regardless of
+/// how a given Tauri version happens to dispatch a non-async command.
 #[tauri::command]
-fn run_audit(
+async fn run_audit(
+  window: Window,
+  target: String,
+  mode: String,
+  agents: Option<String>,
+  url: Option<String>,
+) -> Result<String, String> {
+  tauri::async_runtime::spawn_blocking(move || run_audit_blocking(window, target, mode, agents, url))
+    .await
+    .map_err(|e| format!("background task panicked: {e}"))?
+}
+
+fn run_audit_blocking(
   window: Window,
   target: String,
   mode: String,
@@ -382,58 +414,80 @@ fn read_scan_comparison() -> Result<String, String> {
 /// provider/model, detected GPU, and configured scan/report defaults — for
 /// the Sidebar and Settings screens to show real state instead of
 /// placeholders that never reflect what's actually configured.
+/// `argus status` includes an Ollama reachability probe that's been observed
+/// taking 2+ seconds even when Ollama is already running — every command
+/// below that shells out to the CLI carries the same "this is a real,
+/// possibly multi-second blocking subprocess call" risk. Wrapped in
+/// `spawn_blocking` for the same reason `run_audit` is: guaranteed to never
+/// run on — or compete with — the thread driving the app's own window.
 #[tauri::command]
-fn read_status() -> Result<String, String> {
-  let output = argus_command()?
-    .args(["status", "--format", "json"])
-    .output()
-    .map_err(|e| format!("failed to launch argus: {e}"))?;
-  if !output.status.success() {
-    return Err(String::from_utf8_lossy(&output.stderr).into_owned());
-  }
-  Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+async fn read_status() -> Result<String, String> {
+  tauri::async_runtime::spawn_blocking(|| {
+    let output = argus_command()?
+      .args(["status", "--format", "json"])
+      .output()
+      .map_err(|e| format!("failed to launch argus: {e}"))?;
+    if !output.status.success() {
+      return Err(String::from_utf8_lossy(&output.stderr).into_owned());
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+  })
+  .await
+  .map_err(|e| format!("background task panicked: {e}"))?
 }
 
 /// Persists the preferred provider via `argus config --provider <name>`.
 #[tauri::command]
-fn set_provider(name: String) -> Result<(), String> {
-  let output = argus_command()?
-    .args(["config", "--provider", &name])
-    .output()
-    .map_err(|e| format!("failed to launch argus: {e}"))?;
-  if !output.status.success() {
-    return Err(String::from_utf8_lossy(&output.stderr).into_owned());
-  }
-  Ok(())
+async fn set_provider(name: String) -> Result<(), String> {
+  tauri::async_runtime::spawn_blocking(move || {
+    let output = argus_command()?
+      .args(["config", "--provider", &name])
+      .output()
+      .map_err(|e| format!("failed to launch argus: {e}"))?;
+    if !output.status.success() {
+      return Err(String::from_utf8_lossy(&output.stderr).into_owned());
+    }
+    Ok(())
+  })
+  .await
+  .map_err(|e| format!("background task panicked: {e}"))?
 }
 
 /// Persists the local Ollama model to use via `argus config --model <name>` —
 /// so Settings can offer a real choice among every model already pulled on
 /// this machine, not just the one size-recommended default.
 #[tauri::command]
-fn set_local_model(name: String) -> Result<(), String> {
-  let output = argus_command()?
-    .args(["config", "--model", &name])
-    .output()
-    .map_err(|e| format!("failed to launch argus: {e}"))?;
-  if !output.status.success() {
-    return Err(String::from_utf8_lossy(&output.stderr).into_owned());
-  }
-  Ok(())
+async fn set_local_model(name: String) -> Result<(), String> {
+  tauri::async_runtime::spawn_blocking(move || {
+    let output = argus_command()?
+      .args(["config", "--model", &name])
+      .output()
+      .map_err(|e| format!("failed to launch argus: {e}"))?;
+    if !output.status.success() {
+      return Err(String::from_utf8_lossy(&output.stderr).into_owned());
+    }
+    Ok(())
+  })
+  .await
+  .map_err(|e| format!("background task panicked: {e}"))?
 }
 
 /// Persists an API key for a cloud provider via `argus config --provider
 /// <name> --key <key>`.
 #[tauri::command]
-fn save_provider_key(name: String, key: String) -> Result<(), String> {
-  let output = argus_command()?
-    .args(["config", "--provider", &name, "--key", &key])
-    .output()
-    .map_err(|e| format!("failed to launch argus: {e}"))?;
-  if !output.status.success() {
-    return Err(String::from_utf8_lossy(&output.stderr).into_owned());
-  }
-  Ok(())
+async fn save_provider_key(name: String, key: String) -> Result<(), String> {
+  tauri::async_runtime::spawn_blocking(move || {
+    let output = argus_command()?
+      .args(["config", "--provider", &name, "--key", &key])
+      .output()
+      .map_err(|e| format!("failed to launch argus: {e}"))?;
+    if !output.status.success() {
+      return Err(String::from_utf8_lossy(&output.stderr).into_owned());
+    }
+    Ok(())
+  })
+  .await
+  .map_err(|e| format!("background task panicked: {e}"))?
 }
 
 /// Exports the last scan result via `argus report --format <fmt>` — the
@@ -442,26 +496,30 @@ fn save_provider_key(name: String, key: String) -> Result<(), String> {
 /// `[style]...[/]` markup tags stripped) so the GUI can show the user exactly
 /// where the file landed instead of a bare "done".
 #[tauri::command]
-fn export_report(fmt: String) -> Result<String, String> {
-  let output = argus_command()?
-    .args(["report", "--format", &fmt])
-    .output()
-    .map_err(|e| format!("failed to launch argus: {e}"))?;
-  if !output.status.success() {
-    let err = String::from_utf8_lossy(&output.stderr).into_owned();
-    return Err(if err.trim().is_empty() {
-      "export failed".into()
-    } else {
-      err
-    });
-  }
-  let stdout = String::from_utf8_lossy(&output.stdout);
-  for line in stdout.lines() {
-    if line.contains("Report written") {
-      return Ok(strip_rich_markup(line).trim().to_string());
+async fn export_report(fmt: String) -> Result<String, String> {
+  tauri::async_runtime::spawn_blocking(move || {
+    let output = argus_command()?
+      .args(["report", "--format", &fmt])
+      .output()
+      .map_err(|e| format!("failed to launch argus: {e}"))?;
+    if !output.status.success() {
+      let err = String::from_utf8_lossy(&output.stderr).into_owned();
+      return Err(if err.trim().is_empty() {
+        "export failed".into()
+      } else {
+        err
+      });
     }
-  }
-  Ok("Report exported.".to_string())
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    for line in stdout.lines() {
+      if line.contains("Report written") {
+        return Ok(strip_rich_markup(line).trim().to_string());
+      }
+    }
+    Ok("Report exported.".to_string())
+  })
+  .await
+  .map_err(|e| format!("background task panicked: {e}"))?
 }
 
 /// Strips Rich's `[style]...[/]` markup tags (e.g. `[wheat1]`, `[/]`) from a
@@ -486,17 +544,21 @@ fn strip_rich_markup(line: &str) -> String {
 /// CLI enforces) — an ambiguous or missing match surfaces as an error the
 /// GUI shows the user rather than silently doing nothing.
 #[tauri::command]
-fn suppress_finding(search: String, status: String, reason: String) -> Result<(), String> {
-  let mut cmd = argus_command()?;
-  cmd.args(["suppress", &search, "--status", &status]);
-  if !reason.is_empty() {
-    cmd.args(["--reason", &reason]);
-  }
-  let output = cmd.output().map_err(|e| format!("failed to launch argus: {e}"))?;
-  if !output.status.success() {
-    return Err(String::from_utf8_lossy(&output.stderr).into_owned());
-  }
-  Ok(())
+async fn suppress_finding(search: String, status: String, reason: String) -> Result<(), String> {
+  tauri::async_runtime::spawn_blocking(move || {
+    let mut cmd = argus_command()?;
+    cmd.args(["suppress", &search, "--status", &status]);
+    if !reason.is_empty() {
+      cmd.args(["--reason", &reason]);
+    }
+    let output = cmd.output().map_err(|e| format!("failed to launch argus: {e}"))?;
+    if !output.status.success() {
+      return Err(String::from_utf8_lossy(&output.stderr).into_owned());
+    }
+    Ok(())
+  })
+  .await
+  .map_err(|e| format!("background task panicked: {e}"))?
 }
 
 /// Cheap presence check so the GUI can tell the user to `pip install
