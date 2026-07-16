@@ -5,6 +5,18 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.17] — 2026-07-16
+
+### Fixed
+- Desktop app window going fully "Not Responding" mid-scan under heavy
+  local-LLM/CPU load — every command that shells out to the CLI now runs
+  strictly off the window's own thread, and the CLI child runs at a lower
+  OS priority so it can't starve the GUI.
+- Glitchy double-tooltip on the vulnerability-check "eyes" (a native
+  browser tooltip and the custom hover panel firing at once).
+- Risk-score number/"100" baseline misalignment on the Reports screen, and
+  inconsistent digit spacing in Dashboard's recent-scans risk column.
+
 ## [1.2.16] — 2026-07-16
 
 ### Fixed
