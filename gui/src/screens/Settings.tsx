@@ -17,10 +17,25 @@ export function Settings() {
 
   const selectedId = s.provider.toLowerCase();
   const live = s.isDesktop && s.status;
+  // Ollama's own local API has been observed taking 2+ seconds to answer even
+  // when already running, so a status refresh here is a real multi-second
+  // wait, not instant — without this, every provider switch / test-connection
+  // / model pick silently did nothing on screen for that whole stretch, which
+  // is indistinguishable from the app having frozen.
+  const busy = s.statusLoading || s.savingModel || s.savingKey;
 
   return (
     <section>
-      <ScreenHeader title="Settings" subtitle={live ? "how Argus is configured" : "demo preview — open in the desktop app for real config"} />
+      <ScreenHeader
+        title="Settings"
+        subtitle={live ? "how Argus is configured" : "demo preview — open in the desktop app for real config"}
+        action={busy ? (
+          <span style={{ fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: RF.dust, display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: RF.clay, animation: "argusPulse 1.2s ease-in-out infinite" }} />
+            Refreshing — Ollama can take a few seconds to answer…
+          </span>
+        ) : undefined}
+      />
 
       <div style={{ padding: "24px 46px 64px", maxWidth: 1200 }}>
         <Head>LLM provider</Head>
