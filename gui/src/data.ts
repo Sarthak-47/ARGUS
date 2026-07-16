@@ -6,10 +6,19 @@
 
 import type { Severity } from "./theme";
 
+// Must mirror argus/llm/orchestrator.py's AGENT_REGISTRY (minus ReconBot,
+// which always runs first and isn't independently selectable) plus ReconBot
+// itself for display. DomXSSHunter is deliberately excluded — it needs the
+// optional `browser` extra and only runs via an explicit --agents domxss,
+// never as part of the default swarm this list represents. This drifted out
+// of sync once already (5 real backend agents ran on every "Strike the app"
+// invocation while invisible here, un-selectable and unlisted in the live
+// feed's agent grid) — keep it exhaustive.
 export const AGENTS = [
-  "ReconBot", "Injector", "AuthBreaker", "IDORHunter", "CrawlerBot", "Fuzzer",
-  "HeaderPoker", "FileAttacker", "RaceCondition", "SSRFProber", "XSSHunter",
-  "WebSocketAgent", "GraphQLAgent", "DataExposure",
+  "ReconBot", "Injector", "SSTIProber", "AuthBreaker", "IDORHunter", "AuthzTester",
+  "CrawlerBot", "Fuzzer", "HeaderPoker", "FileAttacker", "RaceCondition", "SSRFProber",
+  "XSSHunter", "WebSocketAgent", "GraphQLAgent", "DataExposure", "MCPSecurityAgent",
+  "PromptInjectionAgent", "BusinessLogicAgent",
 ] as const;
 
 export type AgentName = (typeof AGENTS)[number];
@@ -17,8 +26,10 @@ export type AgentName = (typeof AGENTS)[number];
 export const DESC: Record<string, string> = {
   ReconBot: "maps endpoints",
   Injector: "SQL & command injection",
+  SSTIProber: "server-side template injection",
   AuthBreaker: "auth & JWT flaws",
   IDORHunter: "broken object access",
+  AuthzTester: "cross-user authorization (BOLA/BFLA)",
   CrawlerBot: "route discovery",
   Fuzzer: "parameter fuzzing",
   HeaderPoker: "header & CORS abuse",
@@ -29,6 +40,9 @@ export const DESC: Record<string, string> = {
   WebSocketAgent: "socket hijacking",
   GraphQLAgent: "schema introspection",
   DataExposure: "excessive data exposure",
+  MCPSecurityAgent: "exposed MCP servers",
+  PromptInjectionAgent: "AI prompt injection",
+  BusinessLogicAgent: "logic abuse (LLM-driven)",
 };
 
 export interface AgentState {
