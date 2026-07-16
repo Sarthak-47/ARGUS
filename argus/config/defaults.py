@@ -68,9 +68,14 @@ REPORT_FORMATS = ("html", "json", "pdf", "markdown", "sarif", "sbom", "vex", "ji
 # ---- Default config (written to ~/.argus/config.toml on first run) ----
 DEFAULT_CONFIG: dict = {
     "provider": {"preferred": "local"},
-    "local": {"model": "qwen2.5-coder:14b", "backend": "ollama"},
+    "local": {"model": "qwen2.5-coder:14b"},
     "cloud": {"groq_key": "", "gemini_key": "", "claude_key": "", "openrouter_key": ""},
-    "scan": {"auto_attack": False, "sandbox": "docker", "default_depth": "standard"},
+    # `auto_attack` and `sandbox` used to live here but were never read by any
+    # code path — a user could set them expecting Phase 2 to auto-chain after
+    # a scan, or to pick a non-Docker sandbox backend, and nothing would
+    # happen. Removed rather than left as a silent no-op; Docker is currently
+    # the only sandbox backend Argus supports (see argus/sandbox/).
+    "scan": {"default_depth": "standard"},
     "report": {"output_dir": "./argus-report", "default_format": "html"},
     "notify": {"webhook_url": ""},
 }

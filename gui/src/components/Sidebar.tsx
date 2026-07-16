@@ -20,12 +20,16 @@ export function Sidebar() {
   const isDesktop = useStore((s) => s.isDesktop);
   const status = useStore((s) => s.status);
   const live = isDesktop && status;
-  const configured = !!(live && status!.resolved_provider);
+  // Same bug as Settings/New Scan: `status.resolved_provider` falls back to
+  // "local" whenever a cloud provider has no key saved yet, so gating the
+  // whole badge on it made a real selection read as "no provider" here too.
+  // "configured" = the user picked something at all; "active" = that pick is
+  // actually resolved+reachable right now (only "active" unlocks the model
+  // sub-line, since a model is only meaningful once truly resolved).
+  const configured = !!(live && provider);
+  const active = !!(live && status!.resolved_provider === provider && status!.available);
   const providerLabel = configured ? provider : "no provider";
-  // Only show a sub-line when it says something real (the resolved model). In
-  // the browser preview or when nothing is configured, the bare provider label
-  // reads cleaner than a redundant "demo" / "not configured" underneath.
-  const modelLabel = configured ? status!.model : "";
+  const modelLabel = active ? status!.model : "";
 
   return (
     <aside
@@ -68,7 +72,7 @@ export function Sidebar() {
       </nav>
 
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", borderTop: `1px solid rgba(125,79,40,0.35)` }}>
-        <EyeGlyph sleeping={!configured} w={18} h={12} />
+        <EyeGlyph sleeping={!active} w={18} h={12} />
         <div style={{ display: "flex", flexDirection: "column" }}>
           <span style={{ fontFamily: FONT.display, fontSize: 10, letterSpacing: "0.1em", color: RF.clay, textTransform: "uppercase" }}>{providerLabel}</span>
           <span style={{ fontFamily: FONT.code, fontSize: 9, color: RF.dust }}>{modelLabel}</span>

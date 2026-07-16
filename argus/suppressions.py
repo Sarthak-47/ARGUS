@@ -15,6 +15,7 @@ marking something ignored sticks across every future scan of that target.
 from __future__ import annotations
 
 import json
+import os
 import time
 from pathlib import Path
 
@@ -42,7 +43,14 @@ def _load() -> dict:
 def _save(data: dict) -> None:
     path = suppressions_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    # Write to a sibling temp file and atomically replace — a plain
+    # write_text() truncates the file before writing the new content, so a
+    # second `argus` process reading concurrently (e.g. a suppress command
+    # racing a scan finishing) could see a half-written or empty file.
+    # os.replace() is atomic on both POSIX and Windows.
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    os.replace(tmp, path)
 
 
 def _key(sig: tuple) -> str:

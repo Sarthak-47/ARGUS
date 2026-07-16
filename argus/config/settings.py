@@ -65,10 +65,6 @@ class Settings:
         return self.data.get("local", {}).get("model", "")
 
     @property
-    def local_backend(self) -> str:
-        return self.data.get("local", {}).get("backend", "ollama")
-
-    @property
     def default_depth(self) -> str:
         return self.data.get("scan", {}).get("default_depth", "standard")
 

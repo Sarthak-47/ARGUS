@@ -110,6 +110,17 @@ def _match_step(alternatives: tuple[str, ...], findings: list[Finding]) -> Findi
     return None
 
 
+# `ctx.report()` sets every finding's `confirmed` to True unconditionally
+# (see argus/agents/base.py) — it means "the agent completed its check", not
+# "certain to be a true positive". A constituent's own `confidence` field is
+# the actual signal for that, and `_match_step` was ignoring it entirely: a
+# chain built from a "medium"-confidence IDOR finding (which can itself be a
+# false positive — see IDORHunter/RaceCondition's fallback-baseline guards)
+# still got reported at flat "high" confidence, laundering an uncertain
+# constituent into a maximum-confidence CRITICAL chain finding.
+_CONFIDENCE_RANK = {"low": 0, "medium": 1, "high": 2}
+
+
 def detect_chains(findings: list[Finding]) -> list[Finding]:
     """Return synthesized attack-chain findings for every chain present."""
     chains: list[Finding] = []
@@ -119,6 +130,13 @@ def detect_chains(findings: list[Finding]) -> list[Finding]:
             continue
         constituents = [m for m in matched if m is not None]
         locations = "; ".join(f"{c.title} ({c.location})" for c in constituents)
+        # The chain is only as trustworthy as its weakest confirmed link —
+        # never blanket-upgrade an uncertain constituent's confidence just
+        # because it was chained.
+        weakest_confidence = min(
+            (c.confidence for c in constituents),
+            key=lambda conf: _CONFIDENCE_RANK.get(conf, 1),
+        )
         chains.append(Finding(
             title=rule.title,
             severity=rule.severity,
@@ -129,7 +147,7 @@ def detect_chains(findings: list[Finding]) -> list[Finding]:
             exploit=rule.narrative,
             fix=rule.fix,
             cwe=rule.cwe,
-            confidence="high",
+            confidence=weakest_confidence,
             confirmed=True,
             metadata={"chain_of": [c.id for c in constituents]},
         ))

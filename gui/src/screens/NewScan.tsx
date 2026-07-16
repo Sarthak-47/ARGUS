@@ -121,9 +121,14 @@ export function NewScan() {
           <div>
             <Label>LLM provider</Label>
             <div style={{ display: "flex", alignItems: "center", gap: 12, background: RF.glazeLo, border: `1px solid ${RF.diluteLo}`, padding: "11px 16px" }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: s.isDesktop && s.status?.resolved_provider && s.status.available ? RF.clay : C.crimson }} />
+              {/* Same fix as Settings' provider picker: show what the user
+                  actually selected (s.provider, set from preferred_provider),
+                  not resolved_provider — which falls back to "local" whenever
+                  a cloud provider has no key yet, making a real selection
+                  look lost on this screen too. */}
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: s.isDesktop && s.status?.resolved_provider === s.provider && s.status?.available ? RF.clay : C.crimson }} />
               <span style={{ fontFamily: FONT.display, fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase", color: RF.clayHi }}>
-                {(s.isDesktop && s.status?.resolved_provider ? s.provider : "no provider").toUpperCase()}
+                {(s.isDesktop && s.provider ? s.provider : "no provider").toUpperCase()}
               </span>
             </div>
           </div>

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 
 from argus.agents.base import Endpoint
@@ -82,9 +83,16 @@ def save_surface(target: str, endpoints: list[Endpoint]) -> None:
         ordered = list(merged.values())[:_SURFACE_LIMIT]
         path = surface_path(target)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(
+        # Write-then-rename instead of a direct write_text(): the same target
+        # can be scanned concurrently (e.g. CI running two jobs against the
+        # same app), and a plain write truncates the file before the new
+        # content lands, so a concurrent load_surface() could read a
+        # half-written/empty file. os.replace() is atomic on POSIX and Windows.
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text(
             json.dumps({"target": target, "endpoints": [_endpoint_to_dict(e) for e in ordered]}, indent=2),
             encoding="utf-8",
         )
+        os.replace(tmp, path)
     except OSError:
         pass

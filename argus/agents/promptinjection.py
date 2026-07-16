@@ -125,6 +125,17 @@ class PromptInjectionAgent(BaseAgent):
                     self.get(ctx, url, params=body) if method == "GET"
                     else self.post(ctx, url, json=body)
                 )
-                if resp is not None and marker in (resp.text or ""):
+                # A framework's default error/404 page commonly echoes the
+                # full request path — including the query string — verbatim
+                # regardless of status code (Express's default 404 handler is
+                # the canonical example: "Cannot GET /path?query"). For the
+                # GET attempt the marker sits in the query string, so any such
+                # page for a guessed-but-nonexistent AI-ish path (the _HINTS
+                # match is on the URL alone, not a confirmed real route) would
+                # "reflect" the marker and look like a confirmed injection.
+                # Requiring a non-error status is the same signal every other
+                # status-aware agent in this codebase already requires before
+                # trusting a reflection.
+                if resp is not None and resp.status_code < 400 and marker in (resp.text or ""):
                     return method, resp, body, marker
         return None

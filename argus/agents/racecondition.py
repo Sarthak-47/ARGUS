@@ -11,7 +11,15 @@ from __future__ import annotations
 import asyncio
 from urllib.parse import urlparse
 
-from argus.agents.base import AgentReport, AttackContext, BaseAgent, Endpoint, build_http_poc
+from argus.agents.base import (
+    AgentReport,
+    AttackContext,
+    BaseAgent,
+    Endpoint,
+    build_http_poc,
+    fetch_fallback_baseline,
+    response_matches_fallback,
+)
 from argus.models import Finding, Severity
 
 _BURST = 20
@@ -32,6 +40,15 @@ class RaceCondition(BaseAgent):
             report.status = "complete"
             return report
 
+        # `_targets` matches on URL keywords or a bare POST method — neither
+        # confirms the path is a real backend route. On a target with a
+        # catch-all/SPA-fallback handler, every guessed-sensitive-looking
+        # path (real or invented) returns an identical 200 with no
+        # throttling, which used to read as "no rate limiting" on a path
+        # that doesn't even exist server-side. Fetched once, reused for
+        # every target below.
+        fallback_baseline = await fetch_fallback_baseline(self, ctx)
+
         flagged = 0
         for ep in targets:
             ctx.emit(self.name, f"firing {_BURST} parallel requests at {self._short(ep.url)} …")
@@ -39,12 +56,16 @@ class RaceCondition(BaseAgent):
             results = await asyncio.gather(
                 *[self._request(ctx, ep.method, ep.url, data=data) for _ in range(_BURST)]
             )
-            statuses = [r.status_code for r in results if r is not None]
+            live = [r for r in results if r is not None]
+            statuses = [r.status_code for r in live]
             if not statuses:
                 continue
             throttled = any(s in (429, 423) for s in statuses)
             ok = sum(1 for s in statuses if s < 400)
-            if not throttled and ok >= _BURST - 1:
+            all_fallback = live and all(
+                response_matches_fallback(r.text or "", fallback_baseline) for r in live
+            )
+            if not throttled and ok >= _BURST - 1 and not all_fallback:
                 flagged += 1
                 ctx.report(Finding(
                     title="No rate limiting (race / brute-force window)",

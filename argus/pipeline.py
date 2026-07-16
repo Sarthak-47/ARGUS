@@ -687,6 +687,24 @@ def run_attack(
         result = ScanResult(target=surface_key, phase="attack")
         result.extend(findings)
 
+        # `run_scan` applies suppressions right after building its result;
+        # `run_attack` never did, so a finding marked "ignored" via
+        # `argus suppress` kept resurfacing on every subsequent attack/audit,
+        # kept counting toward the risk score, and got persisted right back
+        # into last_scan.json as if it were never suppressed at all.
+        from argus.suppressions import apply_suppressions
+
+        if surface_key:
+            result.findings, suppressed_count = apply_suppressions(surface_key, result.findings)
+            # Keep the dedup cache in sync with the filtered list — the same
+            # pattern run_scan's baseline/diff filters already follow — so a
+            # later result.extend() (chain synthesis, right below) can't
+            # silently readmit something just suppressed via a stale _seen.
+            result._seen = {f.dedup_key(): f for f in result.findings}
+            if suppressed_count:
+                out.info(f"{suppressed_count} finding(s) suppressed (ignored) — "
+                          f"run [wheat1]argus suppressions {surface_key}[/] to review.")
+
         # Exploit chaining: surface compound attack paths from the confirmed set.
         from argus.chains import detect_chains
         chains = detect_chains(result.findings)

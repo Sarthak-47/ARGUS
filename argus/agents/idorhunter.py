@@ -18,7 +18,14 @@ from __future__ import annotations
 import re
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
-from argus.agents.base import AgentReport, AttackContext, BaseAgent, build_http_poc
+from argus.agents.base import (
+    AgentReport,
+    AttackContext,
+    BaseAgent,
+    build_http_poc,
+    fetch_fallback_baseline,
+    response_matches_fallback,
+)
 from argus.models import Finding, Severity
 
 _INT_SEG = re.compile(r"/(\d{1,12})(?=/|$)")
@@ -52,15 +59,24 @@ class IDORHunter(BaseAgent):
             report.status = "complete"
             return report
 
+        # Every probe below decides "distinct object" purely by comparing raw
+        # 300-char body snippets to each other — which only defends against a
+        # *perfectly static* catch-all page. A catch-all/SPA-fallback page
+        # that embeds anything per-response (a CSRF meta tag, a build
+        # timestamp) in its first 300 bytes looks "distinct" every time,
+        # turning every guessed id into a false IDOR hit. Fetched once,
+        # reused everywhere below to filter those out.
+        fallback_baseline = await fetch_fallback_baseline(self, ctx)
+
         flagged: set[str] = set()
         for kind, url, key in candidates:
             ctx.emit(self.name, f"enumerating {self._short(url)} …")
             if kind == "path":
-                await self._probe_path(ctx, url, key, flagged)
+                await self._probe_path(ctx, url, key, flagged, fallback_baseline)
             elif kind == "template":
-                await self._probe_template(ctx, url, key, flagged)
+                await self._probe_template(ctx, url, key, flagged, fallback_baseline)
             else:
-                await self._probe_param(ctx, url, key, flagged)
+                await self._probe_param(ctx, url, key, flagged, fallback_baseline)
 
         report.requests_sent = ctx.requests_sent
         report.findings = len([f for f in ctx.findings if f.detector.startswith("idorhunter")])
@@ -89,7 +105,8 @@ class IDORHunter(BaseAgent):
                     out.append(("param", ep.url, p))
         return out[:15]
 
-    async def _probe_template(self, ctx: AttackContext, url: str, placeholder: str, flagged: set) -> None:
+    async def _probe_template(self, ctx: AttackContext, url: str, placeholder: str, flagged: set,
+                               fallback_baseline: str | None) -> None:
         """Enumerate a REST path template like /users/v1/{username}. The concrete
         id isn't in the URL, so harvest candidate values from the collection
         endpoint (the path with the `/{placeholder}` segment dropped) and try
@@ -105,8 +122,9 @@ class IDORHunter(BaseAgent):
             probe_url = _TEMPLATE_SEG.sub(cand, url, count=1) if _TEMPLATE_SEG.search(url) else url
             resp = await self.get(ctx, probe_url)
             if resp is not None and resp.status_code < 400:
-                snippet = (resp.text or "")[:300]
-                if snippet and snippet not in bodies:
+                text = resp.text or ""
+                snippet = text[:300]
+                if snippet and snippet not in bodies and not response_matches_fallback(text, fallback_baseline):
                     bodies.add(snippet)
                     hits += 1
                     last_resp, last_url = resp, probe_url
@@ -156,7 +174,8 @@ class IDORHunter(BaseAgent):
             for item in node[:10]:
                 self._walk_scalars(item, found, depth + 1)
 
-    async def _probe_path(self, ctx: AttackContext, url: str, original: str, flagged: set) -> None:
+    async def _probe_path(self, ctx: AttackContext, url: str, original: str, flagged: set,
+                           fallback_baseline: str | None) -> None:
         base = await self.get(ctx, url)
         if base is None or base.status_code >= 400:
             return
@@ -171,8 +190,9 @@ class IDORHunter(BaseAgent):
             cand_url = _replace_path_int(url, original, str(cand))
             resp = await self.get(ctx, cand_url)
             if resp is not None and resp.status_code == base.status_code and resp.status_code < 400:
-                snippet = (resp.text or "")[:300]
-                if snippet not in bodies:
+                text = resp.text or ""
+                snippet = text[:300]
+                if snippet not in bodies and not response_matches_fallback(text, fallback_baseline):
                     bodies.add(snippet)
                     hits += 1
                     last_resp, last_url = resp, cand_url
@@ -180,7 +200,8 @@ class IDORHunter(BaseAgent):
             flagged.add(url)
             self._report(ctx, f"GET {url}", original, "path segment", last_url, last_resp)
 
-    async def _probe_param(self, ctx: AttackContext, url: str, param: str, flagged: set) -> None:
+    async def _probe_param(self, ctx: AttackContext, url: str, param: str, flagged: set,
+                            fallback_baseline: str | None) -> None:
         base = await self.get(ctx, _with_param(url, param, "1"))
         if base is None or base.status_code >= 400:
             return
@@ -192,8 +213,9 @@ class IDORHunter(BaseAgent):
             cand_url = _with_param(url, param, cand)
             resp = await self.get(ctx, cand_url)
             if resp is not None and resp.status_code < 400:
-                snippet = (resp.text or "")[:300]
-                if snippet not in bodies:
+                text = resp.text or ""
+                snippet = text[:300]
+                if snippet not in bodies and not response_matches_fallback(text, fallback_baseline):
                     bodies.add(snippet)
                     hits += 1
                     last_resp, last_url = resp, cand_url
