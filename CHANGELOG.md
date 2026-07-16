@@ -5,6 +5,18 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.18] — 2026-07-16
+
+### Fixed
+- **Phase 2 was attacking github.com itself when given a `.git` repo URL.**
+  Pointing Argus at `https://github.com/user/repo.git` for "Strike the
+  app" sent real HTTP requests straight at GitHub's own server and
+  reported its ordinary responses (redirects, 404s) as confirmed
+  vulnerabilities in the target repo — entirely fabricated findings.
+  A git clone URL is now refused as an attack target from every entry
+  point (CLI positional target, `--url`, and the desktop app's URL field)
+  with a clear explanation, instead of silently attacking the wrong host.
+
 ## [1.2.17] — 2026-07-16
 
 ### Fixed
