@@ -191,72 +191,93 @@ fn argus_command() -> Result<Command, String> {
 }
 
 /// Runs the real Argus engine against `target` and returns the resulting
-/// `report.json` contents. `mode` is "scan" (phase 1 only) or "audit" (phase
-/// 1 + phase 2). Resolved via `argus_command`, which normally means the CLI
-/// bundled directly inside this app (see `bundled_argus_path`) — this is the
-/// desktop shell driving the existing CLI, not a reimplementation of it.
+/// `report.json` contents. `mode` is "scan" (phase 1 only), "attack" (phase 2
+/// only, against an already-running app), or "audit" (phase 1 + phase 2).
+/// Resolved via `argus_command`, which normally means the CLI bundled
+/// directly inside this app (see `bundled_argus_path`) — this is the desktop
+/// shell driving the existing CLI, not a reimplementation of it.
 ///
-/// For an `audit`, the child is run with `ARGUS_EVENT_STREAM=1` and its stdout
-/// is read line by line: sentinel-prefixed lines carry a per-agent event we
-/// forward to the frontend as `argus://event` so Live Attack can show a real
-/// feed. Everything else (the Rich-decorated output) is ignored. If any of the
-/// streaming fails, the audit still completes and the report is returned — the
-/// feed is a live nicety, never load-bearing.
+/// Previously "scan" ran as a blocking, non-streaming `.output()` call while
+/// only "audit" streamed events and was cancellable — a scan against a large
+/// codebase looked frozen (no feed updates for minutes) and its Cancel button
+/// did nothing (no child PID was ever recorded to kill). All three modes now
+/// share one spawn/stream/cancel path: the child runs with
+/// `ARGUS_EVENT_STREAM=1` and its stdout is read line by line, sentinel-prefixed
+/// lines are forwarded to the frontend as `argus://event`, and the child's PID
+/// is recorded so `cancel_audit` can always find and kill it. If streaming
+/// itself fails, the run still completes and the report is returned — the feed
+/// is a live nicety, never load-bearing.
+///
+/// `url` is only meaningful for "attack": when set, the swarm attacks that
+/// already-running app directly (`--url`) instead of trying to Docker-sandbox
+/// `target` as a repo.
 #[tauri::command]
-fn run_audit(window: Window, target: String, mode: String, agents: Option<String>) -> Result<String, String> {
+fn run_audit(
+  window: Window,
+  target: String,
+  mode: String,
+  agents: Option<String>,
+  url: Option<String>,
+) -> Result<String, String> {
   let out_dir = std::env::temp_dir().join("argus-gui-report");
   std::fs::create_dir_all(&out_dir).map_err(|e| format!("failed to create output dir: {e}"))?;
   let out_dir_str = out_dir.to_string_lossy().to_string();
 
-  // `scan`/`audit` write findings to Argus's own state dir; `report --output`
-  // then re-exports the most recent result to a predictable path we control.
-  if mode == "scan" {
-    let output = argus_command()?
-      .args(["scan", &target])
-      .output()
-      .map_err(|e| format!("failed to launch argus: {e}"))?;
-    if !output.status.success() {
-      return Err(String::from_utf8_lossy(&output.stderr).into_owned());
+  let mut cmd = argus_command()?;
+  match mode.as_str() {
+    "scan" => {
+      cmd.args(["scan", &target]);
     }
-  } else {
-    let mut cmd = argus_command()?;
-    // The GUI has no TTY for the CLI's interactive authorization prompt, and
-    // clicking "Strike the app" here *is* the operator's explicit consent
-    // gesture — pass the same flag a CI/non-interactive CLI invocation would
-    // need, rather than the subprocess silently hanging on stdin forever.
-    cmd.args(["audit", &target, "--yes-i-am-authorized"]);
-    if let Some(a) = agents.filter(|a| !a.is_empty()) {
-      cmd.args(["--agents", &a]);
-    }
-    cmd.env("ARGUS_EVENT_STREAM", "1");
-    cmd.stdout(Stdio::piped());
-    cmd.stderr(Stdio::piped());
-    let mut child = cmd.spawn().map_err(|e| format!("failed to launch argus: {e}"))?;
-    *AUDIT_CANCELED.lock().unwrap() = false;
-    *AUDIT_CHILD.lock().unwrap() = Some(child.id());
-
-    if let Some(stdout) = child.stdout.take() {
-      for line in BufReader::new(stdout).lines().map_while(Result::ok) {
-        if let Some(rest) = line.strip_prefix(EVENT_SENTINEL) {
-          let _ = window.emit("argus://event", rest.to_string());
-        }
+    "attack" => {
+      // The GUI has no TTY for the CLI's interactive authorization prompt, and
+      // clicking "Strike the app" here *is* the operator's explicit consent
+      // gesture — pass the same flag a CI/non-interactive CLI invocation
+      // would need, rather than the subprocess silently hanging on stdin.
+      cmd.arg("attack");
+      match url.filter(|u| !u.is_empty()) {
+        Some(u) => { cmd.args(["--url", &u]); }
+        None => { cmd.arg(&target); }
+      }
+      cmd.arg("--yes-i-am-authorized");
+      if let Some(a) = agents.filter(|a| !a.is_empty()) {
+        cmd.args(["--agents", &a]);
       }
     }
-
-    let wait_result = child.wait();
-    *AUDIT_CHILD.lock().unwrap() = None;
-    let canceled = std::mem::take(&mut *AUDIT_CANCELED.lock().unwrap());
-    let status = wait_result.map_err(|e| format!("argus did not finish cleanly: {e}"))?;
-    if canceled {
-      return Err("Scan canceled.".into());
-    }
-    if !status.success() {
-      let mut err = String::new();
-      if let Some(mut stderr) = child.stderr.take() {
-        let _ = stderr.read_to_string(&mut err);
+    _ => {
+      cmd.args(["audit", &target, "--yes-i-am-authorized"]);
+      if let Some(a) = agents.filter(|a| !a.is_empty()) {
+        cmd.args(["--agents", &a]);
       }
-      return Err(if err.trim().is_empty() { "the attack failed".into() } else { err });
     }
+  }
+  cmd.env("ARGUS_EVENT_STREAM", "1");
+  cmd.stdout(Stdio::piped());
+  cmd.stderr(Stdio::piped());
+  let mut child = cmd.spawn().map_err(|e| format!("failed to launch argus: {e}"))?;
+  *AUDIT_CANCELED.lock().unwrap() = false;
+  *AUDIT_CHILD.lock().unwrap() = Some(child.id());
+
+  if let Some(stdout) = child.stdout.take() {
+    for line in BufReader::new(stdout).lines().map_while(Result::ok) {
+      if let Some(rest) = line.strip_prefix(EVENT_SENTINEL) {
+        let _ = window.emit("argus://event", rest.to_string());
+      }
+    }
+  }
+
+  let wait_result = child.wait();
+  *AUDIT_CHILD.lock().unwrap() = None;
+  let canceled = std::mem::take(&mut *AUDIT_CANCELED.lock().unwrap());
+  let status = wait_result.map_err(|e| format!("argus did not finish cleanly: {e}"))?;
+  if canceled {
+    return Err("Scan canceled.".into());
+  }
+  if !status.success() {
+    let mut err = String::new();
+    if let Some(mut stderr) = child.stderr.take() {
+      let _ = stderr.read_to_string(&mut err);
+    }
+    return Err(if err.trim().is_empty() { "the scan failed".into() } else { err });
   }
 
   let report_output = argus_command()?

@@ -14,12 +14,14 @@ export function LiveAttack() {
     const secs = s.auditElapsedSec % 60;
     const elapsed = `${mins}:${secs.toString().padStart(2, "0")}`;
     const opened = AGENTS.filter((n) => s.scanChecked[n]);
+    const phaseLabel = s.phase1 && s.phase2 ? "Phase 1 + Phase 2" : s.phase1 ? "Phase 1" : "Phase 2";
+    const effectiveTarget = !s.phase1 && s.phase2 && s.targetUrl.trim() ? s.targetUrl : s.target;
 
     return (
       <section>
         <ScreenHeader
           title="Live Attack"
-          subtitle={`${s.phase2 ? "Phase 1 + Phase 2" : "Phase 1"} against ${s.target}`}
+          subtitle={`${phaseLabel} against ${effectiveTarget}`}
           action={
             <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
               <span style={{ width: 9, height: 9, borderRadius: "50%", background: RF.oxbloodHi, animation: "argusPulse 1.4s ease-in-out infinite" }} />

@@ -75,7 +75,7 @@ export function Settings() {
           </button>
           {s.connectionTestResult && (
             <span style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 13, color: s.connectionTestResult === "ok" ? RF.clay : C.crimson }}>
-              {s.connectionTestResult === "ok" ? "● reachable" : "● configured but unreachable"}
+              {s.connectionTestResult === "ok" ? "● reachable" : s.connectionTestResult === "needs-key" ? "● selected — add an API key below to activate it" : "● configured but unreachable"}
             </span>
           )}
         </div>

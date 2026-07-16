@@ -53,14 +53,17 @@ def _do_scan(target: str, deep: bool, depth: str | None, no_llm: bool, taint: bo
 
     # 1) Ingestion -------------------------------------------------------------
     out.step("Ingesting target…")
+    _stream_event("system", "Ingesting target…", "ok")
     ingested = None
     try:
         ingested = ingestion.ingest(target)
     except FileNotFoundError as exc:
         out.error(str(exc))
+        _stream_event("system", str(exc), "crit")
         raise typer.Exit(code=1)
     except Exception as exc:  # clone failures etc.
         out.error(f"Ingestion failed: {exc}")
+        _stream_event("system", f"Ingestion failed: {exc}", "crit")
         raise typer.Exit(code=1)
 
     root = ingested.root
@@ -70,10 +73,12 @@ def _do_scan(target: str, deep: bool, depth: str | None, no_llm: bool, taint: bo
     try:
         # 2) Built-in rules ----------------------------------------------------
         out.step("Running built-in code rules…")
+        _stream_event("system", "Running built-in code rules…", "ok")
         result.extend(rules_builtin.scan_rules(root))
 
         # 3) Semgrep (optional) -----------------------------------------------
         out.step("Running Semgrep (if available)…")
+        _stream_event("system", "Running Semgrep (if available)…", "ok")
         sg_findings, sg_note = semgrep_runner.run_semgrep(root)
         result.extend(sg_findings)
         if sg_note:
@@ -81,6 +86,7 @@ def _do_scan(target: str, deep: bool, depth: str | None, no_llm: bool, taint: bo
 
         # 4) Dependency audit --------------------------------------------------
         out.step("Auditing dependencies…")
+        _stream_event("system", "Auditing dependencies…", "ok")
         dep_findings, dep_notes = dependencies.audit_dependencies(root)
         result.extend(dep_findings)
         for note in dep_notes:
@@ -88,6 +94,7 @@ def _do_scan(target: str, deep: bool, depth: str | None, no_llm: bool, taint: bo
 
         # 4b) Supply-chain manifest analysis ------------------------------------
         out.step("Checking dependency manifests for supply-chain risk…")
+        _stream_event("system", "Checking dependency manifests for supply-chain risk…", "ok")
         manifests = result.codebase_map.dependency_manifests if result.codebase_map else []
         sc_findings, sc_notes = supplychain.audit_supply_chain(root, manifests)
         result.extend(sc_findings)
@@ -99,6 +106,7 @@ def _do_scan(target: str, deep: bool, depth: str | None, no_llm: bool, taint: bo
 
         # 4d) IaC misconfig (Dockerfiles / compose) ----------------------------
         out.step("Checking container/IaC config…")
+        _stream_event("system", "Checking container/IaC config…", "ok")
         iac_findings, _ = iac.scan_iac(root)
         result.extend(iac_findings)
 
@@ -110,14 +118,22 @@ def _do_scan(target: str, deep: bool, depth: str | None, no_llm: bool, taint: bo
 
         # 5) Secret detection --------------------------------------------------
         out.step("Scanning for secrets (regex + entropy)…")
+        _stream_event("system", "Scanning for secrets (regex + entropy)…", "ok")
         result.extend(secrets.scan_secrets(root))
 
         # 6) Git history -------------------------------------------------------
         out.step("Scanning git history for leaked secrets…")
+        _stream_event("system", "Scanning git history for leaked secrets…", "ok")
         result.extend(secrets.scan_git_history(root))
 
         # 7) LLM reasoning -----------------------------------------------------
         if not no_llm:
+            _stream_event(
+                "system",
+                f"LLM reasoning over {len(result.findings)} finding(s) — this step can take a "
+                "while on a local model, especially for a large codebase.",
+                "ok",
+            )
             _run_llm(settings, root, result, deep, taint)
         else:
             out.info("LLM layer skipped (--no-llm).")
@@ -125,6 +141,8 @@ def _do_scan(target: str, deep: bool, depth: str | None, no_llm: bool, taint: bo
     finally:
         if ingested and ingested.cleanup:
             shutil.rmtree(root, ignore_errors=True)
+
+    _stream_event("system", f"Static scan complete — {len(result.findings)} finding(s).", "ok")
 
     result.finished_at = time.time()
     return result

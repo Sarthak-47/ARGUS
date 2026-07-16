@@ -43,13 +43,19 @@ interface State {
   // real resolved provider/model/GPU/defaults (null => desktop-only, not loaded yet)
   status: StatusInfo | null;
   statusLoading: boolean;
-  connectionTestResult: "ok" | "unreachable" | null;
+  connectionTestResult: "ok" | "unreachable" | "needs-key" | null;
   savingKey: boolean;
   exportingReport: boolean;
   exportReportResult: string | null;
   exportReportError: string | null;
   // real desktop-invoked scan (only possible inside the Tauri shell)
   target: string;
+  // "Strike the app"'s own target: an already-running app's URL. Separate
+  // from `target` (a repo/local path for "Read the code") because they're
+  // different kinds of thing — entering a live URL there made static
+  // analysis try to git-clone it (and fail with a 403), and there was no way
+  // to attack a URL while also reading a *different* local repo's code.
+  targetUrl: string;
   isDesktop: boolean;
   auditRunning: boolean;
   auditElapsedSec: number;
@@ -79,6 +85,7 @@ interface State {
   suppressFinding: (id: number, title: string, status: "ignored" | "reviewing", reason?: string) => Promise<void>;
   exportReport: (fmt: string) => Promise<void>;
   setTarget: (t: string) => void;
+  setTargetUrl: (u: string) => void;
   runRealAudit: () => Promise<void>;
   cancelAudit: () => Promise<void>;
   checkArgusAvailable: () => Promise<void>;
@@ -123,6 +130,7 @@ export const useStore = create<State>((set, get) => ({
   exportReportResult: null,
   exportReportError: null,
   target: "",
+  targetUrl: "",
   isDesktop: isTauri(),
   auditRunning: false,
   auditElapsedSec: 0,
@@ -137,6 +145,7 @@ export const useStore = create<State>((set, get) => ({
   suppressionError: null,
 
   setTarget: (t) => set({ target: t }),
+  setTargetUrl: (u) => set({ targetUrl: u }),
 
   suppressFinding: async (id, title, status, reason = "") => {
     if (!isTauri()) return;
@@ -217,20 +226,43 @@ export const useStore = create<State>((set, get) => ({
   },
 
   runRealAudit: async () => {
-    const { target, phase1, phase2, scanChecked } = get();
-    if (!target.trim()) {
-      set({ auditError: "Enter a target path or URL first." });
+    const { target, targetUrl, phase1, phase2, scanChecked } = get();
+    if (!phase1 && !phase2) {
+      set({ auditError: "Turn on at least one of “Read the code” / “Strike the app”." });
+      return;
+    }
+    // "Read the code" (static analysis) always needs a repo/local path — it
+    // has no meaning against a bare URL. "Strike the app" alone can run
+    // against just a URL (the dedicated URL field), with no repo needed.
+    if (phase1 && !target.trim()) {
+      set({ auditError: "Enter a repo URL or local path for “Read the code”." });
+      return;
+    }
+    if (!phase1 && phase2 && !target.trim() && !targetUrl.trim()) {
+      set({ auditError: "Enter a running app URL (or a repo path to sandbox) for “Strike the app”." });
       return;
     }
     set({ auditRunning: true, auditError: null, auditElapsedSec: 0, feed: [], screen: "live" });
     if (auditTimer) clearInterval(auditTimer);
     auditTimer = setInterval(() => set((s) => ({ auditElapsedSec: s.auditElapsedSec + 1 })), 1000);
     try {
-      const mode = phase2 ? "audit" : "scan";
-      const agents = phase1 && phase2
+      // Three real backend modes, not two — "attack" (phase 2 only, against
+      // an already-running app) previously collapsed into "audit", which
+      // always runs Phase 1 first. Against a bare URL that meant Argus tried
+      // to `git clone` it before ever attacking, failing instantly with a
+      // generic "the attack failed" the moment "Read the code" was
+      // deselected.
+      const mode = phase1 && phase2 ? "audit" : phase1 ? "scan" : "attack";
+      const agents = mode !== "scan"
         ? Object.entries(scanChecked).filter(([, on]) => on).map(([n]) => n).join(",")
         : undefined;
-      const json = await invoke<string>("run_audit", { target: target.trim(), mode, agents });
+      const effectiveTarget = mode === "attack" && !target.trim() ? targetUrl.trim() : target.trim();
+      const json = await invoke<string>("run_audit", {
+        target: effectiveTarget,
+        mode,
+        agents,
+        url: mode === "attack" ? targetUrl.trim() || undefined : undefined,
+      });
       const report = mapReport(JSON.parse(json));
       if (auditTimer) { clearInterval(auditTimer); auditTimer = null; }
       set({ report, auditRunning: false, screen: "report" });
@@ -307,8 +339,17 @@ export const useStore = create<State>((set, get) => ({
       const parsed = JSON.parse(json) as StatusInfo;
       set({
         status: parsed, statusLoading: false,
-        provider: parsed.resolved_provider || parsed.preferred_provider,
-        connectionTestResult: parsed.resolved_provider ? (parsed.available ? "ok" : "unreachable") : null,
+        // Show what the user actually picked (preferred_provider), not what
+        // the backend fell back to (resolved_provider) — a cloud provider
+        // with no key yet still resolves to "local" under the hood, but
+        // silently re-highlighting Local GPU after a click read as "I can't
+        // switch providers" (the click appeared to do nothing).
+        provider: parsed.preferred_provider,
+        connectionTestResult: parsed.resolved_provider
+          ? (parsed.resolved_provider !== parsed.preferred_provider
+              ? "needs-key"
+              : (parsed.available ? "ok" : "unreachable"))
+          : null,
       });
     } catch {
       set({ statusLoading: false });

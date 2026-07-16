@@ -18,8 +18,8 @@ export function NewScan() {
       <ScreenHeader title="New Scan" subtitle="point Argus at a target" />
 
       <div style={{ padding: "22px 46px 64px", maxWidth: 1500 }}>
-        <Label>Target</Label>
-        <div style={{ display: "flex", gap: 10, marginBottom: s.isDesktop ? 10 : 34 }}>
+        <Label>Repo / local path — for &ldquo;Read the code&rdquo;</Label>
+        <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
           <input
             value={s.target}
             onChange={(e) => s.setTarget(e.target.value)}
@@ -27,6 +27,16 @@ export function NewScan() {
             style={{ flex: 1, background: RF.glazeLo, border: `1px solid ${RF.dilute}`, color: RF.ivory, fontFamily: FONT.code, fontSize: 14, padding: "13px 16px", outline: "none" }}
           />
           <button className="btn-outline" style={ghostBtn}>Browse local</button>
+        </div>
+
+        <Label>Running app URL — for &ldquo;Strike the app&rdquo;</Label>
+        <div style={{ display: "flex", gap: 10, marginBottom: s.isDesktop ? 10 : 34 }}>
+          <input
+            value={s.targetUrl}
+            onChange={(e) => s.setTargetUrl(e.target.value)}
+            placeholder="https://your-app.example.com — leave blank to sandbox the repo above instead"
+            style={{ flex: 1, background: RF.glazeLo, border: `1px solid ${RF.dilute}`, color: RF.ivory, fontFamily: FONT.code, fontSize: 14, padding: "13px 16px", outline: "none" }}
+          />
         </div>
 
         {s.isDesktop && (
@@ -122,7 +132,7 @@ export function NewScan() {
         <button
           className="btn-solid"
           disabled={s.auditRunning}
-          onClick={() => { if (s.isDesktop && s.target.trim()) s.runRealAudit(); else s.setScreen("live"); }}
+          onClick={() => { if (s.isDesktop) s.runRealAudit(); else s.setScreen("live"); }}
           style={{
             width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 14,
             fontFamily: FONT.display, fontSize: 14, letterSpacing: "0.24em", textTransform: "uppercase", fontWeight: 600,
