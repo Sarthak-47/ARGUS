@@ -5,6 +5,35 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.15] — 2026-07-16
+
+### Fixed
+- **Settings — switching to a cloud LLM provider (Groq/Gemini/Claude/OpenRouter)
+  appeared to silently fail.** The status refresh right after a click was
+  overwriting the selection with whatever the backend *resolved* to (which
+  falls back to Local GPU whenever no API key is saved yet) instead of what
+  was actually clicked. The picker now shows your real selection and a
+  "selected — add an API key below to activate it" hint when a key is
+  needed.
+- **"Strike the app" alone didn't skip "Read the code."** Deselecting
+  "Read the code" and leaving only "Strike the app" on still ran full static
+  analysis first, which tries to `git clone` the target — fatal (and
+  instant, with a useless "the attack failed") against a live URL that
+  isn't a repo. The desktop app now has a real Phase-2-only ("attack") mode
+  that goes straight at the target, matching what `argus attack` already
+  did from the CLI.
+- **New Scan now has a separate field for a running app's URL**, instead of
+  one box overloaded for both "read this repo" and "attack this URL."
+- **Live Attack's Cancel button did nothing during "Read the code"-only
+  scans** — the backend never recorded a killable process handle for that
+  path, so Cancel was silently a no-op and the scan ran to completion
+  regardless.
+- **"Read the code"-only scans showed zero progress for their entire
+  duration**, stuck on a static "this is usually quick" message even after
+  several minutes on a large codebase — indistinguishable from a freeze.
+  Static analysis now streams the same kind of live per-step feed Phase 2
+  already had.
+
 ## [1.2.14] — 2026-07-16
 
 ### Fixed
