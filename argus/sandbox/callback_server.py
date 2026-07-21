@@ -38,10 +38,23 @@ class _Handler(BaseHTTPRequestHandler):
 
 
 class CallbackServer:
-    """Threaded callback collector with per-probe tokens."""
+    """Threaded callback collector with per-probe tokens.
 
-    def __init__(self, host: str = "127.0.0.1", port: int = 0):
+    ``advertise_host`` is what gets embedded in callback URLs handed to the
+    target, separate from ``host`` (what the listener actually binds to).
+    They're the same by default — but when the target is a Docker container
+    Argus itself sandboxed, "127.0.0.1" inside a callback URL refers to the
+    *container's own* loopback, not the host running this listener, so a
+    genuinely-vulnerable blind SSRF/SQLi/XSS payload silently never reaches
+    us and reports as a false negative. Docker Desktop resolves
+    "host.docker.internal" from inside any container back to this host
+    (routing through to a host-bound 127.0.0.1 listener works correctly) —
+    pass that as ``advertise_host`` when the target is sandboxed.
+    """
+
+    def __init__(self, host: str = "127.0.0.1", port: int = 0, advertise_host: str | None = None):
         self.host = host
+        self.advertise_host = advertise_host or host
         self._httpd = ThreadingHTTPServer((host, port), _Handler)
         self._httpd.argus_cb = self  # type: ignore[attr-defined]
         self.port = self._httpd.server_address[1]
@@ -51,7 +64,7 @@ class CallbackServer:
 
     @property
     def base_url(self) -> str:
-        return f"http://{self.host}:{self.port}"
+        return f"http://{self.advertise_host}:{self.port}"
 
     def new_token(self) -> tuple[str, str]:
         """Return (token, full_callback_url) for embedding in a payload."""

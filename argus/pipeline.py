@@ -717,6 +717,10 @@ def run_attack(
                 provider=provider, on_event=feed, seed_endpoints=seed or None,
                 auth=auth_cfg, identity_b=auth_b_cfg, max_requests=max_requests,
                 rate_limit=rate_limit, request_log_path=request_log_path,
+                # sandbox is only set when we spun the target up ourselves in
+                # Docker — 127.0.0.1 in a callback URL would mean the
+                # container's own loopback there, never reaching back to us.
+                callback_advertise_host="host.docker.internal" if sandbox is not None else None,
             )
         except AuthError as exc:
             out.error(f"Authentication failed — aborting attack: {exc}")

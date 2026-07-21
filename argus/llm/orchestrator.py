@@ -106,8 +106,16 @@ async def run_attack_async(
     seed_endpoints=None,
     auth=None,
     identity_b=None,
+    callback_advertise_host: str | None = None,
 ) -> tuple[list[Finding], list[AgentReport], list]:
     """Run recon + selected agents against ``base_url``.
+
+    ``callback_advertise_host`` — set this to "host.docker.internal" when
+    ``base_url`` is a target Argus itself sandboxed in Docker; otherwise a
+    blind SSRF/SQLi/XSS payload's callback URL points at the container's own
+    loopback, never reaches this process, and the vulnerability silently
+    reports as a false negative. Leave unset for a plain external/local URL,
+    where the target really can reach 127.0.0.1 back to us.
 
     ``seed_endpoints`` (from a persisted surface inventory) pre-populate the
     attack surface before recon runs, so later agents benefit from endpoints a
@@ -128,7 +136,7 @@ async def run_attack_async(
     callback = None
     if use_callback:
         try:
-            callback = CallbackServer().start()
+            callback = CallbackServer(advertise_host=callback_advertise_host).start()
         except OSError:
             callback = None
 
