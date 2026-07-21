@@ -20,6 +20,11 @@ import shutil
 from typing import Any, Callable
 
 
+class MCPUnavailableError(RuntimeError):
+    """The optional ``mcp`` package isn't installed — raised with an actionable
+    install hint instead of letting a raw ModuleNotFoundError surface."""
+
+
 def _quiet(fn: Callable, *args: Any, **kwargs: Any) -> Any:
     """Run ``fn`` with stdout redirected away — required so the engine's Rich
     console output never corrupts the MCP stdio JSON-RPC stream."""
@@ -39,7 +44,17 @@ def build_server():
     """Construct the FastMCP server with argus_scan/argus_attack/argus_fix
     registered. Split out from :func:`run` so tests can call tools directly
     without needing a real stdio client."""
-    from mcp.server.fastmcp import FastMCP
+    try:
+        from mcp.server.fastmcp import FastMCP
+    except ModuleNotFoundError as exc:
+        # `mcp` is an optional extra (pyproject: mcp = ["mcp>=1.28.1"]) — the
+        # base install doesn't ship it. Degrade to a clear, actionable message
+        # like every other optional integration (semgrep/pip-audit/trivy/docker)
+        # rather than dumping a raw ModuleNotFoundError traceback at the user.
+        raise MCPUnavailableError(
+            "The MCP server needs the optional 'mcp' package, which isn't installed. "
+            "Install it with:  pip install 'argus-panoptes[mcp]'"
+        ) from exc
 
     server = FastMCP("argus")
 
@@ -149,5 +164,16 @@ def build_server():
 
 def run() -> None:
     """Entry point for ``argus mcp-server`` — blocks, serving over stdio."""
-    server = build_server()
+    import typer
+
+    from argus.cli import output as out
+
+    try:
+        server = build_server()
+    except MCPUnavailableError as exc:
+        # escape() so the "[mcp]" in the pip extra survives Rich markup parsing
+        # instead of being swallowed as a style tag.
+        from rich.markup import escape
+        out.error(escape(str(exc)))
+        raise typer.Exit(code=1)
     server.run()
