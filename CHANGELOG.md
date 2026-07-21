@@ -5,6 +5,15 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.20] — 2026-07-22
+
+### Fixed
+- **`argus mcp-server` crashed with a raw traceback** on a base install
+  missing the optional `[mcp]` extra, instead of the clean install-hint
+  message every other optional integration (semgrep, pip-audit, trivy,
+  docker) already gives. Now prints `pip install 'argus-panoptes[mcp]'`
+  and exits cleanly.
+
 ## [1.2.19] — 2026-07-21
 
 ### Fixed
