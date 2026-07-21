@@ -5,6 +5,20 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.19] — 2026-07-21
+
+### Fixed
+- **Blind SSRF/SQLi/XSS callback detection silently failed against Argus's
+  own Docker-sandboxed targets.** Found via rigorous testing with a real
+  vulnerable sample app: attacking an already-running URL correctly
+  confirmed a blind SSRF, but attacking the exact same app through
+  `argus attack <repo-path>` (Phase 2's own Docker-sandbox flow) always
+  reported 0 confirmed, with no error anywhere — the callback URL handed to
+  a sandboxed target said `127.0.0.1`, which inside that container means
+  its own loopback, not the host running the callback listener. Now
+  advertises `host.docker.internal` to targets Argus sandboxed itself,
+  verified end-to-end.
+
 ## [1.2.18] — 2026-07-16
 
 ### Fixed
