@@ -5,6 +5,23 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.23] — 2026-07-22
+
+### Added
+- **Argus now clearly reports when a scan is blocked by bot protection.**
+  Scanning a Vercel/Cloudflare/WAF-protected site used to produce a thin,
+  low-risk result that looked like a clean bill of health when really the
+  scan never got past the challenge page. ReconBot now detects the common
+  anti-automation providers (Vercel, Cloudflare, Imperva, Sucuri, AWS WAF,
+  generic CAPTCHA walls) and reports a plain-language notice that the real
+  app wasn't reached and the results don't reflect its actual security.
+- **Two clear scan modes in the desktop app: Code vs Website.** New Scan now
+  starts with a single choice — scan a repo/local folder (reads the source,
+  with an optional Docker-sandboxed attack), or scan a live website URL
+  (attacks it directly) — instead of two overlapping fields and toggles.
+  The Dashboard gains matching "Scan code" / "Scan a website" quick-start
+  buttons.
+
 ## [1.2.22] — 2026-07-22
 
 ### Fixed
