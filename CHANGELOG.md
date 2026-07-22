@@ -5,6 +5,23 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.25] — 2026-07-22
+
+### Fixed
+- **False-positive "hardcoded DB connection string" secret.** A
+  `.env.example`-style placeholder like `postgresql://USER:PASSWORD@HOST`
+  was flagged as a real secret (in the working tree *and* git history)
+  because the placeholder filter was never applied to that detector at
+  all. Now checks the actual matched username/password against common
+  placeholder field-names — a real credential in the same shape is still
+  caught.
+- **Phase 2 (attack) now works for two very common no-Dockerfile cases:
+  plain static sites and basic PHP apps.** Previously only Django, Flask,
+  FastAPI, Rails, and Node were auto-sandboxed, so a large share of
+  real-world GitHub repos with no Dockerfile never got attacked at all,
+  even with Docker running. Verified end-to-end (built and ran both
+  generated Dockerfiles for real).
+
 ## [1.2.24] — 2026-07-22
 
 ### Changed
