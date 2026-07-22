@@ -26,6 +26,16 @@ body { font-family: "Cormorant Garamond", serif; color: var(--parchment); }
 button { font-family: inherit; }
 input { font-family: inherit; }
 
+/* Crispness: every interactive element eases its state changes instead of
+   snapping. Argus had the hover *colours* defined but no transition, which is
+   the main reason it read as unpolished next to a smoothly-animated app. We
+   transition only the visual-state props (never `transform`, so any inline
+   transforms are left alone) at a fast, uniform 140ms. */
+button, input, textarea, a, [role="button"] {
+  transition: background-color 140ms ease, background 140ms ease, border-color 140ms ease,
+    color 140ms ease, box-shadow 140ms ease, opacity 140ms ease, filter 140ms ease;
+}
+
 @keyframes argusPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 @keyframes argusCrimson { 0% { background: rgba(139, 0, 0, 0.55); } 100% { background: rgba(139, 0, 0, 0.1); } }
 @keyframes argusFlashNum { 0% { transform: scale(1.18); color: #d4a853; } 100% { transform: scale(1); color: #8b0000; } }
@@ -38,11 +48,27 @@ input { font-family: inherit; }
 @keyframes argusBreathe { 0%, 100% { opacity: 0.85; } 50% { opacity: 1; } }
 
 /* hover affordances — tuned for the red-figure palette (matte, subtle) */
+.nav-item { transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease; }
 .nav-item:hover { background: rgba(197, 106, 51, 0.07) !important; color: var(--gold-pale) !important; }
 .row-hover:hover { background: rgba(197, 106, 51, 0.06) !important; }
 .btn-ghost:hover { background: rgba(197, 106, 51, 0.10) !important; }
 .btn-solid:hover { filter: brightness(1.06); }
 .btn-outline:hover { border-color: var(--goldenrod) !important; color: var(--gold-pale) !important; }
+
+/* tactile press feedback on the action buttons — a small give on click, the
+   micro-interaction that makes a UI feel responsive rather than static */
+.btn-solid, .btn-outline, .btn-ghost { transition: background 140ms ease, border-color 140ms ease,
+  color 140ms ease, filter 140ms ease, transform 80ms ease; }
+.btn-solid:active, .btn-outline:active, .btn-ghost:active { transform: translateY(1px); }
+
+/* Screen traversal: a quick fade + rise on every navigation, so moving between
+   Dashboard / New Scan / Reports / Settings glides instead of hard-cutting.
+   Applied to a keyed <main>, so it replays on each screen change. */
+@keyframes argusScreenIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.screen-enter { animation: argusScreenIn 240ms cubic-bezier(0.22, 1, 0.36, 1); }
 
 /* keyboard focus — visible on the matte ground */
 button:focus-visible, input:focus-visible, a:focus-visible {

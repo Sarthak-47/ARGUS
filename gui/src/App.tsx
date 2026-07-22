@@ -43,7 +43,10 @@ export default function App() {
     <div style={{ position: "fixed", inset: 0, display: "flex", background: C.obsidian, color: C.parchment, fontFamily: FONT.body, overflow: "hidden" }}>
       <NoiseOverlay />
       <Sidebar />
-      <main style={{ flex: 1, minWidth: 0, overflowY: "auto", overflowX: "hidden", position: "relative" }}>
+      {/* key={screen} remounts on navigation so the entrance animation replays
+          each time — the smooth "traversal" between screens. It also resets
+          scroll to the top of the new screen, which is the right default. */}
+      <main key={screen} className="screen-enter" style={{ flex: 1, minWidth: 0, overflowY: "auto", overflowX: "hidden", position: "relative" }}>
         {screen === "dashboard" && <Dashboard />}
         {screen === "scan" && <NewScan />}
         {screen === "live" && <LiveAttack />}

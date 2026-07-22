@@ -63,7 +63,7 @@ export function Sidebar() {
                 boxShadow: active ? "inset 0 1px 3px rgba(0,0,0,0.5)" : "none",
               }}
             >
-              <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: active ? RF.clay : "transparent" }} />
+              <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: active ? RF.clay : "transparent", transition: "background 150ms ease" }} />
               <span style={{ fontSize: 9, width: 18, color: RF.diluteLo }}>{n.glyph}</span>
               <span>{n.label}</span>
             </button>
