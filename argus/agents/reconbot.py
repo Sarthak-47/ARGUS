@@ -68,6 +68,47 @@ _SECURITY_HEADERS = [
     "x-content-type-options",
 ]
 
+# Anti-automation / bot-challenge fingerprints. When a target sits behind one
+# of these, Argus only ever reaches the challenge page — the real application
+# is never tested, so a low finding count is "we were blocked", NOT "the app
+# is clean". Detected precisely (a specific header, or a known WAF signature
+# paired with a blocking status) to avoid mislabelling an ordinary 403.
+def _detect_challenge_provider(resp) -> str | None:
+    h = {k.lower(): str(v).lower() for k, v in resp.headers.items()}
+    status = resp.status_code
+    body = (resp.text or "").lower()
+
+    # Vercel — the exact case that motivated this: X-Vercel-Mitigated:
+    # challenge, plus an X-Vercel-Challenge-Token on the 403.
+    if "x-vercel-mitigated" in h or "x-vercel-challenge-token" in h:
+        return "Vercel bot protection"
+
+    # Cloudflare — cf-mitigated header, or the interstitial served on a 403/503.
+    if "cf-mitigated" in h:
+        return "Cloudflare"
+    server = h.get("server", "")
+    if "cloudflare" in server and status in (403, 503) and (
+        "challenge-platform" in body or "cf-chl" in body or "just a moment" in body
+    ):
+        return "Cloudflare challenge"
+
+    # Generic WAF / captcha wall on a blocking status.
+    if status in (403, 429, 503):
+        try:
+            cookie_names = " ".join(resp.cookies.keys()).lower()
+        except Exception:  # noqa: BLE001 — cookie extraction is best-effort
+            cookie_names = ""
+        if "incap_ses" in cookie_names or "_incapsula_" in body:
+            return "Imperva/Incapsula WAF"
+        if "sucuri" in server or "x-sucuri-id" in h:
+            return "Sucuri WAF"
+        if "aws-waf-token" in body or "awswaf" in body:
+            return "AWS WAF"
+        if any(m in body for m in ("captcha", "are you a human", "verify you are human",
+                                   "enable javascript and cookies", "checking your browser")):
+            return "bot-challenge / CAPTCHA wall"
+    return None
+
 
 class ReconBot(BaseAgent):
     name = "ReconBot"
@@ -85,6 +126,7 @@ class ReconBot(BaseAgent):
             return report
 
         self._fingerprint(ctx, root)
+        self._detect_challenge(ctx, root)
         self._check_security_headers(ctx, root)
 
         # seed the root endpoint and crawl discovered links one level deep
@@ -129,6 +171,42 @@ class ReconBot(BaseAgent):
         ctx.recon["cookies"] = list(resp.cookies.keys())
         if stack:
             ctx.emit(self.name, "stack: " + ", ".join(f"{k}={v}" for k, v in stack.items()))
+
+    def _detect_challenge(self, ctx: AttackContext, resp) -> None:
+        """Flag when the target is behind a bot/anti-automation challenge, so a
+        thin result reads as "we were blocked" rather than "the app is clean".
+        Recorded in ctx.recon so the report/GUI can surface the caveat prominently."""
+        provider = _detect_challenge_provider(resp)
+        if not provider:
+            return
+        ctx.recon["challenge"] = provider
+        ctx.emit(self.name,
+                 f"target is behind {provider} — only the challenge page is reachable; "
+                 "the real app was NOT tested", "crit")
+        ctx.report(Finding(
+            title="Scan blocked by bot / anti-automation protection",
+            severity=Severity.INFO,
+            category="scan-limitation",
+            detector="reconbot:challenge",
+            endpoint=ctx.base_url + "/",
+            evidence=f"{provider} returned an HTTP {resp.status_code} challenge/block for the root request",
+            description=(
+                f"The target is protected by {provider}, which served a challenge/block "
+                f"page (HTTP {resp.status_code}) instead of the application. Argus's requests "
+                "never reached the real app, so this scan does NOT reflect the application's "
+                "actual security — a low finding count here means Argus was blocked, not that "
+                "the app is clean. Any findings below describe only the challenge/edge layer."
+            ),
+            exploit="Not applicable — this is a scan-coverage limitation, not a vulnerability.",
+            fix=(
+                "To scan the real application, run Argus from an allow-listed source or "
+                "environment (e.g. disable the challenge for your testing IP, scan a preview/"
+                "staging deployment without bot protection, or point Argus at the app before "
+                "the WAF/edge). This is expected behaviour for a protected production site."
+            ),
+            confidence="high",
+            poc=build_http_poc("GET", ctx.base_url + "/", resp),
+        ))
 
     def _check_security_headers(self, ctx: AttackContext, resp) -> None:
         present = {k.lower() for k in resp.headers.keys()}

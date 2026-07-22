@@ -233,3 +233,31 @@ async def test_js_crawl_skips_cleanly_when_playwright_unavailable(monkeypatch):
         await ReconBot()._js_crawl(ctx, "http://t")
     # no browser-error note, no crash — a silent, zero-cost no-op
     assert not any("JS-aware crawl" in e for e in events)
+
+
+def test_detect_challenge_flags_vercel_and_cloudflare_but_not_ordinary_403():
+    """Reported from a real report: a Vercel-protected site (403 +
+    X-Vercel-Mitigated: challenge) scanned to a near-empty, low-risk result
+    that read like a clean bill of health — when really Argus never got past
+    the challenge. Detection must catch the known challenge providers while
+    NOT mislabelling an ordinary 403 or a normal 200 as a challenge."""
+    from argus.agents.reconbot import _detect_challenge_provider
+
+    vercel = httpx.Response(403, headers={"x-vercel-mitigated": "challenge",
+                                          "x-vercel-challenge-token": "tok", "server": "Vercel"},
+                            text="<html>challenge</html>")
+    assert _detect_challenge_provider(vercel) == "Vercel bot protection"
+
+    cf = httpx.Response(503, headers={"server": "cloudflare"},
+                        text="<html>Just a moment... challenge-platform</html>")
+    assert _detect_challenge_provider(cf) == "Cloudflare challenge"
+
+    cf_hdr = httpx.Response(403, headers={"cf-mitigated": "challenge"}, text="x")
+    assert _detect_challenge_provider(cf_hdr) == "Cloudflare"
+
+    captcha = httpx.Response(429, headers={"server": "nginx"}, text="please complete the captcha")
+    assert _detect_challenge_provider(captcha) == "bot-challenge / CAPTCHA wall"
+
+    # must NOT flag: a plain app-level 403, or a normal 200 (even on Vercel)
+    assert _detect_challenge_provider(httpx.Response(403, headers={"server": "nginx"}, text="Forbidden")) is None
+    assert _detect_challenge_provider(httpx.Response(200, headers={"server": "Vercel"}, text="<html>hi</html>")) is None
