@@ -9,6 +9,16 @@ negative. Better to recognize fewer stacks correctly than more stacks wrong.
 Every probe here either finds an unambiguous, near-universal convention (a
 framework's own entry-point file, an explicit `ports:` mapping) or declines —
 never a best-effort guess at an entrypoint filename.
+
+``generate_dockerfile_via_llm`` is the one exception, and it's only ever
+reached after every deterministic probe above has already declined. An LLM
+guess is inherently less reliable than a hardcoded convention match — but the
+false-negative risk this module is designed around is neutralised one layer
+up: ``Sandbox.start()`` actually HTTP-pings the built container and raises a
+loud, clear ``SandboxError`` if it never becomes reachable, rather than
+quietly proceeding to attack whatever came up. A wrong LLM guess fails the
+build or the reachability check; it can't silently produce a false "0
+findings, target is clean" the way it could if nothing verified the result.
 """
 
 from __future__ import annotations
@@ -305,3 +315,141 @@ def compose_target(root: Path) -> tuple[Path, int] | None:
             if port:
                 return path, port
     return None
+
+
+# Manifest files worth showing the LLM in full (capped) when nothing
+# deterministic matched — the near-universal "what stack is this" signal for
+# each ecosystem the hardcoded probes above don't already cover.
+_MANIFEST_NAMES = (
+    "go.mod", "pom.xml", "build.gradle", "build.gradle.kts", "Cargo.toml",
+    "composer.json", "pyproject.toml", "setup.py", "mix.exs",
+)
+_MANIFEST_GLOBS = ("*.csproj", "*.sln")
+_FINGERPRINT_SKIP_DIRS = {
+    ".git", "node_modules", "venv", ".venv", "vendor", "dist", "build",
+    ".next", "target", "bin", "obj", "__pycache__",
+}
+_MAX_MANIFEST_CHARS = 1500
+
+
+def _repo_fingerprint(root: Path) -> dict:
+    """A compact, cheap-to-send summary of the repo for the LLM prompt: the
+    top-level listing plus the contents of whichever manifest files exist.
+    Never the full source tree — this is meant to identify the *stack*, not
+    review the code."""
+    entries: list[str] = []
+    try:
+        for p in sorted(root.iterdir()):
+            if p.name in _FINGERPRINT_SKIP_DIRS or p.name.startswith("."):
+                continue
+            entries.append(p.name + ("/" if p.is_dir() else ""))
+    except OSError:
+        pass
+
+    manifests: dict[str, str] = {}
+    for name in _MANIFEST_NAMES:
+        p = root / name
+        if p.exists():
+            manifests[name] = _read_text(p)[:_MAX_MANIFEST_CHARS]
+    for pattern in _MANIFEST_GLOBS:
+        for p in root.glob(pattern):
+            manifests[p.name] = _read_text(p)[:_MAX_MANIFEST_CHARS]
+            break  # one example is enough to identify the stack
+
+    readme_text = ""
+    for name in ("README.md", "README", "readme.md"):
+        p = root / name
+        if p.exists():
+            readme_text = "\n".join(_read_text(p).splitlines()[:30])
+            break
+
+    return {
+        "top_level_entries": entries[:60],
+        "manifest_files": manifests,
+        "readme_excerpt": readme_text[:1500],
+    }
+
+
+_FROM_LINE = re.compile(r"^\s*FROM\s+", re.MULTILINE | re.IGNORECASE)
+
+
+def _extract_dockerfile(data) -> tuple[str, int] | None:
+    """Validate one LLM response shape. None on anything unusable — never
+    raises, so the caller's broad except isn't the only thing standing
+    between a malformed response and a crash."""
+    if not isinstance(data, dict) or not data.get("confident"):
+        return None
+    dockerfile = data.get("dockerfile")
+    port = data.get("port")
+    if not isinstance(dockerfile, str) or not dockerfile.strip():
+        return None
+    if not isinstance(port, int) or not (0 < port < 65536):
+        return None
+    if "FROM" not in dockerfile.upper():
+        return None  # doesn't even look like a Dockerfile — don't trust it
+    return dockerfile, port
+
+
+def generate_dockerfile_via_llm(root: Path, provider) -> tuple[str, int] | None:
+    """Last resort when every deterministic probe above declined: ask the
+    configured LLM to identify the stack and write a Dockerfile. Returns None
+    on absolutely any failure (network, malformed JSON, the model saying
+    it isn't confident) — this must never raise, since a repo Argus simply
+    can't sandbox is a completely normal, expected outcome, not an error.
+    See the module docstring for why a wrong guess here is safe: the caller
+    (Sandbox.start) verifies the container actually becomes reachable before
+    trusting it.
+
+    One corrective retry when the first response is a multi-stage build: in
+    practice (observed live against a real Go repo with a local 7B model) a
+    smaller model doesn't reliably follow the "prefer single-stage" prompt
+    instruction on the first try, and multi-stage compiled-language builds
+    are exactly where a glibc-builder/musl-final-stage mismatch produces a
+    binary that can't even execute — a container that builds fine but the
+    app inside never runs. Rather than trust that riskier shape, ask once
+    more for something simpler; if the retry is multi-stage too, give up
+    rather than gamble on a container the sandbox's reachability check would
+    likely have to reject anyway.
+    """
+    if provider is None:
+        return None
+    from argus.llm.prompts import DOCKERFILE_SYSTEM, build_dockerfile_user
+
+    try:
+        fingerprint = _repo_fingerprint(root)
+        if not fingerprint["manifest_files"] and not fingerprint["top_level_entries"]:
+            return None
+        result = provider.complete(DOCKERFILE_SYSTEM, build_dockerfile_user(fingerprint), json_mode=True)
+        data = json.loads(result.text)
+    except Exception:  # noqa: BLE001 — any failure here just means "couldn't", not a crash
+        return None
+
+    extracted = _extract_dockerfile(data)
+    if extracted is None:
+        return None
+    dockerfile, port = extracted
+    if len(_FROM_LINE.findall(dockerfile)) <= 1:
+        return dockerfile, port
+
+    # Multi-stage — ask once more for something simpler.
+    try:
+        retry_user = (
+            build_dockerfile_user(fingerprint)
+            + "\n\nYour previous suggestion used a multi-stage build:\n```\n"
+            + dockerfile[:1500]
+            + "\n```\nThat risks a glibc/musl base-image mismatch that would build fine but never "
+            "actually run. Return a SINGLE-STAGE Dockerfile instead (exactly one FROM line), even "
+            "if the resulting image is larger — reliability matters more here than size."
+        )
+        result = provider.complete(DOCKERFILE_SYSTEM, retry_user, json_mode=True)
+        retry_data = json.loads(result.text)
+    except Exception:  # noqa: BLE001
+        return None
+
+    retry_extracted = _extract_dockerfile(retry_data)
+    if retry_extracted is None:
+        return None
+    retry_dockerfile, retry_port = retry_extracted
+    if len(_FROM_LINE.findall(retry_dockerfile)) > 1:
+        return None  # still multi-stage — decline rather than gamble
+    return retry_dockerfile, retry_port

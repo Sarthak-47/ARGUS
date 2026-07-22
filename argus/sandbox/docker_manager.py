@@ -83,14 +83,16 @@ class Sandbox:
     created) before failing, and ``stop()`` tears down whatever exists.
     """
 
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, llm_provider=None):
         self.root = root
+        self._llm_provider = llm_provider
         self._client = None
         self._network = None
         self._container = None
         self._image_id: str | None = None
         self._compose_file: Path | None = None  # set only when running via docker compose
         self._compose_project: str | None = None
+        self._llm_guessed = False  # for a clearer error message if this guess fails
 
     def start(self, timeout: float = 60.0) -> str:
         dockerfile_info = dockerfile_gen.find_existing_dockerfile(self.root) or dockerfile_gen.generate_dockerfile(self.root)
@@ -102,6 +104,16 @@ class Sandbox:
             compose_info = dockerfile_gen.compose_target(self.root)
             if compose_info is not None:
                 return self._start_compose(compose_info, timeout)
+            # Last resort: ask the configured LLM to identify the stack and
+            # write a Dockerfile itself. Only reached once every deterministic
+            # probe has already declined — see the module docstring in
+            # dockerfile_gen.py for why a wrong guess here is safe (this
+            # function still verifies the container actually becomes
+            # reachable below before trusting it).
+            dockerfile_info = dockerfile_gen.generate_dockerfile_via_llm(self.root, self._llm_provider)
+            if dockerfile_info is not None:
+                self._llm_guessed = True
+        if dockerfile_info is None:
             raise SandboxError(
                 "Couldn't determine how to run this repo automatically (no Dockerfile, no "
                 "docker-compose file with a published port, and the stack isn't one Argus "
@@ -140,9 +152,9 @@ class Sandbox:
                     rm=True, forcerm=True,
                 )
             except BuildError as exc:
-                raise SandboxError(f"Docker build failed: {exc}") from exc
+                raise SandboxError(self._sandbox_error_prefix() + f"Docker build failed: {exc}") from exc
             except APIError as exc:
-                raise SandboxError(f"Docker build failed: {exc}") from exc
+                raise SandboxError(self._sandbox_error_prefix() + f"Docker build failed: {exc}") from exc
             self._image_id = image.id
         finally:
             if generated_path is not None:
@@ -167,10 +179,18 @@ class Sandbox:
         base_url = f"http://127.0.0.1:{host_port}"
         if not _wait_until_reachable(base_url, timeout=timeout):
             raise SandboxError(
-                f"The sandboxed app never became reachable at {base_url} within "
+                self._sandbox_error_prefix()
+                + f"The sandboxed app never became reachable at {base_url} within "
                 f"{timeout:.0f}s (check the generated Dockerfile / the app's start command)."
             )
         return base_url
+
+    def _sandbox_error_prefix(self) -> str:
+        """Distinguishes an LLM-guessed Dockerfile's failure from a
+        deterministically-generated one's in the error message — the fix is
+        different (the LLM guessed wrong stack/entry point vs. a real bug in
+        one of Argus's own hardcoded templates)."""
+        return "LLM-guessed Dockerfile didn't work — " if self._llm_guessed else ""
 
     def _start_compose(self, compose_info: tuple[Path, int], timeout: float) -> str:
         import subprocess

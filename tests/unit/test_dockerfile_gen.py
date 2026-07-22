@@ -17,7 +17,20 @@ from argus.sandbox.dockerfile_gen import (
     find_compose_file,
     find_existing_dockerfile,
     generate_dockerfile,
+    generate_dockerfile_via_llm,
 )
+
+
+class _FakeDockerfileProvider:
+    """A minimal stand-in for BaseProvider.complete() — returns whatever JSON
+    string was configured, regardless of what prompt it's given."""
+
+    def __init__(self, response_json: dict | str):
+        self._text = response_json if isinstance(response_json, str) else json.dumps(response_json)
+
+    def complete(self, system, user, *, json_mode=False):
+        from argus.llm.provider import LLMResult
+        return LLMResult(self._text, "fake", "fake-model")
 
 
 def test_django_detected_with_manage_py_and_requirements(tmp_path):
@@ -299,3 +312,117 @@ def test_php_detected_with_index_php(tmp_path):
 def test_php_not_detected_without_index_php(tmp_path):
     (tmp_path / "README.md").write_text("hi", encoding="utf-8")
     assert generate_dockerfile(tmp_path) is None
+
+
+def test_llm_fallback_none_without_a_provider(tmp_path):
+    (tmp_path / "main.go").write_text("package main\n", encoding="utf-8")
+    assert generate_dockerfile_via_llm(tmp_path, None) is None
+
+
+def test_llm_fallback_used_when_confident(tmp_path):
+    (tmp_path / "go.mod").write_text("module example.com/app\n\ngo 1.22\n", encoding="utf-8")
+    provider = _FakeDockerfileProvider({
+        "stack": "Go", "confident": True,
+        "dockerfile": "FROM golang:1.22\nWORKDIR /app\nCOPY . .\nRUN go build -o app .\nEXPOSE 8080\nCMD [\"./app\"]\n",
+        "port": 8080,
+    })
+    result = generate_dockerfile_via_llm(tmp_path, provider)
+    assert result is not None
+    content, port = result
+    assert port == 8080
+    assert "golang" in content
+
+
+def test_llm_fallback_none_when_model_says_not_confident(tmp_path):
+    (tmp_path / "weird.xyz").write_text("???", encoding="utf-8")
+    provider = _FakeDockerfileProvider({"stack": "unknown", "confident": False, "dockerfile": None, "port": None})
+    assert generate_dockerfile_via_llm(tmp_path, provider) is None
+
+
+def test_llm_fallback_none_on_malformed_json(tmp_path):
+    (tmp_path / "go.mod").write_text("module x\n", encoding="utf-8")
+    provider = _FakeDockerfileProvider("not even json")
+    assert generate_dockerfile_via_llm(tmp_path, provider) is None
+
+
+def test_llm_fallback_none_on_bad_port(tmp_path):
+    (tmp_path / "go.mod").write_text("module x\n", encoding="utf-8")
+    provider = _FakeDockerfileProvider({"confident": True, "dockerfile": "FROM golang:1.22\n", "port": 999999})
+    assert generate_dockerfile_via_llm(tmp_path, provider) is None
+
+
+def test_llm_fallback_none_when_response_doesnt_look_like_a_dockerfile(tmp_path):
+    (tmp_path / "go.mod").write_text("module x\n", encoding="utf-8")
+    provider = _FakeDockerfileProvider({"confident": True, "dockerfile": "just some prose, not a Dockerfile", "port": 8080})
+    assert generate_dockerfile_via_llm(tmp_path, provider) is None
+
+
+def test_llm_fallback_none_on_empty_repo(tmp_path):
+    # Nothing at all to fingerprint — don't even bother calling the LLM.
+    # A fresh subdirectory, not tmp_path itself: this repo's autouse
+    # isolated_config fixture creates tmp_path/argus-home, so tmp_path itself
+    # is never truly empty in a test.
+    root = tmp_path / "empty_repo"
+    root.mkdir()
+    calls = []
+
+    class _CountingProvider(_FakeDockerfileProvider):
+        def complete(self, *a, **k):
+            calls.append(1)
+            return super().complete(*a, **k)
+
+    provider = _CountingProvider({"confident": True, "dockerfile": "FROM x\n", "port": 80})
+    assert generate_dockerfile_via_llm(root, provider) is None
+    assert calls == []
+
+
+class _SequencedProvider:
+    """Returns a different canned response on each successive call — for
+    testing the multi-stage retry path."""
+
+    def __init__(self, responses: list[dict]):
+        self._responses = [json.dumps(r) for r in responses]
+        self.call_count = 0
+
+    def complete(self, system, user, *, json_mode=False):
+        from argus.llm.provider import LLMResult
+        text = self._responses[min(self.call_count, len(self._responses) - 1)]
+        self.call_count += 1
+        return LLMResult(text, "fake", "fake-model")
+
+
+def test_multi_stage_response_triggers_single_stage_retry(tmp_path):
+    (tmp_path / "go.mod").write_text("module x\n", encoding="utf-8")
+    provider = _SequencedProvider([
+        {"confident": True, "port": 8080, "dockerfile":
+            "FROM golang:1.22 AS builder\nWORKDIR /app\nCOPY . .\nRUN go build -o app .\n"
+            "FROM alpine:latest\nCOPY --from=builder /app/app .\nCMD [\"./app\"]\n"},
+        {"confident": True, "port": 8080, "dockerfile":
+            "FROM golang:1.22\nWORKDIR /app\nCOPY . .\nRUN go build -o app .\nCMD [\"./app\"]\n"},
+    ])
+    result = generate_dockerfile_via_llm(tmp_path, provider)
+    assert provider.call_count == 2
+    assert result is not None
+    content, port = result
+    assert content.upper().count("FROM ") == 1
+    assert port == 8080
+
+
+def test_still_multi_stage_after_retry_gives_up(tmp_path):
+    (tmp_path / "go.mod").write_text("module x\n", encoding="utf-8")
+    multi_stage = {"confident": True, "port": 8080, "dockerfile":
+        "FROM golang:1.22 AS builder\nCOPY . .\nRUN go build -o app .\n"
+        "FROM alpine:latest\nCOPY --from=builder /app/app .\nCMD [\"./app\"]\n"}
+    provider = _SequencedProvider([multi_stage, multi_stage])
+    assert generate_dockerfile_via_llm(tmp_path, provider) is None
+    assert provider.call_count == 2
+
+
+def test_single_stage_first_try_does_not_retry(tmp_path):
+    (tmp_path / "go.mod").write_text("module x\n", encoding="utf-8")
+    provider = _SequencedProvider([
+        {"confident": True, "port": 8080, "dockerfile": "FROM golang:1.22\nCOPY . .\nCMD [\"./app\"]\n"},
+    ])
+    result = generate_dockerfile_via_llm(tmp_path, provider)
+    assert result is not None
+    assert provider.call_count == 1

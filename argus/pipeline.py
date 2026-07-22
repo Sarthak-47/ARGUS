@@ -617,6 +617,12 @@ def run_attack(
         )
         raise typer.Exit(code=1)
 
+    # Resolved here (not just below, where it's re-read) because the sandbox
+    # needs it too: when none of the deterministic stack probes recognize the
+    # repo, Sandbox falls back to asking the LLM to write a Dockerfile itself.
+    settings = load_settings()
+    provider = get_provider(settings)
+
     if not base_url:
         if not target:
             out.error("Provide --url of a running app (or a target repo once Docker is set up).")
@@ -636,7 +642,7 @@ def run_attack(
 
         out.step("Spinning up the target in a Docker sandbox…")
         _stream_event("system", "Spinning up the target in a Docker sandbox…", "ok")
-        sandbox = Sandbox(Path(target).expanduser().resolve())
+        sandbox = Sandbox(Path(target).expanduser().resolve(), llm_provider=provider)
         try:
             base_url = sandbox.start()
         except SandboxError as exc:
@@ -668,10 +674,9 @@ def run_attack(
         prior = load_result()
         prior_findings = prior.findings if prior else []
 
-        # Resolve an LLM provider once, if configured — enables provider-gated agents
-        # (BusinessLogicAgent) without requiring one; raw HTTP agents ignore it entirely.
-        settings = load_settings()
-        provider = get_provider(settings)
+        # provider was already resolved above (the sandbox needs it too) —
+        # enables provider-gated agents (BusinessLogicAgent) without requiring
+        # one; raw HTTP agents ignore it entirely.
         if provider is not None:
             out.info(f"LLM provider available: [yellow3]{provider.name}[/] ({provider.model}) — "
                      "business-logic reasoning enabled.")

@@ -207,3 +207,47 @@ def build_fix_user(finding: dict, context: str) -> str:
         + context[:4000]
         + "\n```\n"
     )
+
+
+DOCKERFILE_SYSTEM = (
+    "You are Argus, trying to run an unfamiliar repo in a Docker container purely so its "
+    "already-built security-scanning agents have something running to attack — you are not "
+    "assessing the code and nothing you say here becomes a finding. You are shown a directory "
+    "listing and the contents of common manifest files. Identify the stack and write a "
+    "Dockerfile that installs dependencies and starts the app's own existing entry point, "
+    "bound to 0.0.0.0 so it's reachable from outside the container. Never invent an entry "
+    "point that isn't evidenced by the manifest/listing you were given. If you cannot identify "
+    "a runnable entry point with reasonable confidence, say so instead of guessing.\n\n"
+    "Reliability matters far more than image size or build speed here — a container that "
+    "builds but never actually serves anything is worse than a slightly bloated one that "
+    "works, because it silently kills the whole security scan. Strongly prefer a SINGLE-STAGE "
+    "build using one full (not slim/alpine) base image unless you are certain a multi-stage "
+    "build is safe for this exact language: multi-stage Go/Rust/C/C++ builds are a very common "
+    "failure mode where a binary built against glibc (e.g. golang:X, a Debian-based builder) is "
+    "copied into an alpine/musl final stage and then can't even execute. If you do use "
+    "multi-stage, keep the final stage's C library family identical to the builder's (e.g. "
+    "both Debian-based, or build fully static with CGO_ENABLED=0 before using alpine). "
+    "Respond ONLY with valid JSON."
+)
+
+DOCKERFILE_INSTRUCTIONS = """\
+Return JSON exactly in this shape:
+{
+  "stack": string,                 // e.g. "Go (Gin)", "Java (Spring Boot)", "unknown"
+  "confident": boolean,            // false if you're not sure this will actually start
+  "dockerfile": string | null,     // full Dockerfile content, or null if not confident
+  "port": integer | null           // the port the app listens on inside the container
+}
+No prose outside the JSON object. If not confident, set dockerfile and port to null.
+"""
+
+
+def build_dockerfile_user(fingerprint: dict) -> str:
+    """Compose the user message asking the LLM to write a Dockerfile for a repo
+    none of Argus's deterministic stack probes recognized."""
+    return (
+        DOCKERFILE_INSTRUCTIONS
+        + "\n\nREPO FINGERPRINT:\n"
+        + json.dumps(fingerprint, indent=2)[:6000]
+        + "\n"
+    )
