@@ -5,6 +5,37 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.27] — 2026-07-22
+
+### Fixed
+Found via a rigorous audit (parallel deep-code review + live end-to-end
+Docker/LLM testing) of everything shipped in 1.2.25/1.2.26:
+- **A sandboxed target's port was published to every network interface**
+  (0.0.0.0), not just the scanning machine's loopback, for the whole
+  duration of any sandboxed attack.
+- **A generated sandbox container could leak a real repo's `.git`/`.env`**
+  — the static-site/PHP auto-sandbox cases serve any copied file verbatim.
+  Now excluded from the build context, restored to the exact prior repo
+  state afterward either way.
+- **The LLM Dockerfile fallback broke on a markdown-fence-wrapped
+  response** (common even with strict JSON mode), silently discarding an
+  otherwise-correct answer.
+- **The DB-connection-string secret fix from 1.2.25 had its own real
+  bug**: either side of a credential pair merely looking like a common
+  word (e.g. a username literally being "token") suppressed the *entire*
+  finding — hiding a genuinely random, real password next to it. Also
+  extended placeholder recognition to `${VAR}`/`{{var}}`/`%VAR%`
+  conventions, and fixed a long-line skip that was discarding the secret
+  scanner's high-confidence regex pass (not just the entropy pass) on
+  minified/bundled files.
+- **Secrets committed then reverted in git history were never caught**
+  for the generic-secret pattern class — the single most common "oops"
+  shape — due to an unexplained exclusion.
+- Several smaller robustness fixes: attack-provider resolution no longer
+  adds a real network delay to plain `--url` attacks that never need it;
+  capped an unbounded directory walk and file reads in the new stack-
+  detection code against adversarial/oversized repos.
+
 ## [1.2.26] — 2026-07-22
 
 ### Added
