@@ -5,6 +5,16 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.22] — 2026-07-22
+
+### Fixed
+- **Reports no longer show a misleading "closed since" diff across
+  different targets.** A live-URL attack could display a previous *local
+  code scan's* findings (SQL injection, YAML deserialisation, etc. — things
+  a URL attack can't produce) as if they'd been fixed on the current target.
+  The since-last-scan diff now renders only when the previous scan was the
+  same target.
+
 ## [1.2.21] — 2026-07-22
 
 ### Added
