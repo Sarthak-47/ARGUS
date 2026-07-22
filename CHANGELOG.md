@@ -5,6 +5,20 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.26] — 2026-07-22
+
+### Added
+- **Phase 2 can now sandbox almost any repo, not just a fixed stack list.**
+  When no deterministic stack probe recognizes a repo (Go, Rust, Java,
+  .NET, unusual layouts, ...) and an LLM provider is configured, Argus asks
+  it to identify the stack and write a Dockerfile — verified before it's
+  ever trusted (the sandbox actually checks the container becomes
+  reachable, so a wrong guess fails cleanly instead of silently reporting
+  "0 findings, clean"). Includes one corrective retry for the common
+  multi-stage glibc/musl mismatch mistake. Verified end-to-end against a
+  real Go repo with no Dockerfile. Raw-scan-only mode (no provider
+  configured) is unaffected.
+
 ## [1.2.25] — 2026-07-22
 
 ### Fixed
