@@ -76,19 +76,99 @@ const NOT_FOUND_MSG: &str = "Could not find the Argus CLI. Install it with `pip 
 /// survives restarts. Written as plain text (just the path) — no need for a
 /// structured config format for a single value.
 fn override_path_file() -> Option<std::path::PathBuf> {
-  let dir = if let Ok(appdata) = std::env::var("APPDATA") {
-    std::path::PathBuf::from(appdata).join("dev.argussec.desktop")
+  Some(desktop_config_dir()?.join("argus_path.txt"))
+}
+
+/// The desktop app's own persisted-settings directory (distinct from
+/// `~/.argus`, which is the engine's). Holds the CLI-path override and the
+/// install marker.
+fn desktop_config_dir() -> Option<std::path::PathBuf> {
+  if let Ok(appdata) = std::env::var("APPDATA") {
+    Some(std::path::PathBuf::from(appdata).join("dev.argussec.desktop"))
   } else if let Ok(home) = std::env::var("HOME") {
     let base = std::path::PathBuf::from(&home);
-    if cfg!(target_os = "macos") {
+    Some(if cfg!(target_os = "macos") {
       base.join("Library/Application Support/dev.argussec.desktop")
     } else {
       base.join(".config/dev.argussec.desktop")
-    }
+    })
   } else {
-    return None;
+    None
+  }
+}
+
+/// Unix-seconds cutoff: the Dashboard only shows scans that finished at or
+/// after this instant. `None` means "show everything" (couldn't determine a
+/// place to persist the marker — never hide history in that degenerate case).
+/// Set once at startup by `init_install_marker`.
+static HISTORY_CUTOFF: Mutex<Option<f64>> = Mutex::new(None);
+
+/// Scan history lives in `~/.argus` (engine user-data that survives an
+/// uninstall/reinstall), so a fresh desktop install would otherwise show the
+/// previous install's scans. Each installer bakes a unique `ARGUS_BUILD_ID`;
+/// the first time a given build runs, we record "now" as its install moment
+/// and thereafter show only scans newer than that. A reinstall carries a new
+/// build id, so the stored id no longer matches, the cutoff resets to now, and
+/// older scans drop off the Dashboard. Relaunching the same install keeps its
+/// original install moment. The CLI's own `argus history` is untouched.
+fn init_install_marker() {
+  let path = match desktop_config_dir().map(|d| d.join("install_marker.json")) {
+    Some(p) => p,
+    None => return, // nowhere to persist → leave cutoff None (show all)
   };
-  Some(dir.join("argus_path.txt"))
+  let build_id = env!("ARGUS_BUILD_ID");
+  let now = std::time::SystemTime::now()
+    .duration_since(std::time::UNIX_EPOCH)
+    .map(|d| d.as_secs_f64())
+    .unwrap_or(0.0);
+
+  let stored = std::fs::read_to_string(&path).ok();
+  let cutoff = resolve_cutoff(stored.as_deref(), build_id, now);
+
+  if let Some(parent) = path.parent() {
+    let _ = std::fs::create_dir_all(parent);
+  }
+  let payload = serde_json::json!({ "build_id": build_id, "install_time": cutoff });
+  let _ = std::fs::write(&path, payload.to_string());
+  *HISTORY_CUTOFF.lock().unwrap() = Some(cutoff);
+}
+
+/// Decide this install's history cutoff from the stored marker (if any), the
+/// current build id, and the current time. Returns the stored install_time
+/// only when the stored build id matches (same install relaunching);
+/// otherwise `now` (fresh install / upgrade / unreadable marker).
+fn resolve_cutoff(stored: Option<&str>, build_id: &str, now: f64) -> f64 {
+  if let Some(txt) = stored {
+    if let Ok(v) = serde_json::from_str::<serde_json::Value>(txt) {
+      if v.get("build_id").and_then(|b| b.as_str()) == Some(build_id) {
+        if let Some(t) = v.get("install_time").and_then(|t| t.as_f64()) {
+          return t;
+        }
+      }
+    }
+  }
+  now
+}
+
+/// Keep only history entries that finished at/after `cutoff`. An entry with no
+/// parseable `finished_at` is kept (fail open); a payload that isn't the
+/// expected JSON array is returned untouched.
+fn filter_history_json(raw: &str, cutoff: f64) -> String {
+  match serde_json::from_str::<serde_json::Value>(raw) {
+    Ok(serde_json::Value::Array(arr)) => {
+      let kept: Vec<serde_json::Value> = arr
+        .into_iter()
+        .filter(|e| {
+          e.get("finished_at")
+            .and_then(|t| t.as_f64())
+            .map(|t| t >= cutoff)
+            .unwrap_or(true)
+        })
+        .collect();
+      serde_json::Value::Array(kept).to_string()
+    }
+    _ => raw.to_string(),
+  }
 }
 
 fn read_override() -> Option<String> {
@@ -382,8 +462,10 @@ fn read_source_snippet(
   Ok((start + 1, snippet))
 }
 
-/// Returns the raw JSON array from `argus history --format json` for the
-/// Dashboard's trend graph and "Recent Audits" list.
+/// Returns the JSON array from `argus history --format json` for the
+/// Dashboard's trend graph and "Recent Audits" list — filtered to scans that
+/// finished at/after this install's cutoff (see `init_install_marker`), so a
+/// fresh install starts empty instead of showing the previous install's scans.
 #[tauri::command]
 fn read_scan_history(limit: usize) -> Result<String, String> {
   let output = argus_command()?
@@ -393,7 +475,11 @@ fn read_scan_history(limit: usize) -> Result<String, String> {
   if !output.status.success() {
     return Err(String::from_utf8_lossy(&output.stderr).into_owned());
   }
-  Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+  let raw = String::from_utf8_lossy(&output.stdout).into_owned();
+  match *HISTORY_CUTOFF.lock().unwrap() {
+    Some(cutoff) => Ok(filter_history_json(&raw, cutoff)),
+    None => Ok(raw), // no marker → don't filter
+  }
 }
 
 /// Returns the raw JSON object from `argus compare --format json` — what's
@@ -618,6 +704,8 @@ pub fn run() {
       if let Ok(dir) = app.path().resource_dir() {
         let _ = RESOURCE_DIR.set(dir);
       }
+      // Resolve this install's scan-history cutoff before any screen loads.
+      init_install_marker();
       if cfg!(debug_assertions) {
         app.handle().plugin(
           tauri_plugin_log::Builder::default()
@@ -629,4 +717,56 @@ pub fn run() {
     })
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+  use super::{filter_history_json, resolve_cutoff};
+
+  #[test]
+  fn fresh_install_resets_cutoff_to_now() {
+    // A stored marker from a *previous* install (different build id) must not
+    // carry its old install_time over — the new install starts at `now`.
+    let stored = r#"{"build_id":"1000","install_time":500.0}"#;
+    assert_eq!(resolve_cutoff(Some(stored), "2000", 900.0), 900.0);
+  }
+
+  #[test]
+  fn same_install_keeps_original_cutoff() {
+    // Relaunching the same build must reuse its recorded install moment, not
+    // push the cutoff forward to now (which would hide this install's scans).
+    let stored = r#"{"build_id":"2000","install_time":500.0}"#;
+    assert_eq!(resolve_cutoff(Some(stored), "2000", 900.0), 500.0);
+  }
+
+  #[test]
+  fn no_marker_or_garbage_uses_now() {
+    assert_eq!(resolve_cutoff(None, "2000", 900.0), 900.0);
+    assert_eq!(resolve_cutoff(Some("not json"), "2000", 900.0), 900.0);
+    // marker missing install_time → treat as fresh
+    assert_eq!(resolve_cutoff(Some(r#"{"build_id":"2000"}"#), "2000", 900.0), 900.0);
+  }
+
+  #[test]
+  fn filters_out_pre_cutoff_scans() {
+    let raw = r#"[
+      {"target":"old","finished_at":100.0},
+      {"target":"new","finished_at":900.0},
+      {"target":"exactly-at","finished_at":500.0}
+    ]"#;
+    let out = filter_history_json(raw, 500.0);
+    assert!(out.contains("new"));
+    assert!(out.contains("exactly-at")); // >= cutoff is kept
+    assert!(!out.contains("old"));
+  }
+
+  #[test]
+  fn keeps_entries_without_timestamp_and_passes_through_non_arrays() {
+    // fail open: an entry missing finished_at is kept rather than hidden
+    let raw = r#"[{"target":"no-ts"}]"#;
+    assert!(filter_history_json(raw, 500.0).contains("no-ts"));
+    // a non-array payload (e.g. an error object) is returned untouched
+    let obj = r#"{"error":"nope"}"#;
+    assert_eq!(filter_history_json(obj, 500.0), obj);
+  }
 }
