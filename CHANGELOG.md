@@ -5,6 +5,16 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.21] — 2026-07-22
+
+### Added
+- **A fresh desktop install now starts with an empty Recent Scans list.**
+  Scan history lives in `~/.argus` (which survives an uninstall/reinstall),
+  so a reinstalled app used to show the previous install's scans. The app
+  now records each install's moment and shows only scans run after it; a
+  reinstall resets the list, and new scans accumulate from there. The CLI's
+  `argus history` still shows everything.
+
 ## [1.2.20] — 2026-07-22
 
 ### Fixed
