@@ -246,3 +246,56 @@ def test_compose_target_bind_ip_form(tmp_path):
     result = compose_target(tmp_path)
     assert result is not None
     assert result[1] == 8000
+
+
+def test_static_site_detected_with_index_html_at_root(tmp_path):
+    # A plain static site — the common shape of a repo with no Dockerfile and
+    # no backend at all, which used to fall straight through to None (no
+    # Phase 2 possible even with Docker running).
+    (tmp_path / "index.html").write_text("<h1>hi</h1>", encoding="utf-8")
+    result = generate_dockerfile(tmp_path)
+    assert result is not None
+    content, port = result
+    assert port == 80
+    assert "nginx" in content
+
+
+def test_static_site_detected_in_public_subdir(tmp_path):
+    (tmp_path / "public").mkdir()
+    (tmp_path / "public" / "index.html").write_text("<h1>hi</h1>", encoding="utf-8")
+    result = generate_dockerfile(tmp_path)
+    assert result is not None
+    content, port = result
+    assert port == 80
+    assert "COPY public " in content
+
+
+def test_static_site_not_detected_without_index_html(tmp_path):
+    (tmp_path / "README.md").write_text("hi", encoding="utf-8")
+    assert generate_dockerfile(tmp_path) is None
+
+
+def test_backend_framework_takes_priority_over_static_fallback(tmp_path):
+    # A repo can ship both a real backend AND a static index.html (e.g. an
+    # SPA's built assets) — the narrower, earlier probe must win so a real
+    # dynamic app is never mistaken for "just a static site".
+    (tmp_path / "manage.py").write_text("# django\n", encoding="utf-8")
+    (tmp_path / "requirements.txt").write_text("django==5.0\n", encoding="utf-8")
+    (tmp_path / "index.html").write_text("<h1>hi</h1>", encoding="utf-8")
+    content, port = generate_dockerfile(tmp_path)
+    assert port == 8000
+    assert "manage.py" in content
+
+
+def test_php_detected_with_index_php(tmp_path):
+    (tmp_path / "index.php").write_text("<?php echo 1; ?>", encoding="utf-8")
+    result = generate_dockerfile(tmp_path)
+    assert result is not None
+    content, port = result
+    assert port == 8000
+    assert "php" in content.lower()
+
+
+def test_php_not_detected_without_index_php(tmp_path):
+    (tmp_path / "README.md").write_text("hi", encoding="utf-8")
+    assert generate_dockerfile(tmp_path) is None

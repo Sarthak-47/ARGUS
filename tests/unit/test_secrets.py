@@ -33,6 +33,26 @@ def test_placeholder_not_flagged(tmp_path):
     assert generic == []
 
 
+def test_db_connection_string_placeholder_not_flagged(tmp_path):
+    # Reported from a real report: postgresql://USER:PASSWORD@HOST — a common
+    # README/.env.example convention (the value IS the field's own name, no
+    # <angle brackets>, no "your_"/"example" wording) — was flagged as a real
+    # hardcoded "DB Connection String w/ creds", both in the working tree and
+    # (worse) in "secrets in git history", on a target with no real secret at
+    # all.
+    f = tmp_path / ".env"
+    f.write_text('DATABASE_URL="postgresql://USER:PASSWORD@HOST:6543/postgres?pgbouncer=true"\n', encoding="utf-8")
+    findings = scan_secrets(tmp_path)
+    assert not any("DB Connection String" in x.title for x in findings)
+
+
+def test_db_connection_string_real_creds_still_flagged(tmp_path):
+    f = tmp_path / ".env"
+    f.write_text('DATABASE_URL="postgresql://admin:Tr0ub4dor3xyz@db.prod.internal:5432/app"\n', encoding="utf-8")
+    findings = scan_secrets(tmp_path)
+    assert any("DB Connection String" in x.title for x in findings)
+
+
 def test_real_generic_secret_flagged(tmp_path):
     f = tmp_path / "conf.py"
     f.write_text("password = 'Tr0ub4dor&3xKqun'\n", encoding="utf-8")

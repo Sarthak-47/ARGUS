@@ -41,7 +41,11 @@ def generate_dockerfile(root: Path) -> tuple[str, int] | None:
     """Returns (dockerfile_content, container_port), or None if the stack
     can't be confidently determined — caller should fall back to ``--url``.
     """
-    for probe in (_try_django, _try_flask, _try_fastapi, _try_rails, _try_node):
+    # _try_static is deliberately last and most permissive (any index.html) —
+    # a repo with a real backend framework always matches one of the earlier,
+    # narrower probes first, so this can't accidentally shadow a dynamic app
+    # and silently turn its findings into "just static HTML, nothing to see".
+    for probe in (_try_django, _try_flask, _try_fastapi, _try_rails, _try_node, _try_php, _try_static):
         result = probe(root)
         if result is not None:
             return result
@@ -208,6 +212,45 @@ def _try_node(root: Path) -> tuple[str, int] | None:
         f'CMD ["sh", "-c", "{cmd}"]\n'
     )
     return dockerfile, 3000
+
+
+def _try_php(root: Path) -> tuple[str, int] | None:
+    # index.php at the repo root is as near-universal a PHP entry-point
+    # convention as manage.py is for Django — this is exactly the shape of a
+    # basic student/beginner PHP project (very common on GitHub, and exactly
+    # the kind of repo with no Dockerfile that used to get silently skipped).
+    if not (root / "index.php").exists():
+        return None
+    dockerfile = (
+        "FROM php:8.3-cli\n"
+        "WORKDIR /app\n"
+        "COPY . .\n"
+        "EXPOSE 8000\n"
+        'CMD ["php", "-S", "0.0.0.0:8000"]\n'
+    )
+    return dockerfile, 8000
+
+
+_STATIC_ENTRY_NAMES = ("index.html", "index.htm")
+_STATIC_SUBDIRS = ("", "public", "dist", "build")
+
+
+def _try_static(root: Path) -> tuple[str, int] | None:
+    """A plain static site (HTML/CSS/JS, no backend) — nothing above matched,
+    but there's an index.html to serve. Unambiguous: nginx serves whatever
+    files exist, so this can't produce a wrong-but-running container the way
+    guessing a backend start command could."""
+    for sub in _STATIC_SUBDIRS:
+        base = root / sub if sub else root
+        if any((base / name).exists() for name in _STATIC_ENTRY_NAMES):
+            copy_src = f"{sub} " if sub else ". "
+            dockerfile = (
+                "FROM nginx:alpine\n"
+                f"COPY {copy_src}/usr/share/nginx/html\n"
+                "EXPOSE 80\n"
+            )
+            return dockerfile, 80
+    return None
 
 
 def find_compose_file(root: Path) -> Path | None:

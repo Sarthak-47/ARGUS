@@ -42,7 +42,7 @@ _SECRET_PATTERNS: list[tuple[str, Severity, re.Pattern]] = [
     ("Anthropic API Key", Severity.CRITICAL, re.compile(r"\bsk-ant-[0-9A-Za-z_\-]{20,}\b")),
     ("Private Key Block", Severity.CRITICAL, re.compile(r"-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----")),
     ("JWT", Severity.MEDIUM, re.compile(r"\beyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\b")),
-    ("DB Connection String w/ creds", Severity.HIGH, re.compile(r"(?i)(?:postgres|postgresql|mysql|mongodb(?:\+srv)?|redis|amqp)://[^\s:@/]+:[^\s:@/]+@")),
+    ("DB Connection String w/ creds", Severity.HIGH, re.compile(r"(?i)(?:postgres|postgresql|mysql|mongodb(?:\+srv)?|redis|amqp)://([^\s:@/]+):([^\s:@/]+)@")),
     ("Generic Secret Assignment", Severity.MEDIUM, re.compile(r"(?i)(?:password|passwd|secret|api[_-]?key|token|access[_-]?key)\s*[:=]\s*['\"][^'\"\s]{8,}['\"]")),
 ]
 
@@ -58,6 +58,23 @@ MAX_FILE_BYTES = 1_500_000
 
 # Tokens that indicate a placeholder rather than a real secret.
 _PLACEHOLDER = re.compile(r"(?i)(your[_-]?|example|placeholder|changeme|xxx+|<.*>|\bdummy\b|\bsample\b|\.\.\.)")
+
+# A very common README/.env.example convention: the credential's VALUE is
+# literally the field's own name in caps — postgresql://USER:PASSWORD@HOST — no
+# <angle brackets>, no "your_"/"example" prefix, so _PLACEHOLDER alone misses
+# it. Checked against the exact matched username/password/host, never against
+# the whole line, so a real secret that merely contains one of these words as
+# a substring (e.g. an API key starting "user_") is never suppressed by this.
+_PLACEHOLDER_FIELD_NAMES = {
+    "user", "username", "uname", "pass", "passwd", "password", "pwd",
+    "host", "hostname", "port", "dbname", "database", "db_name", "name",
+    "key", "secret", "token", "value", "string", "credential", "credentials",
+}
+
+
+def _looks_like_placeholder_value(value: str) -> bool:
+    bare = value.strip().strip("<>").lower()
+    return bare in _PLACEHOLDER_FIELD_NAMES or bool(_PLACEHOLDER.search(value))
 
 
 def shannon_entropy(s: str) -> float:
@@ -127,6 +144,10 @@ def _scan_text(rel: str, text: str) -> list[Finding]:
                 continue
             snippet = line.strip()[:160]
             if label == "Generic Secret Assignment" and _PLACEHOLDER.search(snippet):
+                continue
+            if label == "DB Connection String w/ creds" and (
+                _looks_like_placeholder_value(m.group(1)) or _looks_like_placeholder_value(m.group(2))
+            ):
                 continue
             key = (label, idx)
             if key in seen:
@@ -244,6 +265,10 @@ def scan_git_history(root: Path, max_commits: int = 200) -> list[Finding]:
             for label, sev, pat in pattern_subset:
                 m = pat.search(line)
                 if not m:
+                    continue
+                if label == "DB Connection String w/ creds" and (
+                    _looks_like_placeholder_value(m.group(1)) or _looks_like_placeholder_value(m.group(2))
+                ):
                     continue
                 dedupe = f"{label}:{m.group(0)[:12]}"
                 if dedupe in seen:
