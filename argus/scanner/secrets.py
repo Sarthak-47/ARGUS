@@ -72,9 +72,48 @@ _PLACEHOLDER_FIELD_NAMES = {
 }
 
 
-def _looks_like_placeholder_value(value: str) -> bool:
-    bare = value.strip().strip("<>").lower()
-    return bare in _PLACEHOLDER_FIELD_NAMES or bool(_PLACEHOLDER.search(value))
+def _looks_like_placeholder_pair(user: str, password: str) -> bool:
+    """Whether a DB connection string's username:password pair is a template,
+    not a real credential.
+
+    An explicit, unambiguous placeholder marker (your_/example/changeme/xxx/
+    <...>/dummy/sample/...) on EITHER side is strong enough evidence on its
+    own — no real secret coincidentally contains the substring "changeme".
+    But a bare field-name-shaped value (user, host, token, key, ...) is a much
+    weaker signal by itself: a real, if poorly chosen, credential can
+    literally be the word "token" or "admin". Requiring that weaker signal on
+    BOTH sides (not just one, which the original fix used) avoids a real bug
+    found via review: `mongodb://token:8f3Kd9QpL2xVbN7mRt5Wc@host/db` has a
+    genuinely random, real-looking password — suppressing the whole finding
+    just because the *username* happens to be the word "token" would hide an
+    actual live secret, not skip a template.
+    """
+    if _PLACEHOLDER.search(user) or _PLACEHOLDER.search(password):
+        return True
+    return _bare_field_name(user) in _PLACEHOLDER_FIELD_NAMES and _bare_field_name(password) in _PLACEHOLDER_FIELD_NAMES
+
+
+_COMMON_PLACEHOLDER_PREFIXES = ("db_", "database_", "app_", "my_")
+
+
+def _bare_field_name(value: str) -> str:
+    """Strip common templating wrappers (${VAR}, {{var}}, %VAR%, <var>) and a
+    common prefix (DB_/DATABASE_/...) so `${DB_USER}`/`{{password}}`/
+    `%DB_PASS%` — all common .env.example/docker-compose conventions just as
+    real as the bare-caps one this was originally built for — normalize down
+    to the same bare field name."""
+    v = value.strip()
+    # Double-brace first: stripping the single-brace `${...}` pattern first
+    # would consume one brace of a `{{...}}` pair on its own (its trailing
+    # `\}$` alternative matches any single closing brace, `${`-prefix or not),
+    # leaving a dangling brace the double-brace pattern could no longer match.
+    v = re.sub(r"^\{\{|\}\}$", "", v)
+    v = re.sub(r"^\$\{|\}$", "", v)
+    v = v.strip("%<>").strip().lower()
+    for prefix in _COMMON_PLACEHOLDER_PREFIXES:
+        if v.startswith(prefix):
+            return v[len(prefix):]
+    return v
 
 
 def shannon_entropy(s: str) -> float:
@@ -136,7 +175,14 @@ def _scan_text(rel: str, text: str) -> list[Finding]:
     seen: set[tuple[str, int]] = set()
 
     for idx, line in enumerate(lines, start=1):
-        if len(line) > 4000:
+        # A minified/bundled JS file is very often exactly one line covering
+        # the whole file — the high-confidence, format-precise regex patterns
+        # below (AWS key, Stripe key, GitHub token, ...) are cheap, bounded,
+        # single linear-scan matches even against a long line, so they still
+        # run on it; only the entropy pass below (per-token, materially more
+        # expensive) has its own separate, much lower length guard. This cap
+        # exists purely to bound genuinely pathological/adversarial input.
+        if len(line) > 200_000:
             continue
         for label, sev, pat in _SECRET_PATTERNS:
             m = pat.search(line)
@@ -145,9 +191,7 @@ def _scan_text(rel: str, text: str) -> list[Finding]:
             snippet = line.strip()[:160]
             if label == "Generic Secret Assignment" and _PLACEHOLDER.search(snippet):
                 continue
-            if label == "DB Connection String w/ creds" and (
-                _looks_like_placeholder_value(m.group(1)) or _looks_like_placeholder_value(m.group(2))
-            ):
+            if label == "DB Connection String w/ creds" and _looks_like_placeholder_pair(m.group(1), m.group(2)):
                 continue
             key = (label, idx)
             if key in seen:
@@ -253,7 +297,14 @@ def scan_git_history(root: Path, max_commits: int = 200) -> list[Finding]:
     except (GitCommandError, ValueError):
         return []
 
-    pattern_subset = [p for p in _SECRET_PATTERNS if p[0] != "Generic Secret Assignment"]
+    # "Generic Secret Assignment" used to be excluded here with no comment
+    # explaining why, defeating this function's own stated purpose (see
+    # docstring) for exactly that pattern class — a plain
+    # `password = "hunter2xyz"` committed then reverted is the single most
+    # common "oops, committed a secret" shape, and it was never once caught
+    # by history scanning, only by the working-tree scan (which by
+    # definition can't see it once removed). Included now, with the same
+    # placeholder filter the working-tree scan already applies to it.
     for commit in commits:
         try:
             diff_text = repo.git.show(commit.hexsha, "--unified=0", "--no-color")
@@ -262,13 +313,13 @@ def scan_git_history(root: Path, max_commits: int = 200) -> list[Finding]:
         for line in diff_text.splitlines():
             if not line.startswith("+") or line.startswith("+++"):
                 continue
-            for label, sev, pat in pattern_subset:
+            for label, sev, pat in _SECRET_PATTERNS:
                 m = pat.search(line)
                 if not m:
                     continue
-                if label == "DB Connection String w/ creds" and (
-                    _looks_like_placeholder_value(m.group(1)) or _looks_like_placeholder_value(m.group(2))
-                ):
+                if label == "Generic Secret Assignment" and _PLACEHOLDER.search(line.strip()[:160]):
+                    continue
+                if label == "DB Connection String w/ creds" and _looks_like_placeholder_pair(m.group(1), m.group(2)):
                     continue
                 dedupe = f"{label}:{m.group(0)[:12]}"
                 if dedupe in seen:

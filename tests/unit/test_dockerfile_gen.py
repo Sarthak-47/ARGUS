@@ -18,6 +18,8 @@ from argus.sandbox.dockerfile_gen import (
     find_existing_dockerfile,
     generate_dockerfile,
     generate_dockerfile_via_llm,
+    restore_sandbox_dockerignore,
+    write_sandbox_dockerignore,
 )
 
 
@@ -426,3 +428,64 @@ def test_single_stage_first_try_does_not_retry(tmp_path):
     result = generate_dockerfile_via_llm(tmp_path, provider)
     assert result is not None
     assert provider.call_count == 1
+
+
+def test_llm_response_wrapped_in_markdown_fence_still_parses(tmp_path):
+    # A real risk flagged by review: a model that wraps its JSON in ```json
+    # fences (or adds a sentence of preamble) despite json_mode/"respond ONLY
+    # with valid JSON" would otherwise hit a raw json.loads() failure and
+    # silently return None even though it identified the stack correctly.
+    (tmp_path / "go.mod").write_text("module example.com/app\n\ngo 1.22\n", encoding="utf-8")
+    fenced = (
+        "Sure, here's the Dockerfile:\n```json\n"
+        + json.dumps({
+            "stack": "Go", "confident": True, "port": 8080,
+            "dockerfile": "FROM golang:1.22\nWORKDIR /app\nCOPY . .\nRUN go build -o app .\nEXPOSE 8080\nCMD [\"./app\"]\n",
+        })
+        + "\n```\n"
+    )
+    result = generate_dockerfile_via_llm(tmp_path, _FakeDockerfileProvider(fenced))
+    assert result is not None
+    content, port = result
+    assert port == 8080
+    assert "golang" in content
+
+
+def test_llm_fallback_accepts_port_as_numeric_string(tmp_path):
+    # A quantized/local model has been observed elsewhere in this codebase to
+    # occasionally emit a number as a string even in json_mode.
+    (tmp_path / "go.mod").write_text("module x\n", encoding="utf-8")
+    provider = _FakeDockerfileProvider({"confident": True, "dockerfile": "FROM golang:1.22\nCMD [\"x\"]\n", "port": "8080"})
+    result = generate_dockerfile_via_llm(tmp_path, provider)
+    assert result is not None
+    assert result[1] == 8080
+
+
+def test_llm_fallback_rejects_boolean_port(tmp_path):
+    # bool is a subclass of int in Python — isinstance(True, int) is True —
+    # so this must be excluded explicitly, not just "isinstance(port, int)".
+    (tmp_path / "go.mod").write_text("module x\n", encoding="utf-8")
+    provider = _FakeDockerfileProvider({"confident": True, "dockerfile": "FROM golang:1.22\nCMD [\"x\"]\n", "port": True})
+    assert generate_dockerfile_via_llm(tmp_path, provider) is None
+
+
+def test_write_and_restore_sandbox_dockerignore_no_prior_file(tmp_path):
+    path, original = write_sandbox_dockerignore(tmp_path)
+    assert original is None
+    assert path.exists()
+    assert ".git" in path.read_text(encoding="utf-8")
+    assert ".env" in path.read_text(encoding="utf-8")
+    restore_sandbox_dockerignore(path, original)
+    assert not path.exists()  # nothing existed before — must not leave one behind
+
+
+def test_write_and_restore_sandbox_dockerignore_merges_with_existing(tmp_path):
+    existing = tmp_path / ".dockerignore"
+    existing.write_text("node_modules\n*.log\n", encoding="utf-8")
+    path, original = write_sandbox_dockerignore(tmp_path)
+    assert original == "node_modules\n*.log\n"
+    written = path.read_text(encoding="utf-8")
+    assert "node_modules" in written  # the user's own rule survives
+    assert ".git" in written and ".env" in written  # the safety rules are added
+    restore_sandbox_dockerignore(path, original)
+    assert path.read_text(encoding="utf-8") == "node_modules\n*.log\n"  # exact prior state

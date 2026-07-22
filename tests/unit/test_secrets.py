@@ -128,3 +128,99 @@ def test_entropy_still_fires_in_normal_source(tmp_path):
     findings = [f for f in scan_secrets(tmp_path)
                 if f.detector in ("secrets", "secrets-entropy")]
     assert findings, "a real high-entropy secret in normal source should still be flagged"
+
+
+def test_db_connection_string_placeholder_username_only_still_flags_real_password(tmp_path):
+    # A real bug found by review of the original fix: the placeholder check
+    # used OR logic — either side being placeholder-shaped suppressed the
+    # WHOLE finding. A genuinely random, real password paired with a merely
+    # commonplace username (here "token") must still be caught.
+    f = tmp_path / "conf.py"
+    f.write_text('url = "mongodb://token:8f3Kd9QpL2xVbN7mRt5Wc@cluster0.example.net:27017/prod"\n', encoding="utf-8")
+    findings = scan_secrets(tmp_path)
+    assert any("DB Connection String" in x.title for x in findings)
+
+
+def test_db_connection_string_templating_placeholders_not_flagged(tmp_path):
+    # ${VAR}, {{var}}, and %VAR% are just as common a .env.example/
+    # docker-compose placeholder convention as bare USER:PASSWORD.
+    f = tmp_path / ".env"
+    f.write_text(
+        'A="postgresql://${DB_USER}:${DB_PASS}@host:5432/db"\n'
+        'B="mysql://{{username}}:{{password}}@host/db"\n'
+        'C="mysql://%DB_USER%:%DB_PASS%@host/db"\n',
+        encoding="utf-8",
+    )
+    findings = scan_secrets(tmp_path)
+    assert not any("DB Connection String" in x.title for x in findings)
+
+
+def test_generic_secret_on_a_long_minified_style_line_still_flagged(tmp_path):
+    # A minified/bundled JS file is often one line covering the whole file —
+    # the high-confidence regex patterns must still run on it; only the
+    # (separate, cheaper-to-skip) entropy pass has a low length cutoff.
+    padding = "var x=1;" * 600  # well past the old 4000-char cutoff
+    f = tmp_path / "bundle.js"
+    f.write_text(padding + ' var k="AKIAIOSFODNN7EXAMPLE";' + padding, encoding="utf-8")
+    findings = scan_secrets(tmp_path)
+    assert any("AWS Access Key ID" in x.title for x in findings)
+
+
+def _init_test_repo(tmp_path):
+    from git import Repo
+    repo_dir = tmp_path / "gitrepo"
+    repo = Repo.init(str(repo_dir), initial_branch="main")
+    repo.config_writer().set_value("user", "email", "t@t.co").release()
+    repo.config_writer().set_value("user", "name", "t").release()
+    return repo_dir, repo
+
+
+def test_git_history_catches_a_committed_then_removed_generic_secret(tmp_path):
+    # scan_git_history previously had zero test coverage at all, and a real
+    # bug: "Generic Secret Assignment" was silently excluded from history
+    # scanning with no comment explaining why — defeating the function's own
+    # stated purpose (its docstring: "secrets removed in later commits still
+    # live in history") for exactly a plain `password = "..."` committed then
+    # reverted, the single most common "oops" shape.
+    from argus.scanner.secrets import scan_git_history
+
+    repo_dir, repo = _init_test_repo(tmp_path)
+    f = repo_dir / "conf.py"
+    f.write_text("password = 'Tr0ub4dor&3xKqun'\n", encoding="utf-8")
+    repo.index.add(["conf.py"])
+    repo.index.commit("oops, committed a real secret")
+    f.write_text("password = os.environ['APP_PASSWORD']\n", encoding="utf-8")
+    repo.index.add(["conf.py"])
+    repo.index.commit("fix: move secret to env var")
+
+    findings = scan_git_history(repo_dir)
+    assert any("Generic Secret" in f.title for f in findings)
+
+
+def test_git_history_does_not_flag_a_placeholder_generic_secret(tmp_path):
+    from argus.scanner.secrets import scan_git_history
+
+    repo_dir, repo = _init_test_repo(tmp_path)
+    f = repo_dir / "conf.py"
+    f.write_text("password = 'changeme'\n", encoding="utf-8")
+    repo.index.add(["conf.py"])
+    repo.index.commit("initial")
+
+    findings = scan_git_history(repo_dir)
+    assert not any("Generic Secret" in f.title for f in findings)
+
+
+def test_git_history_still_catches_a_committed_then_removed_aws_key(tmp_path):
+    from argus.scanner.secrets import scan_git_history
+
+    repo_dir, repo = _init_test_repo(tmp_path)
+    f = repo_dir / "conf.py"
+    f.write_text('AWS_KEY = "AKIA' + 'IOSFODNN7EXAMPLE' + '"\n', encoding="utf-8")
+    repo.index.add(["conf.py"])
+    repo.index.commit("oops")
+    f.write_text("AWS_KEY = os.environ['AWS_KEY']\n", encoding="utf-8")
+    repo.index.add(["conf.py"])
+    repo.index.commit("fix")
+
+    findings = scan_git_history(repo_dir)
+    assert any("AWS Access Key ID" in f.title for f in findings)

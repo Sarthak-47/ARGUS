@@ -617,11 +617,25 @@ def run_attack(
         )
         raise typer.Exit(code=1)
 
-    # Resolved here (not just below, where it's re-read) because the sandbox
-    # needs it too: when none of the deterministic stack probes recognize the
-    # repo, Sandbox falls back to asking the LLM to write a Dockerfile itself.
-    settings = load_settings()
-    provider = get_provider(settings)
+    # Resolving the LLM provider makes a real network round-trip for a local
+    # (Ollama) provider (get_provider calls provider.available()), observed
+    # elsewhere in this codebase to take 2+ seconds — so this is deliberately
+    # NOT resolved unconditionally up front. `_ensure_provider()` resolves (and
+    # caches) it lazily: only the Sandbox path below actually needs it before
+    # the authorization prompt (to hand to the LLM-driven Dockerfile
+    # fallback); a plain `--url` attack never touches Sandbox and shouldn't
+    # pay that cost before its own authorization prompt. Whichever branch
+    # resolves it first, the other reuses the cached value — never queried
+    # twice.
+    provider = None
+    provider_resolved = False
+
+    def _ensure_provider():
+        nonlocal provider, provider_resolved
+        if not provider_resolved:
+            provider = get_provider(load_settings())
+            provider_resolved = True
+        return provider
 
     if not base_url:
         if not target:
@@ -642,7 +656,7 @@ def run_attack(
 
         out.step("Spinning up the target in a Docker sandbox…")
         _stream_event("system", "Spinning up the target in a Docker sandbox…", "ok")
-        sandbox = Sandbox(Path(target).expanduser().resolve(), llm_provider=provider)
+        sandbox = Sandbox(Path(target).expanduser().resolve(), llm_provider=_ensure_provider())
         try:
             base_url = sandbox.start()
         except SandboxError as exc:
@@ -674,9 +688,11 @@ def run_attack(
         prior = load_result()
         prior_findings = prior.findings if prior else []
 
-        # provider was already resolved above (the sandbox needs it too) —
-        # enables provider-gated agents (BusinessLogicAgent) without requiring
-        # one; raw HTTP agents ignore it entirely.
+        # Resolves now if the sandbox branch above didn't already (a plain
+        # --url attack reaches this as its first resolution) — enables
+        # provider-gated agents (BusinessLogicAgent) without requiring one;
+        # raw HTTP agents ignore it entirely.
+        provider = _ensure_provider()
         if provider is not None:
             out.info(f"LLM provider available: [yellow3]{provider.name}[/] ({provider.model}) — "
                      "business-logic reasoning enabled.")

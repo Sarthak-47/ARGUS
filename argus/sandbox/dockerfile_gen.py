@@ -62,8 +62,13 @@ def generate_dockerfile(root: Path) -> tuple[str, int] | None:
     return None
 
 
+_MAX_READ_BYTES = 2_000_000  # generous for any real source/manifest/entry-point file
+
+
 def _read_text(path: Path) -> str:
     try:
+        if path.stat().st_size > _MAX_READ_BYTES:
+            return ""  # a stray huge file (accidental or adversarial) — skip, don't load it whole
         return path.read_text(encoding="utf-8", errors="ignore")
     except OSError:
         return ""
@@ -339,7 +344,17 @@ def _repo_fingerprint(root: Path) -> dict:
     review the code."""
     entries: list[str] = []
     try:
-        for p in sorted(root.iterdir()):
+        # Cap how many raw directory entries are even looked at (let alone
+        # sorted / stat'd for is_dir()) before any of the entries[:60] slicing
+        # below would otherwise kick in — a directory with tens of thousands
+        # of top-level entries (a data-dump repo, or one shaped to be slow)
+        # would otherwise pay that full cost on every attack against it.
+        raw = []
+        for i, p in enumerate(root.iterdir()):
+            if i >= 500:
+                break
+            raw.append(p)
+        for p in sorted(raw, key=lambda x: x.name):
             if p.name in _FINGERPRINT_SKIP_DIRS or p.name.startswith("."):
                 continue
             entries.append(p.name + ("/" if p.is_dir() else ""))
@@ -371,6 +386,26 @@ def _repo_fingerprint(root: Path) -> dict:
 
 
 _FROM_LINE = re.compile(r"^\s*FROM\s+", re.MULTILINE | re.IGNORECASE)
+_JSON_OBJ = re.compile(r"\{.*\}", re.DOTALL)
+
+
+def _extract_json_object(text: str) -> dict | None:
+    """Pull a JSON object out of an LLM response that may not be pure JSON —
+    wrapped in ```json fences, or preceded by a sentence of prose despite
+    json_mode/"respond ONLY with valid JSON" instructions. The same regex-
+    extraction pattern already used for this exact problem elsewhere in this
+    codebase (argus/llm/reasoning.py's _extract_json, argus/agents/
+    businesslogic.py's plan parsing) — a raw json.loads() on the untouched
+    response text is known, from those, not to be reliable enough on its own,
+    especially against smaller local models."""
+    m = _JSON_OBJ.search(text)
+    if not m:
+        return None
+    try:
+        parsed = json.loads(m.group(0))
+    except json.JSONDecodeError:
+        return None
+    return parsed if isinstance(parsed, dict) else None
 
 
 def _extract_dockerfile(data) -> tuple[str, int] | None:
@@ -383,7 +418,13 @@ def _extract_dockerfile(data) -> tuple[str, int] | None:
     port = data.get("port")
     if not isinstance(dockerfile, str) or not dockerfile.strip():
         return None
-    if not isinstance(port, int) or not (0 < port < 65536):
+    # A quantized/local model in json_mode has been observed elsewhere in
+    # this codebase to occasionally emit a number as a string ("8000") even
+    # when explicitly told to return an integer — accept that shape rather
+    # than discard an otherwise-valid, confident response over it.
+    if isinstance(port, str) and port.strip().isdigit():
+        port = int(port.strip())
+    if not isinstance(port, int) or isinstance(port, bool) or not (0 < port < 65536):
         return None
     if "FROM" not in dockerfile.upper():
         return None  # doesn't even look like a Dockerfile — don't trust it
@@ -420,7 +461,7 @@ def generate_dockerfile_via_llm(root: Path, provider) -> tuple[str, int] | None:
         if not fingerprint["manifest_files"] and not fingerprint["top_level_entries"]:
             return None
         result = provider.complete(DOCKERFILE_SYSTEM, build_dockerfile_user(fingerprint), json_mode=True)
-        data = json.loads(result.text)
+        data = _extract_json_object(result.text)
     except Exception:  # noqa: BLE001 — any failure here just means "couldn't", not a crash
         return None
 
@@ -442,7 +483,7 @@ def generate_dockerfile_via_llm(root: Path, provider) -> tuple[str, int] | None:
             "if the resulting image is larger — reliability matters more here than size."
         )
         result = provider.complete(DOCKERFILE_SYSTEM, retry_user, json_mode=True)
-        retry_data = json.loads(result.text)
+        retry_data = _extract_json_object(result.text)
     except Exception:  # noqa: BLE001
         return None
 
@@ -453,3 +494,44 @@ def generate_dockerfile_via_llm(root: Path, provider) -> tuple[str, int] | None:
     if len(_FROM_LINE.findall(retry_dockerfile)) > 1:
         return None  # still multi-stage — decline rather than gamble
     return retry_dockerfile, retry_port
+
+
+# Every generated Dockerfile above does `COPY . .` (the whole repo) into the
+# image — for _try_static/_try_php specifically, the resulting container then
+# serves any file verbatim from that copy, so a real repo's own `.git/` (git
+# history, possibly containing secrets already removed from the working
+# tree) or `.env` (live credentials, if the developer is scanning an
+# uncommitted local checkout) would be reachable at its literal path for the
+# whole duration of the sandboxed attack. Applied to every generated build,
+# not just static/PHP, as defense in depth.
+_SANDBOX_COPY_EXCLUDES = (".git", ".env", ".env.*", "*.pem", "*.key")
+
+
+def write_sandbox_dockerignore(root: Path) -> tuple[Path, str | None]:
+    """Ensure the sensitive paths above are excluded from the build context
+    for the duration of one sandbox build. Writes directly into the target
+    repo's own working tree (that's where the Docker build context is), so
+    the caller MUST restore the returned (path, original_content) afterward —
+    original_content is None if no .dockerignore existed before, in which
+    case the caller should delete the file it created rather than leave it
+    behind.
+    """
+    path = root / ".dockerignore"
+    original = _read_text(path) if path.exists() else None
+    lines = original.splitlines() if original else []
+    for entry in _SANDBOX_COPY_EXCLUDES:
+        if entry not in lines:
+            lines.append(entry)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path, original
+
+
+def restore_sandbox_dockerignore(path: Path, original: str | None) -> None:
+    """Undo write_sandbox_dockerignore — restore the exact prior state."""
+    try:
+        if original is None:
+            path.unlink(missing_ok=True)
+        else:
+            path.write_text(original, encoding="utf-8")
+    except OSError:
+        pass

@@ -137,11 +137,18 @@ class Sandbox:
             raise SandboxError(f"Docker isn't reachable: {exc}") from exc
 
         generated_path: Path | None = None
+        dockerignore_path: Path | None = None
+        dockerignore_original: str | None = None
         try:
             if generated:
                 generated_path = self.root / ".argus-sandbox.Dockerfile"
                 generated_path.write_text(content_or_name, encoding="utf-8")
                 dockerfile_name = generated_path.name
+                # A generated Dockerfile's `COPY . .` would otherwise pull the
+                # repo's own .git/.env into the image — see the helper's
+                # docstring in dockerfile_gen.py. Restored in `finally` no
+                # matter what happens below.
+                dockerignore_path, dockerignore_original = dockerfile_gen.write_sandbox_dockerignore(self.root)
             else:
                 dockerfile_name = "Dockerfile"
 
@@ -159,6 +166,8 @@ class Sandbox:
         finally:
             if generated_path is not None:
                 generated_path.unlink(missing_ok=True)
+            if dockerignore_path is not None:
+                dockerfile_gen.restore_sandbox_dockerignore(dockerignore_path, dockerignore_original)
 
         net_name = f"argus-net-{uuid.uuid4().hex[:10]}"
         try:
@@ -170,7 +179,12 @@ class Sandbox:
         try:
             self._container = self._client.containers.run(
                 tag, detach=True, network=net_name,
-                ports={f"{container_port}/tcp": host_port},
+                # A bare int port spec here binds 0.0.0.0 — every interface,
+                # not just this machine's loopback — for as long as the
+                # sandbox runs. The (bind_ip, port) tuple form is what
+                # actually restricts it to 127.0.0.1, matching what base_url
+                # below already assumes.
+                ports={f"{container_port}/tcp": ("127.0.0.1", host_port)},
                 mem_limit="512m", security_opt=["no-new-privileges"],
             )
         except APIError as exc:
