@@ -5,6 +5,16 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.24] — 2026-07-22
+
+### Changed
+- **Smoother, crisper desktop UI.** Every interactive element now eases its
+  hover/active state over a uniform 140ms instead of snapping, action
+  buttons give a subtle press-down on click, and navigating between screens
+  glides with a quick fade-and-rise instead of a hard cut. Purely
+  interaction polish — the theme is unchanged, and reduced-motion is
+  respected.
+
 ## [1.2.23] — 2026-07-22
 
 ### Added
