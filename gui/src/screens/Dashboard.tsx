@@ -43,6 +43,26 @@ export function Dashboard() {
       />
 
       <div style={{ padding: "26px 46px 64px", maxWidth: 1500, position: "relative" }}>
+        {/* Two ways in: scan code, or scan a live website. Each jumps into New
+            Scan pre-set to that mode (see setScanMode). */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 34 }}>
+          {([
+            { mode: "code" as const, title: "Scan code", desc: "a repo URL or local folder" },
+            { mode: "web" as const, title: "Scan a website", desc: "a live URL — attack it" },
+          ]).map((m) => (
+            <button key={m.mode} onClick={() => { s.setScanMode(m.mode); setScreen("scan"); }} style={{
+              display: "flex", alignItems: "center", gap: 14, padding: "18px 20px", cursor: "pointer", textAlign: "left",
+              background: `linear-gradient(180deg, ${RF.ember}, ${RF.glazeLo})`, border: `1px solid ${RF.dilute}`,
+            }}>
+              <EyeGlyph w={30} h={19} />
+              <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <span style={{ fontFamily: FONT.display, fontSize: 15, letterSpacing: "0.06em", textTransform: "uppercase", color: RF.clayHi }}>{m.title}</span>
+                <span style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 13, color: RF.dust }}>{m.desc}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+
         <div style={{ fontFamily: FONT.display, fontSize: 10.5, letterSpacing: "0.2em", textTransform: "uppercase", color: RF.dust, marginBottom: 14 }}>
           Risk over time — each scan, coloured by severity
         </div>

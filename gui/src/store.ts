@@ -21,6 +21,11 @@ interface State {
   // scan config
   scanChecked: Record<string, boolean>;
   depth: "Quick" | "Standard" | "Deep";
+  // Top-level choice on New Scan: "code" = read a repo/local folder (Phase 1,
+  // optionally + attack via Docker); "web" = attack a live URL (Phase 2 only).
+  // It drives phase1/phase2 below so the existing runRealAudit mode logic
+  // (scan / attack / audit) is unchanged.
+  scanMode: "code" | "web";
   phase1: boolean;
   phase2: boolean;
   // report
@@ -95,6 +100,7 @@ interface State {
   toggleAgent: (n: string) => void;
   selectAllAgents: () => void;
   togglePhase: (p: "phase1" | "phase2") => void;
+  setScanMode: (m: "code" | "web") => void;
   setDepth: (d: "Quick" | "Standard" | "Deep") => void;
   setFilter: (f: string) => void;
   select: (id: number | null) => void;
@@ -109,8 +115,12 @@ export const useStore = create<State>((set, get) => ({
   screen: "dashboard",
   scanChecked: allChecked(true),
   depth: "Standard",
+  // Default to code mode, read-only (Phase 1). "Also strike the app" (Phase 2,
+  // needs Docker) is an explicit opt-in, so a first scan never surprises the
+  // user with a Docker requirement.
+  scanMode: "code",
   phase1: true,
-  phase2: true,
+  phase2: false,
   filter: "All",
   selectedId: null,
   codeSnippet: null,
@@ -416,6 +426,13 @@ export const useStore = create<State>((set, get) => ({
     }),
 
   togglePhase: (p) => set((st) => ({ [p]: !st[p] }) as Partial<State>),
+  setScanMode: (m) =>
+    // Map the mode onto the phase flags runRealAudit already understands:
+    // code → read the repo/folder (Phase 1), attack left off by default;
+    // web → attack the live URL (Phase 2 only — a URL has no source to read).
+    set(m === "code"
+      ? { scanMode: "code", phase1: true, phase2: false }
+      : { scanMode: "web", phase1: false, phase2: true }),
   setDepth: (d) => set({ depth: d }),
   setFilter: (f) => set({ filter: f }),
   select: (id) => set({ selectedId: id }),
