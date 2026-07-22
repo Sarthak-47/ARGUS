@@ -24,6 +24,16 @@ export function Reports() {
   const sel = allFindings.find((f) => f.id === s.selectedId) || null;
   const mortal = counts.CRITICAL || 0;
 
+  // The since-last-scan diff only makes sense when the previous scan was the
+  // SAME target. Otherwise (e.g. this is a live-URL attack but the previous
+  // scan in history was a local code scan) the "closed since" list shows that
+  // other target's findings — static-code issues like SQL injection or YAML
+  // deserialisation that a URL attack can't even produce — as if they were
+  // fixed here. The CLI already warns on a cross-target compare; the GUI just
+  // shouldn't render the diff at all. old_target null = first scan ever, fine.
+  const comp = s.comparison;
+  const showComparison = !!comp && (!comp.old_target || comp.old_target === comp.new_target);
+
   return (
     <section style={{ display: "flex", height: "100%", minHeight: 0, position: "relative", overflow: "hidden" }}>
       <div style={{ flex: 1, minWidth: 0, overflowY: "auto" }}>
@@ -96,22 +106,22 @@ export function Reports() {
               {mortal > 0 ? ` — ${mortal} of them critical.` : "."}
             </p>
 
-            {s.comparison && (
+            {showComparison && comp && (
               <div style={{ marginTop: 20, paddingTop: 18, borderTop: `1px solid rgba(125,79,40,0.3)` }}>
-                {s.comparison.new_findings.length === 0 && s.comparison.fixed_findings.length === 0 ? (
+                {comp.new_findings.length === 0 && comp.fixed_findings.length === 0 ? (
                   <p style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 13, color: C.stoneText, margin: 0 }}>
                     No change since the last scan of this target
-                    {s.comparison.unchanged_count > 0 ? ` — ${s.comparison.unchanged_count} finding${s.comparison.unchanged_count === 1 ? "" : "s"} carried over.` : "."}
+                    {comp.unchanged_count > 0 ? ` — ${comp.unchanged_count} finding${comp.unchanged_count === 1 ? "" : "s"} carried over.` : "."}
                   </p>
                 ) : (
                   <>
                     <div style={{ display: "flex", gap: 34 }}>
-                      <ChangeList label="Newly opened" color={C.crimson} items={s.comparison.new_findings} />
-                      <ChangeList label="Closed since" color="#6f9e57" items={s.comparison.fixed_findings} />
+                      <ChangeList label="Newly opened" color={C.crimson} items={comp.new_findings} />
+                      <ChangeList label="Closed since" color="#6f9e57" items={comp.fixed_findings} />
                     </div>
-                    {s.comparison.unchanged_count > 0 && (
+                    {comp.unchanged_count > 0 && (
                       <p style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 12, color: C.stoneText, margin: "10px 0 0" }}>
-                        {s.comparison.unchanged_count} other finding{s.comparison.unchanged_count === 1 ? "" : "s"} unchanged.
+                        {comp.unchanged_count} other finding{comp.unchanged_count === 1 ? "" : "s"} unchanged.
                       </p>
                     )}
                   </>
