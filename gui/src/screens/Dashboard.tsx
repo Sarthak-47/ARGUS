@@ -1,153 +1,168 @@
-import { RF, FONT, bandColor, bandLabel, sevColor } from "../theme";
+// I · THE WATCH — the pinned reference screen.
+//
+// Three columns, exactly as designed: POSTURE OF THE ESTATE (left, dotted
+// leaders and one large figure), THE HUNDRED EYES (centre, the constellation
+// as readout), WHAT THE EYES SAW (right, a register of real events). Nothing
+// here is invented — every leader and every entry traces to store.history or
+// store.report; where there is no data the leader or the section is simply
+// absent rather than showing a placeholder.
+
+import { bandColor, bandLabel } from "../theme";
 import { useStore } from "../store";
-import { TerracottaMark, EyeGlyph, ScreenHeader } from "../components/Panoptes";
-import type { HistoryEntry } from "../adapter";
+import { Constellation } from "../components/Constellation";
+import { VULN_CHECKS } from "../data";
 
 function timeAgo(ts: number | null): string {
   if (!ts) return "—";
-  const seconds = Math.max(0, Date.now() / 1000 - ts);
-  if (seconds < 60) return "just now";
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  return `${Math.floor(seconds / 86400)}d ago`;
+  const s = Math.max(0, Date.now() / 1000 - ts);
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
 }
+function stamp(ts: number | null): string {
+  if (!ts) return "—:—";
+  const d = new Date(ts * 1000);
+  return d.toTimeString().slice(0, 5);
+}
+
+interface RegisterEntry { kind: string; when: string; body: string; grave?: boolean; where?: string; onOpen?: () => void }
 
 export function Dashboard() {
   const s = useStore();
   const setScreen = s.setScreen;
   const realHistory = s.history && s.history.length > 0 ? s.history : null;
-
-  const audits = realHistory
-    ? [...realHistory].reverse().slice(0, 6).map((e) => ({ name: e.target, score: e.riskScore, time: timeAgo(e.finishedAt), counts: e.counts }))
-    : [];
+  const findings = s.report?.findings ?? [];
   const latest = realHistory ? realHistory[realHistory.length - 1] : null;
-  const stats = realHistory && latest
-    ? [
-        { label: "Scans", value: String(realHistory.length), color: RF.clay },
-        { label: "Latest risk", value: String(latest.riskScore), color: bandColor(latest.riskScore) },
-        { label: "Critical", value: String(latest.counts?.CRITICAL || 0), color: sevColor("CRITICAL") },
-        { label: "High", value: String(latest.counts?.HIGH || 0), color: sevColor("HIGH") },
-      ]
-    : null;
+
+  const open = findings.length;
+  const lulled = VULN_CHECKS.length - open; // classes with nothing found — asleep, not absent
+  const grave = findings.filter((f) => f.severity === "CRITICAL").length;
+  const assetsGuarded = realHistory ? realHistory.length : 0;
+
+  // The register: real completed sweeps, newest first, worded in the ledger's
+  // own voice but stating only real fields (target, counts, timestamp).
+  const entries: RegisterEntry[] = [];
+  if (realHistory) {
+    for (const h of [...realHistory].reverse().slice(0, 6)) {
+      const c = h.counts?.CRITICAL || 0;
+      const hi = h.counts?.HIGH || 0;
+      entries.push({
+        kind: c > 0 ? "GRAVE" : "SWEEP CLOSED",
+        when: stamp(h.finishedAt),
+        grave: c > 0,
+        body: c > 0
+          ? `${h.target} came back grave — ${c} critical${hi ? ` and ${hi} high` : ""} recorded.`
+          : hi > 0
+            ? `${h.target} swept clean of grave matters; ${hi} high still open.`
+            : `${h.target} swept and found quiet. Risk ${h.riskScore} — ${bandLabel(h.riskScore).toLowerCase()}.`,
+        where: h.target,
+        onOpen: () => setScreen("report"),
+      });
+    }
+  }
+  if (findings.length) {
+    entries.unshift(
+      ...findings
+        .filter((f) => f.severity === "CRITICAL" || f.severity === "HIGH")
+        .slice(0, 3)
+        .map((f): RegisterEntry => ({
+          kind: f.severity === "CRITICAL" ? "GRAVE" : "OBSERVED",
+          when: "now",
+          grave: f.severity === "CRITICAL",
+          body: f.name,
+          where: f.file ? `${f.file}${f.line ? `:${f.line}` : ""}` : f.endpoint,
+          onOpen: () => { s.select(f.id); setScreen("report"); },
+        }))
+    );
+  }
 
   return (
-    <section>
-      <ScreenHeader
-        title="Dashboard"
-        subtitle="recent scans and risk over time"
-        action={
-          <button onClick={() => setScreen("scan")} style={{ fontFamily: FONT.display, fontSize: 12, letterSpacing: "0.16em", textTransform: "uppercase", color: RF.clayHi, background: "transparent", border: `1px solid ${RF.dilute}`, padding: "11px 20px", cursor: "pointer" }}>
-            New scan
-          </button>
-        }
-      />
+    <div style={{ display: "grid", gridTemplateColumns: "262px minmax(400px,1fr) 292px", gap: 34, alignItems: "stretch", height: "100%", padding: "26px 40px 34px", overflow: "hidden" }}>
+      {/* LEFT — Posture of the estate */}
+      <section style={{ minHeight: 0, overflowY: "auto" }}>
+        <div className="col-head">Posture of the estate</div>
 
-      <div style={{ padding: "26px 46px 64px", maxWidth: 1500, position: "relative" }}>
-        {/* Two ways in: scan code, or scan a live website. Each jumps into New
-            Scan pre-set to that mode (see setScanMode). */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 34 }}>
-          {([
-            { mode: "code" as const, title: "Scan code", desc: "a repo URL or local folder" },
-            { mode: "web" as const, title: "Scan a website", desc: "a live URL — attack it" },
-          ]).map((m) => (
-            <button key={m.mode} onClick={() => { s.setScanMode(m.mode); setScreen("scan"); }} style={{
-              display: "flex", alignItems: "center", gap: 14, padding: "18px 20px", cursor: "pointer", textAlign: "left",
-              background: `linear-gradient(180deg, ${RF.ember}, ${RF.glazeLo})`, border: `1px solid ${RF.dilute}`,
-            }}>
-              <EyeGlyph w={30} h={19} />
-              <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                <span style={{ fontFamily: FONT.display, fontSize: 15, letterSpacing: "0.06em", textTransform: "uppercase", color: RF.clayHi }}>{m.title}</span>
-                <span style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 13, color: RF.dust }}>{m.desc}</span>
-              </span>
-            </button>
-          ))}
+        <div className="posture">
+          <span className="posture-num">{open}</span>
+          <span className="posture-of">of<br />{VULN_CHECKS.length}</span>
         </div>
+        <p className="aside" style={{ marginTop: -8, marginBottom: 26 }}>
+          {open === 0 ? "Every eye open, nothing found. The ground is quiet." : `${open} eye${open === 1 ? "" : "s"} open. ${lulled} lulled asleep.`}
+        </p>
 
-        <div style={{ fontFamily: FONT.display, fontSize: 10.5, letterSpacing: "0.2em", textTransform: "uppercase", color: RF.dust, marginBottom: 14 }}>
-          Risk over time — each scan, coloured by severity
+        <div className="leader"><span className="k">Assets guarded</span><span className="dots" /><span className="v">{assetsGuarded || "—"}</span></div>
+        <div className="leader"><span className="k">Observations open</span><span className="dots" /><span className="v gold">{open}</span></div>
+        <div className="leader"><span className="k">Grave, unanswered</span><span className="dots" /><span className={`v${grave ? " grave" : ""}`}>{grave}</span></div>
+        <div className="leader"><span className="k">Ground unwatched</span><span className="dots" /><span className="v">{lulled}</span></div>
+
+        {latest && (
+          <p className="aside" style={{ marginTop: 26 }}>
+            Last sweep closed {timeAgo(latest.finishedAt)}, risk {latest.riskScore} — {bandLabel(latest.riskScore).toLowerCase()}.
+          </p>
+        )}
+
+        <button className="commit" style={{ marginTop: 22 }} onClick={() => setScreen("scan")}>
+          Set the watch <span className="arrow">→</span>
+        </button>
+      </section>
+
+      {/* CENTRE — The hundred eyes */}
+      <section style={{ display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+        <div className="col-head">The hundred eyes</div>
+        {/* Fills the whole remaining column — width and height, not a
+            square boxed inside it. Constellation already scales the field
+            on each axis independently, so it was fighting an aspect-ratio
+            box that just left dead space above and below the circle. */}
+        <div style={{ flex: "1 1 auto", minHeight: 0, width: "100%", marginTop: 4, position: "relative" }}>
+          <Constellation
+            findings={findings}
+            scanning={s.auditRunning}
+            onPick={(f) => { s.select(f.id); setScreen("report"); }}
+          />
         </div>
-        <TrendGraph entries={realHistory} />
+        {realHistory && realHistory.length > 1 && (
+          <div style={{ flex: "0 0 auto", marginTop: 4 }}>
+            <TrendGraph entries={realHistory.map((h) => h.riskScore)} />
+          </div>
+        )}
+      </section>
 
-        <div style={{ fontFamily: FONT.display, fontSize: 10.5, letterSpacing: "0.2em", textTransform: "uppercase", color: RF.dust, margin: "40px 0 14px" }}>Recent scans</div>
-        <div style={{ display: "flex", flexDirection: "column", border: `1px solid ${RF.diluteLo}`, background: RF.glaze, marginBottom: 52 }}>
-          {audits.length === 0 && (
-            <div style={{ padding: "34px 28px", fontFamily: FONT.body, fontStyle: "italic", fontSize: 14, color: RF.dust, textAlign: "center" }}>
-              No scans yet — run one and it'll appear here.
-            </div>
-          )}
-          {audits.map((a, i) => (
-            <button key={`${a.name}-${i}`} className="row-hover" onClick={() => setScreen("report")} style={{
-              display: "grid", gridTemplateColumns: "34px 1fr 68px 150px 70px", alignItems: "center", gap: 20, padding: "16px 22px",
-              background: "transparent", border: "none", borderBottom: `1px solid rgba(125,79,40,0.22)`, cursor: "pointer", textAlign: "left", width: "100%",
-            }}>
-              <EyeGlyph wounded={a.score >= 70} w={28} h={18} />
-              <span style={{ fontFamily: FONT.code, fontSize: 13, color: RF.ivory, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</span>
-              {/* fontVariantNumeric keeps every digit the same width and the
-                  wider column stops "100" (3 digits) from crowding the bar/
-                  band-label column next to it the way a single-digit score
-                  wouldn't — same fixed width, inconsistent visual weight
-                  depending on the value, is what read as "bad alignment". */}
-              <span style={{ fontFamily: FONT.display, fontSize: 26, fontWeight: 700, color: bandColor(a.score), textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{a.score}</span>
-              <span style={{ display: "flex", flexDirection: "column", gap: 6, width: 150 }}>
-                <span style={{ fontFamily: FONT.display, fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", color: bandColor(a.score) }}>{bandLabel(a.score)}</span>
-                <span style={{ height: 4, background: RF.diluteLo, width: "100%" }}>
-                  <span style={{ display: "block", height: "100%", width: `${a.score}%`, background: bandColor(a.score) }} />
-                </span>
-              </span>
-              <span style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 13, color: RF.dust, textAlign: "right" }}>{a.time}</span>
-            </button>
-          ))}
-        </div>
-
-        <div style={{ position: "relative" }}>
-          <TerracottaMark size={300} color="rgba(197,106,51,0.09)" style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", pointerEvents: "none", zIndex: 0 }} />
-          {stats ? (
-            <div style={{ position: "relative", zIndex: 1, display: "flex", gap: 1, background: RF.diluteLo, border: `1px solid ${RF.diluteLo}` }}>
-              {stats.map((st) => (
-                <div key={st.label} style={{ flex: 1, background: "rgba(13,9,6,0.86)", padding: "28px 26px" }}>
-                  <div style={{ fontFamily: FONT.display, fontSize: 76, fontWeight: 700, color: st.color, lineHeight: 0.85 }}>{st.value}</div>
-                  <div style={{ fontFamily: FONT.display, fontSize: 10.5, letterSpacing: "0.18em", textTransform: "uppercase", color: RF.dust, marginTop: 12 }}>{st.label}</div>
+      {/* RIGHT — What the eyes saw */}
+      <section style={{ minHeight: 0, overflowY: "auto" }}>
+        <div className="col-head">What the eyes saw</div>
+        {entries.length === 0 ? (
+          <p className="aside">Nothing has been watched yet. Set the watch and the register will begin to fill.</p>
+        ) : (
+          entries.map((e, i) => {
+            const Comp = e.onOpen ? "button" : "div";
+            return (
+              <Comp key={i} className="entry" onClick={e.onOpen} style={e.onOpen ? { display: "block", width: "100%", textAlign: "left", background: "none", border: "none", padding: "14px 0", borderBottom: "1px solid var(--rule)", cursor: "pointer" } : undefined}>
+                <div className="entry-head">
+                  <span className={`entry-kind${e.grave ? " grave" : ""}`}>{e.kind}</span>
+                  <span className="entry-when">{e.when}</span>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div style={{ position: "relative", zIndex: 1, border: `1px solid ${RF.diluteLo}`, background: "rgba(13,9,6,0.86)", padding: "40px 28px", textAlign: "center", fontFamily: FONT.body, fontStyle: "italic", fontSize: 14, color: RF.dust }}>
-              Stats appear here after your first scan.
-            </div>
-          )}
-        </div>
-      </div>
-    </section>
+                <div className="entry-body">{e.body}</div>
+                {e.where && <div className="entry-where">{e.where}</div>}
+              </Comp>
+            );
+          })
+        )}
+      </section>
+    </div>
   );
 }
 
-function TrendGraph({ entries }: { entries: HistoryEntry[] | null }) {
-  const W = 1080, H = 140, PAD = 20;
-  if (!entries || entries.length < 2) {
-    return (
-      <div style={{ border: `1px solid ${RF.diluteLo}`, background: RF.glaze, marginBottom: 40, padding: "34px 28px", fontFamily: FONT.body, fontStyle: "italic", fontSize: 14, color: RF.dust, textAlign: "center" }}>
-        {entries && entries.length === 1 ? "One scan so far — the trend line appears after your next one." : "Run a few scans to see risk over time."}
-      </div>
-    );
-  }
-  const scores = entries.map((e) => e.riskScore);
+function TrendGraph({ entries }: { entries: number[] }) {
+  const W = 280, H = 34, PAD = 3;
   const stepX = (W - PAD * 2) / (entries.length - 1);
-  const points = scores.map((score, i) => [PAD + i * stepX, PAD + (1 - score / 100) * (H - PAD * 2)] as const);
+  const points = entries.map((score, i) => [PAD + i * stepX, PAD + (1 - score / 100) * (H - PAD * 2)] as const);
   const linePath = points.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x},${y}`).join(" ");
-  const areaPath = `${linePath} L${points[points.length - 1][0]},${H - PAD} L${points[0][0]},${H - PAD} Z`;
-  const latest = entries[entries.length - 1];
+  const last = entries[entries.length - 1];
   return (
-    <div style={{ border: `1px solid ${RF.diluteLo}`, background: RF.glaze, marginBottom: 40, padding: "20px 24px" }}>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none">
-        <path d={areaPath} fill={bandColor(latest.riskScore)} opacity={0.12} />
-        <path d={linePath} fill="none" stroke={bandColor(latest.riskScore)} strokeWidth={2} />
-        {points.map(([x, y], i) => <circle key={i} cx={x} cy={y} r={3.5} fill={bandColor(scores[i])} />)}
-      </svg>
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontFamily: FONT.code, fontSize: 11, color: RF.dust }}>
-        <span>{timeAgo(entries[0].finishedAt)}</span>
-        <span style={{ color: bandColor(latest.riskScore) }}>latest: {latest.riskScore} ({bandLabel(latest.riskScore)})</span>
-        <span>{timeAgo(latest.finishedAt)}</span>
-      </div>
-    </div>
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" style={{ display: "block", opacity: 0.8 }}>
+      <path d={linePath} fill="none" stroke={bandColor(last)} strokeWidth={1} />
+      {points.map(([x, y], i) => <circle key={i} cx={x} cy={y} r={1.4} fill={bandColor(entries[i])} />)}
+    </svg>
   );
 }
