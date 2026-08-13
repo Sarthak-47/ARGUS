@@ -105,9 +105,9 @@ function detectOS(){
     card.innerHTML = `
       <div class="face">
         <svg viewBox="0 0 24 15" width="26" height="16" aria-hidden="true">
-          <g fill="none" stroke="#c56a33" stroke-width="1.6">
+          <g fill="none" stroke="#C9A227" stroke-width="1.6">
             <path d="M2 7.5 Q12 1 22 7.5 Q12 14 2 7.5 Z" />
-            <circle cx="12" cy="7.5" r="2.6" fill="#7d4f28" stroke="none" />
+            <circle cx="12" cy="7.5" r="2.6" fill="#7A6520" stroke="none" />
           </g>
         </svg>
         <div class="name">${name}</div>

@@ -18,7 +18,7 @@
 <meta name="twitter:image" content="https://sarthak-47.github.io/ARGUS/assets/og-image.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,wght@0,400;0,500;1,400;1,500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="assets/style.css" />
 <script type="application/ld+json">
 {
@@ -64,7 +64,7 @@
   <p class="tagline">Named after Argus Panoptes — the hundred-eyed giant who never slept and saw everything.</p>
   <p class="sub">Static scanners tell you what <i>looks</i> wrong. Argus proves it: it reads your code, then spins your app up and actually attacks it — dumping data via SQLi, forging admin JWTs, reaching cloud metadata via SSRF — and explains every finding in plain English, tailored to your codebase.</p>
 
-  <div><code class="install" onclick="copyInstall(this)"><span>pip install argus-panoptes</span><span class="copy">COPY</span></code></div>
+  <div><code class="install" role="button" tabindex="0" aria-label="Copy install command" onclick="copyInstall(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();copyInstall(this);}"><span>pip install argus-panoptes</span><span class="copy">COPY</span></code></div>
 
   <div class="cta-row">
     <a class="btn primary" href="https://github.com/Sarthak-47/ARGUS/releases/latest" target="_blank" rel="noopener" data-os-download>Download the desktop app</a>
@@ -166,6 +166,7 @@ Risk Score 98/100  [<span class="crit">CRITICAL</span>]
   <div class="wrap">
     <div class="num-head"><span class="idx">05</span><span class="kicker">Why Argus</span></div>
     <h2>Nobody else combines all six.</h2>
+    <div class="cmp-scroll">
     <table class="cmp">
       <tr><th></th><th>Static</th><th>Active attack</th><th>LLM reasoning</th><th>Free</th><th>Local model</th><th>Open source</th></tr>
       <tr><td>Snyk</td><td>✓</td><td>✗</td><td>✗</td><td>Partial</td><td>✗</td><td>✗</td></tr>
@@ -175,6 +176,7 @@ Risk Score 98/100  [<span class="crit">CRITICAL</span>]
       <tr><td>OWASP ZAP</td><td>✗</td><td>✓</td><td>✗</td><td>✓</td><td>✗</td><td>✓</td></tr>
       <tr class="us"><td>Argus</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
     </table>
+    </div>
   </div>
 </section>
 
@@ -188,7 +190,7 @@ Risk Score 98/100  [<span class="crit">CRITICAL</span>]
       <div class="os-card"><h4>macOS</h4><p>Universal .dmg (Apple Silicon + Intel)</p><a href="https://github.com/Sarthak-47/ARGUS/releases/latest" target="_blank" rel="noopener">Latest release →</a></div>
       <div class="os-card"><h4>Linux</h4><p>.deb · .rpm · .AppImage</p><a href="https://github.com/Sarthak-47/ARGUS/releases/latest" target="_blank" rel="noopener">Latest release →</a></div>
     </div>
-    <div><code class="install" onclick="copyInstall(this)"><span>pip install argus-panoptes</span><span class="copy">COPY</span></code></div>
+    <div><code class="install" role="button" tabindex="0" aria-label="Copy install command" onclick="copyInstall(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();copyInstall(this);}"><span>pip install argus-panoptes</span><span class="copy">COPY</span></code></div>
     <p style="margin-top:6px;"><a href="download/">All platforms, Docker, and CLI extras →</a></p>
   </div>
 </section>

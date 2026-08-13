@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" href="../assets/argus-logo.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,wght@0,400;0,500;1,400;1,500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="../assets/style.css" />
 </head>
 <body>
@@ -34,7 +34,7 @@
 
 <section class="hero small wrap">
   <div class="crest small"><img src="../assets/argus-logo.png" alt="" /></div>
-  <div class="eyebrow">v1.2.12 · Free · Open Source</div>
+  <div class="eyebrow">v1.2.30 · Free · Open Source</div>
   <h1 class="wordmark page">No account. No telemetry. Ever.</h1>
   <p class="sub">Every installer below is built and published by the same public CI that builds every Argus release — see the <a href="https://github.com/Sarthak-47/ARGUS/blob/main/.github/workflows/desktop-release.yml" target="_blank" rel="noopener">workflow</a> yourself.</p>
 </section>
@@ -72,7 +72,7 @@
   <div class="wrap">
     <div class="num-head"><span class="idx">02</span><span class="kicker">Command line</span></div>
     <h2>One package, every OS.</h2>
-    <div><code class="install" onclick="copyInstall(this)"><span>pip install argus-panoptes</span><span class="copy">COPY</span></code></div>
+    <div><code class="install" role="button" tabindex="0" aria-label="Copy install command" onclick="copyInstall(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();copyInstall(this);}"><span>pip install argus-panoptes</span><span class="copy">COPY</span></code></div>
     <p class="lede" style="margin-top:0;">Then run <code style="font-family:var(--code); color:var(--clayHi);">argus demo</code> — a zero-setup showcase against a bundled, intentionally-vulnerable app, nothing external touched.</p>
     <p style="font-size:15.5px; color:var(--dust);">Need the optional extras? <code style="font-family:var(--code);">pip install 'argus-panoptes[sandbox,browser,mcp]'</code> adds Docker sandboxing, JS-aware crawling, and the MCP server.</p>
   </div>
