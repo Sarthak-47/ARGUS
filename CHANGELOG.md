@@ -5,6 +5,13 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.30] — 2026-08-13
+
+### Changed
+- New app icon and logo mark (the eye-covered figure inside a compass ring)
+  across every platform (Windows .ico, macOS .icns, all PNG sizes) and the
+  in-app mark on the Live Attack idle screen.
+
 ## [1.2.29] — 2026-08-13
 
 ### Changed

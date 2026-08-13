@@ -1,7 +1,7 @@
 import { RF, FONT } from "../theme";
 import { AGENTS } from "../data";
 import { useStore } from "../store";
-import { EyeGlyph, TerracottaMark, PageHead } from "../components/Panoptes";
+import { EyeGlyph, PageHead } from "../components/Panoptes";
 
 export function LiveAttack() {
   const s = useStore();
@@ -107,7 +107,7 @@ export function LiveAttack() {
     <section style={{ height: "100%", overflowY: "auto" }}>
       <PageHead kicker="In the field" title="Live Attack" subtitle="No engagement in progress." />
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 22, padding: "60px 40px" }}>
-        <TerracottaMark size={72} color={RF.dilute} />
+        <img src="/argus-logo.png" alt="Argus" width={72} height={72} style={{ display: "block", opacity: 0.5, borderRadius: "50%" }} />
         <div style={{ fontFamily: FONT.display, fontSize: 13, letterSpacing: "0.22em", textTransform: "uppercase", color: RF.clayHi }}>Nothing running</div>
         <div style={{ fontFamily: FONT.ui, fontSize: 15, color: RF.dust, maxWidth: 440, textAlign: "center", lineHeight: 1.6 }}>
           Start a scan with <span style={{ color: RF.parchment }}>Strike the app</span> enabled and Argus spins the target up and attacks it live. Progress shows here while it runs.
