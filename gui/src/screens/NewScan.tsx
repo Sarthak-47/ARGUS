@@ -1,12 +1,31 @@
+// II · SET THE WATCH — commissioning a sweep: ground/depth/strike/mind as
+// dotted leaders on the left, the agent roster on the right. Every count and
+// duration is computed from real store state — never a scripted figure.
+// See DESIGN.md.
+
 import { useEffect } from "react";
 import { C, RF, FONT } from "../theme";
 import { AGENTS, DESC } from "../data";
 import { useStore } from "../store";
-import { EyeGlyph, ScreenHeader } from "../components/Panoptes";
+const DEPTH_NOTE: Record<string, string> = {
+  Quick: "A look from the outside. Known signatures and the obvious doors.",
+  Standard: "Authenticated crawl, dependencies resolved to source, each agent one pass.",
+  Deep: "Every lid open. Fuzzing, chained findings, and a second pass over anything that flinched.",
+};
+const DEPTH_MULT: Record<string, number> = { Quick: 0.4, Standard: 2.2, Deep: 21 };
+
+function estimateWatch(openCount: number, depth: string): string {
+  const mins = Math.max(2, Math.round(openCount * (DEPTH_MULT[depth] ?? 2.2)));
+  return mins > 90 ? `${(mins / 60).toFixed(1)} h` : `${mins} min`;
+}
 
 export function NewScan() {
   const s = useStore();
-  const allOn = AGENTS.every((n) => s.scanChecked[n]);
+  const isCode = s.scanMode === "code";
+  const openCount = AGENTS.filter((n) => s.scanChecked[n]).length;
+  const canStart = isCode ? !!s.target.trim() : !!s.targetUrl.trim();
+  const providerReachable = s.isDesktop && s.status?.resolved_provider === s.provider && s.status?.available;
+  const estimate = estimateWatch(openCount, s.depth);
 
   useEffect(() => {
     if (s.isDesktop) s.checkArgusAvailable();
@@ -14,175 +33,164 @@ export function NewScan() {
   }, [s.isDesktop]);
 
   return (
-    <section>
-      <ScreenHeader title="New Scan" subtitle="point Argus at a target" />
-
-      <div style={{ padding: "22px 46px 64px", maxWidth: 1500 }}>
-        <Label>What are you scanning?</Label>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 24 }}>
-          {([
-            { mode: "code" as const, num: "I", title: "Code", desc: "a repo URL or local folder — reads the source" },
-            { mode: "web" as const, num: "II", title: "Website", desc: "a live URL — attacks the running app" },
-          ]).map((m) => {
-            const on = s.scanMode === m.mode;
-            return (
-              <button key={m.mode} onClick={() => s.setScanMode(m.mode)} style={{
-                display: "flex", alignItems: "center", gap: 12, padding: "15px 16px", cursor: "pointer", textAlign: "left",
-                background: on ? `linear-gradient(180deg, ${RF.ember}, ${RF.glazeLo})` : RF.glazeLo,
-                border: `1px solid ${on ? RF.clay : RF.diluteLo}`, position: "relative",
-              }}>
-                <span style={{ fontFamily: FONT.display, fontSize: 14, color: RF.clay, width: 22 }}>{m.num}</span>
-                <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  <span style={{ fontFamily: FONT.body, fontSize: 18, color: on ? RF.ivory : RF.dust }}>{m.title}</span>
-                  <span style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 13, color: RF.dust }}>{m.desc}</span>
-                </span>
-                <span style={{ marginLeft: "auto", width: 10, height: 10, borderRadius: "50%", background: on ? RF.clay : RF.diluteLo, boxShadow: on ? `0 0 0 3px rgba(197,106,51,0.16)` : "none" }} />
-              </button>
-            );
-          })}
-        </div>
-
-        {s.scanMode === "code" ? (
-          <>
-            <Label>Repo URL or local folder</Label>
-            <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-              <input
-                value={s.target}
-                onChange={(e) => s.setTarget(e.target.value)}
-                placeholder="github.com/user/app or a local path"
-                style={{ flex: 1, background: RF.glazeLo, border: `1px solid ${RF.dilute}`, color: RF.ivory, fontFamily: FONT.code, fontSize: 14, padding: "13px 16px", outline: "none" }}
-              />
-              <button className="btn-outline" style={ghostBtn}>Browse local</button>
-            </div>
-            {/* Optional Phase 2 for code mode: spin the repo up in Docker and
-                attack it too. Off by default so a plain read never needs Docker. */}
-            <button onClick={() => s.togglePhase("phase2")} style={{
-              display: "flex", alignItems: "center", gap: 11, padding: "12px 15px", marginBottom: s.isDesktop ? 10 : 34, cursor: "pointer", textAlign: "left", width: "100%",
-              background: s.phase2 ? `linear-gradient(180deg, ${RF.ember}, ${RF.glazeLo})` : RF.glazeLo,
-              border: `1px solid ${s.phase2 ? RF.clay : RF.diluteLo}`,
-            }}>
-              <span style={{ width: 10, height: 10, borderRadius: "50%", background: s.phase2 ? RF.clay : RF.diluteLo, boxShadow: s.phase2 ? `0 0 0 3px rgba(197,106,51,0.16)` : "none" }} />
-              <span style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                <span style={{ fontFamily: FONT.body, fontSize: 15, color: s.phase2 ? RF.ivory : RF.dust }}>Also strike the app after reading</span>
-                <span style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 12.5, color: RF.dust }}>spins the repo up in a Docker sandbox and attacks it live · needs Docker</span>
-              </span>
-            </button>
-          </>
-        ) : (
-          <>
-            <Label>Website URL</Label>
-            <div style={{ display: "flex", gap: 10, marginBottom: s.isDesktop ? 10 : 34 }}>
-              <input
-                value={s.targetUrl}
-                onChange={(e) => s.setTargetUrl(e.target.value)}
-                placeholder="https://your-app.example.com"
-                style={{ flex: 1, background: RF.glazeLo, border: `1px solid ${RF.dilute}`, color: RF.ivory, fontFamily: FONT.code, fontSize: 14, padding: "13px 16px", outline: "none" }}
-              />
-            </div>
-          </>
-        )}
-
-        {s.isDesktop && (
-          <div style={{ marginBottom: 32, fontFamily: FONT.body, fontStyle: "italic", fontSize: 13 }}>
-            {s.argusAvailable === false && (
-              <span style={{ color: C.crimson }}>
-                `argus` couldn't be reached — install it with <code style={{ fontStyle: "normal" }}>pip install argus-panoptes</code>,
-                or set its exact path in{" "}
-                <button onClick={() => s.setScreen("settings")} style={{ background: "none", border: "none", padding: 0, color: C.crimson, textDecoration: "underline", fontStyle: "italic", fontSize: 13, cursor: "pointer" }}>
-                  Settings
-                </button>.
-              </span>
-            )}
-            {s.argusAvailable && <span style={{ color: RF.dust }}>Desktop shell detected — this invokes the real Argus engine, not demo data.</span>}
-            {s.auditError && <div style={{ color: C.crimson, marginTop: 6 }}>{s.auditError}</div>}
-          </div>
-        )}
-
-        {/* Agents only run in Phase 2 — hide the picker entirely for a pure
-            code read (nothing to attack), show it whenever an attack will run. */}
-        {s.phase2 && (
-          <>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-              <span style={{ fontFamily: FONT.display, fontSize: 10.5, letterSpacing: "0.2em", textTransform: "uppercase", color: RF.dust }}>Attack agents — the eyes you open</span>
-              <button onClick={s.selectAllAgents} style={{ background: "none", border: "none", color: RF.clay, fontFamily: FONT.display, fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", cursor: "pointer" }}>
-                {allOn ? "Deselect all" : "Select all"}
-              </button>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: 9, marginBottom: 34 }}>
-              {AGENTS.map((n) => {
-                const on = s.scanChecked[n];
-                return (
-                  <button key={n} onClick={() => s.toggleAgent(n)} style={{
-                    display: "flex", alignItems: "center", gap: 11, padding: "12px 14px", cursor: "pointer", textAlign: "left",
-                    background: RF.glazeLo, border: `1px solid ${on ? RF.dilute : RF.diluteLo}`, opacity: on ? 1 : 0.5,
-                  }}>
-                    <EyeGlyph sleeping={!on} w={24} h={15} />
-                    <span style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                      <span style={{ fontFamily: FONT.display, fontSize: 10.5, letterSpacing: "0.06em", textTransform: "uppercase", color: on ? RF.clayHi : RF.dust }}>{n}</span>
-                      <span style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 12.5, color: RF.dust }}>{DESC[n]}</span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </>
-        )}
-
-        <div style={{ display: "flex", gap: 50, marginBottom: 36, alignItems: "flex-end" }}>
-          <div>
-            <Label>Depth</Label>
-            <div style={{ display: "flex", gap: 8 }}>
-              {(["Quick", "Standard", "Deep"] as const).map((d) => {
-                const on = s.depth === d;
-                return (
-                  <button key={d} onClick={() => s.setDepth(d)} style={{
-                    fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", padding: "10px 20px", cursor: "pointer",
-                    border: `1px solid ${on ? RF.clay : RF.diluteLo}`, background: on ? `linear-gradient(180deg, ${RF.clayHi}, ${RF.clay})` : "transparent", color: on ? RF.glaze : RF.dust,
-                  }}>{d}</button>
-                );
-              })}
-            </div>
-          </div>
-          <div>
-            <Label>LLM provider</Label>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, background: RF.glazeLo, border: `1px solid ${RF.diluteLo}`, padding: "11px 16px" }}>
-              {/* Same fix as Settings' provider picker: show what the user
-                  actually selected (s.provider, set from preferred_provider),
-                  not resolved_provider — which falls back to "local" whenever
-                  a cloud provider has no key yet, making a real selection
-                  look lost on this screen too. */}
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: s.isDesktop && s.status?.resolved_provider === s.provider && s.status?.available ? RF.clay : C.crimson }} />
-              <span style={{ fontFamily: FONT.display, fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase", color: RF.clayHi }}>
-                {(s.isDesktop && s.provider ? s.provider : "no provider").toUpperCase()}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <button
-          className="btn-solid"
-          disabled={s.auditRunning}
-          onClick={() => { if (s.isDesktop) s.runRealAudit(); else s.setScreen("live"); }}
-          style={{
-            width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 14,
-            fontFamily: FONT.display, fontSize: 14, letterSpacing: "0.24em", textTransform: "uppercase", fontWeight: 600,
-            color: RF.glaze, background: `linear-gradient(180deg, ${RF.clayHi}, ${RF.clay})`, border: "none", padding: 17,
-            cursor: s.auditRunning ? "wait" : "pointer", opacity: s.auditRunning ? 0.6 : 1,
-          }}
-        >
-          {s.auditRunning ? "Running…" : "Start scan"} <span style={{ fontSize: 13 }}>&#8594;</span>
-        </button>
+    <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div style={{
+        display: "flex", justifyContent: "space-between", padding: "20px 40px 14px", flex: "0 0 auto",
+        borderBottom: "1px solid var(--rule-strong)", fontFamily: "var(--mono)", fontSize: 9.5,
+        letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--bone-dim-2)",
+      }}>
+        <span>{openCount} OF {AGENTS.length} AGENTS SELECTED</span>
+        <span>{s.depth.toUpperCase()} · {estimate.toUpperCase()} · {s.phase2 && isCode ? "STRIKING" : "READING ONLY"}</span>
       </div>
-    </section>
+
+      <div style={{
+        padding: "18px 40px 24px", display: "grid",
+        gridTemplateColumns: "minmax(420px,1.15fr) minmax(320px,1fr)", gap: 58, alignItems: "stretch",
+        flex: "1 1 auto", minHeight: 0, overflow: "hidden",
+      }}>
+        <div style={{ minHeight: 0, overflowY: "auto" }}>
+          <div style={{ fontFamily: "var(--serif)", fontSize: 34, letterSpacing: "0.02em" }}>Set the watch</div>
+          <div style={{ fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 19, color: "var(--bone-dim)", marginTop: 2 }}>name the ground, and the eyes will turn to it</div>
+
+          <div className="col-head" style={{ marginTop: 22 }}>What manner of ground</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, paddingTop: 10 }}>
+            <button onClick={() => s.setScanMode("code")} style={{
+              cursor: "pointer", display: "flex", alignItems: "baseline", gap: 15, background: "none",
+              border: "none", padding: "3px 0", textAlign: "left", transition: "all 160ms ease",
+            }}>
+              <span style={{ fontSize: 13, color: isCode ? RF.clay : "var(--shut)", flex: "0 0 auto" }}>{isCode ? "●" : "○"}</span>
+              <span style={{ fontFamily: "var(--serif)", fontSize: isCode ? 30 : 21, lineHeight: 1.15, color: isCode ? "var(--bone)" : "var(--bone-dim-3)", flex: "0 0 auto", transition: "font-size 160ms ease" }}>A repository</span>
+              {isCode && <span style={{ fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 18, color: "var(--bone-dim-3)" }}>— a git remote, or a folder on this machine</span>}
+            </button>
+            <button onClick={() => s.setScanMode("web")} style={{
+              cursor: "pointer", display: "flex", alignItems: "baseline", gap: 15, background: "none",
+              border: "none", padding: "3px 0", textAlign: "left", transition: "all 160ms ease",
+            }}>
+              <span style={{ fontSize: 13, color: !isCode ? RF.clay : "var(--shut)", flex: "0 0 auto" }}>{!isCode ? "●" : "○"}</span>
+              <span style={{ fontFamily: "var(--serif)", fontSize: !isCode ? 30 : 21, lineHeight: 1.15, color: !isCode ? "var(--bone)" : "var(--bone-dim-3)", flex: "0 0 auto", transition: "font-size 160ms ease" }}>A living target</span>
+              {!isCode && <span style={{ fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 18, color: "var(--bone-dim-3)" }}>— a running URL, answering now</span>}
+            </button>
+          </div>
+
+          <div style={{ fontFamily: "var(--mono)", fontSize: 10, letterSpacing: "0.24em", textTransform: "uppercase", color: "var(--bone-dim)", marginTop: 20 }}>
+            {isCode ? "The remote or path" : "The URL"}
+          </div>
+          <input
+            className="line-input"
+            value={isCode ? s.target : s.targetUrl}
+            onChange={(e) => (isCode ? s.setTarget(e.target.value) : s.setTargetUrl(e.target.value))}
+            placeholder={isCode ? "github.com/user/app" : "https://your-app.example.com"}
+            spellCheck={false}
+            style={{ fontSize: 20, letterSpacing: "0.02em", color: "var(--gold)", borderBottomColor: "var(--bone)", padding: "9px 0 8px" }}
+          />
+
+          <div style={{ marginTop: 20, borderTop: "1px solid var(--rule-strong)" }}>
+            {isCode && (
+              <div className="leader" style={{ padding: "9px 0" }}>
+                <span className="k">Also strike after reading</span>
+                <span className="dots" />
+                <span style={{ display: "flex", gap: 20 }}>
+                  {[["no", false], ["yes", true]].map(([label, val]) => (
+                    <button key={label as string} className={`pick${s.phase2 === val ? " on" : ""}`} style={{ fontSize: 22 }}
+                      onClick={() => { if (s.phase2 !== val) s.togglePhase("phase2"); }}>
+                      {label}
+                    </button>
+                  ))}
+                </span>
+              </div>
+            )}
+
+            <div className="leader" style={{ padding: "9px 0" }}>
+              <span className="k">Depth of the sweep</span>
+              <span className="dots" />
+              <span style={{ display: "flex", gap: 20 }}>
+                {(["Quick", "Standard", "Deep"] as const).map((d) => (
+                  <button key={d} className={`pick${s.depth === d ? " on" : ""}`} style={{ fontSize: 22 }} onClick={() => s.setDepth(d)}>
+                    {d.toLowerCase()}
+                  </button>
+                ))}
+              </span>
+            </div>
+            <div style={{ fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 15, lineHeight: 1.4, color: "var(--bone-dim-3)", padding: "6px 0 0" }}>{DEPTH_NOTE[s.depth]}</div>
+
+            <div className="leader" style={{ marginTop: 8, padding: "9px 0" }}>
+              <span className="k">Which mind reasons</span>
+              <span className="dots" />
+              <span style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                <span style={{ width: 6, height: 6, background: providerReachable ? RF.patina : C.crimson, flex: "0 0 auto" }} />
+                <span style={{ fontFamily: "var(--serif)", fontSize: 22, color: "var(--bone)" }}>{s.isDesktop && s.provider ? s.provider : "none"}</span>
+                <button className="pick" style={{ fontSize: 13 }} onClick={() => s.setScreen("settings")}>change</button>
+              </span>
+            </div>
+            <div style={{ display: "flex", gap: 24, fontSize: 10, letterSpacing: "0.16em", padding: "6px 0 0" }}>
+              <span style={{ color: providerReachable ? "var(--gold)" : "var(--grave)" }}>
+                {providerReachable ? "REACHABLE" : "UNVERIFIED"}
+              </span>
+              <span style={{ color: "var(--bone-dim-2)" }}>KEY IN KEEPER VAULT</span>
+            </div>
+          </div>
+
+          <p style={{ fontFamily: "var(--serif)", fontStyle: "italic", fontSize: 17, lineHeight: 1.5, color: "var(--bone-dim-3)", marginTop: 18 }}>
+            Io was watched by one keeper with a hundred eyes, and not one of them was told what to look for.
+          </p>
+
+          {s.isDesktop && (s.argusAvailable === false || s.auditError) && (
+            <p style={{ fontFamily: FONT.ui, fontSize: 13.5, color: RF.oxbloodHi, lineHeight: 1.6, marginTop: 14 }}>
+              {s.argusAvailable === false && (
+                <>
+                  `argus` could not be reached. Install it with <code>pip install argus-panoptes</code>, or set its path in{" "}
+                  <button onClick={() => s.setScreen("settings")} className="pick" style={{ fontSize: 13.5, color: RF.oxbloodHi }}>Settings</button>.
+                </>
+              )}
+              {s.auditError && <span style={{ display: "block", marginTop: 6 }}>{s.auditError}</span>}
+            </p>
+          )}
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+          <div className="col-head" style={{ flex: "0 0 auto" }}>The eyes to be opened</div>
+          <div className="posture" style={{ padding: "12px 0 18px", flex: "0 0 auto" }}>
+            <span className="posture-num" style={{ fontSize: 88 }}>{openCount}</span>
+            <span className="posture-of">of<br />{AGENTS.length}</span>
+          </div>
+
+          {/* The roster is the one list here long enough to outgrow a short
+              window — it scrolls in its own lane so the count above and the
+              commit action below stay pinned and visible without the page
+              itself ever scrolling. */}
+          <div style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", paddingTop: 10, borderTop: "1px solid var(--rule-strong)" }}>
+            {AGENTS.map((n) => {
+              const on = s.scanChecked[n];
+              return (
+                <button key={n} onClick={() => s.toggleAgent(n)} style={{
+                  cursor: "pointer", height: 34, display: "flex", alignItems: "center", gap: 12, width: "100%",
+                  background: "none", border: "none", borderBottom: "1px solid var(--ground-raised)", textAlign: "left",
+                }}>
+                  <span style={{ fontSize: 11, color: on ? "var(--gold)" : "var(--shut)", flex: "0 0 auto" }}>{on ? "●" : "○"}</span>
+                  <span style={{ fontFamily: "var(--serif)", fontSize: 19, lineHeight: 1, color: on ? "var(--bone)" : "var(--shut)", flex: "0 0 auto", whiteSpace: "nowrap" }}>{n}</span>
+                  <span style={{ flex: 1, borderBottom: "1px dotted var(--rule-dotted)" }} />
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 11, letterSpacing: "0.04em", color: on ? "var(--bone-dim)" : "var(--bone-dim-2)", flex: "0 0 auto" }}>{DESC[n]}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="leader" style={{ borderBottom: "none", paddingTop: 16, flex: "0 0 auto" }}>
+            <span className="k">Estimated watch</span>
+            <span className="dots" />
+            <span className="v gold">{estimate}</span>
+          </div>
+
+          <button
+            className="commit"
+            style={{ marginTop: 16, width: "100%", justifyContent: "space-between", fontSize: 25, letterSpacing: "0.22em", borderTop: "1px solid var(--rule-strong)", borderBottom: "none", paddingTop: 22, flex: "0 0 auto" }}
+            disabled={s.auditRunning || !canStart}
+            onClick={() => { if (s.isDesktop) s.runRealAudit(); else s.setScreen("live"); }}
+          >
+            {s.auditRunning ? "Watching…" : "Begin the sweep"} <span className="arrow">→</span>
+          </button>
+        </div>
+      </div>
+    </div>
   );
-}
-
-const ghostBtn = {
-  background: RF.glazeLo, border: `1px solid ${RF.diluteLo}`, color: RF.dust,
-  fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase" as const, padding: "0 20px",
-  cursor: "pointer", whiteSpace: "nowrap" as const,
-};
-
-function Label({ children }: { children: React.ReactNode }) {
-  return <div style={{ fontFamily: FONT.display, fontSize: 10.5, letterSpacing: "0.2em", textTransform: "uppercase", color: RF.dust, marginBottom: 12 }}>{children}</div>;
 }
