@@ -1,7 +1,7 @@
 import { RF, FONT } from "../theme";
 import { AGENTS } from "../data";
 import { useStore } from "../store";
-import { EyeGlyph, TerracottaMark, ScreenHeader } from "../components/Panoptes";
+import { EyeGlyph, TerracottaMark, PageHead } from "../components/Panoptes";
 
 export function LiveAttack() {
   const s = useStore();
@@ -18,14 +18,15 @@ export function LiveAttack() {
     const effectiveTarget = !s.phase1 && s.phase2 && s.targetUrl.trim() ? s.targetUrl : s.target;
 
     return (
-      <section>
-        <ScreenHeader
+      <section style={{ height: "100%", overflowY: "auto" }}>
+        <PageHead
+          kicker="In the field"
           title="Live Attack"
           subtitle={`${phaseLabel} against ${effectiveTarget}`}
           action={
             <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
               <span style={{ width: 9, height: 9, borderRadius: "50%", background: RF.oxbloodHi, animation: "argusPulse 1.4s ease-in-out infinite" }} />
-              <span style={{ fontFamily: FONT.display, fontSize: 28, fontWeight: 700, color: RF.clay, letterSpacing: "0.04em", fontVariantNumeric: "tabular-nums" }}>{elapsed}</span>
+              <span style={{ fontFamily: FONT.display, fontSize: 28, fontWeight: 500, color: RF.clay, letterSpacing: "0.04em", fontVariantNumeric: "tabular-nums" }}>{elapsed}</span>
               {s.isDesktop && (
                 <button
                   disabled={s.auditCanceling}
@@ -44,7 +45,7 @@ export function LiveAttack() {
         />
 
         <div style={{ padding: "30px 46px" }}>
-          <div style={{ fontFamily: FONT.display, fontSize: 10.5, letterSpacing: "0.2em", textTransform: "uppercase", color: RF.dust, marginBottom: 18 }}>
+          <div style={{ fontFamily: FONT.ui, fontSize: 11, fontWeight: 500, letterSpacing: "0.16em", textTransform: "uppercase", color: RF.dust, marginBottom: 18 }}>
             Agents running · {opened.length} live
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "12px 16px", marginBottom: 32 }}>
@@ -62,7 +63,7 @@ export function LiveAttack() {
           </div>
           {s.feed.length > 0 ? (
             <div>
-              <div style={{ fontFamily: FONT.display, fontSize: 10.5, letterSpacing: "0.2em", textTransform: "uppercase", color: RF.dust, marginBottom: 14 }}>
+              <div style={{ fontFamily: FONT.ui, fontSize: 11, fontWeight: 500, letterSpacing: "0.16em", textTransform: "uppercase", color: RF.dust, marginBottom: 14 }}>
                 Live feed · {s.feed.length}
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 3, maxHeight: 320, overflowY: "auto", paddingRight: 8 }}>
@@ -81,7 +82,7 @@ export function LiveAttack() {
               </div>
             </div>
           ) : (
-            <p style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 15, color: RF.dust, maxWidth: "60ch" }}>
+            <p style={{ fontFamily: FONT.ui, fontSize: 15, color: RF.dust, maxWidth: "60ch" }}>
               {s.phase2
                 ? "Argus is attacking a real target. The live feed will fill in as the agents confirm findings."
                 : "Reading and mapping the code — this is usually quick."}
@@ -94,12 +95,12 @@ export function LiveAttack() {
 
   // Idle
   return (
-    <section>
-      <ScreenHeader title="Live Attack" />
-      <div style={{ height: "calc(100% - 71px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 22, padding: 40 }}>
+    <section style={{ height: "100%", overflowY: "auto" }}>
+      <PageHead kicker="In the field" title="Live Attack" subtitle="No engagement in progress." />
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 22, padding: "60px 40px" }}>
         <TerracottaMark size={72} color={RF.dilute} />
         <div style={{ fontFamily: FONT.display, fontSize: 13, letterSpacing: "0.22em", textTransform: "uppercase", color: RF.clayHi }}>Nothing running</div>
-        <div style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 15, color: RF.dust, maxWidth: 440, textAlign: "center", lineHeight: 1.6 }}>
+        <div style={{ fontFamily: FONT.ui, fontSize: 15, color: RF.dust, maxWidth: 440, textAlign: "center", lineHeight: 1.6 }}>
           Start a scan with <span style={{ color: RF.parchment }}>Strike the app</span> enabled and Argus spins the target up and attacks it live. Progress shows here while it runs.
         </div>
         <button onClick={() => s.setScreen("scan")} style={{ fontFamily: FONT.display, fontSize: 12, letterSpacing: "0.18em", textTransform: "uppercase", color: RF.clay, background: "transparent", border: `1px solid ${RF.dilute}`, padding: "12px 24px", cursor: "pointer" }}>

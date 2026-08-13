@@ -1,6 +1,6 @@
 import { RF, FONT, sevColor } from "../theme";
 import { useStore } from "../store";
-import { ScreenHeader, EyeGlyph } from "../components/Panoptes";
+import { PageHead, EyeGlyph } from "../components/Panoptes";
 
 export function CodeView() {
   const s = useStore();
@@ -8,10 +8,11 @@ export function CodeView() {
   const finding = allFindings.find((f) => f.id === s.selectedId) || null;
 
   return (
-    <section>
-      <ScreenHeader
+    <section style={{ height: "100%", overflowY: "auto" }}>
+      <PageHead
+        kicker="The evidence"
         title="In the code"
-        subtitle={finding ? finding.name : "the line that caught it"}
+        subtitle={finding ? finding.name : "The line that caught it."}
         action={
           <button
             onClick={() => s.setScreen("report")}
@@ -22,7 +23,7 @@ export function CodeView() {
         }
       />
 
-      <div style={{ padding: "24px 34px 64px" }}>
+      <div style={{ padding: "0 46px 64px" }}>
         {!finding && (
           <Empty>No finding selected — go back to the report and open one with a file location.</Empty>
         )}
@@ -80,7 +81,7 @@ export function CodeView() {
 
 function Empty({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 15, color: RF.dust, padding: "60px 0", textAlign: "center" }}>
+    <div style={{ fontFamily: FONT.ui, fontSize: 15, color: RF.dust, padding: "60px 0", textAlign: "center" }}>
       {children}
     </div>
   );

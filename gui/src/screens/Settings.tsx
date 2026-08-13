@@ -1,8 +1,10 @@
+// Settings, in the ledger's own idiom: dotted-leader rows, lit choices as
+// text, a bare line for the key. No cards — see DESIGN.md.
+
 import { useEffect, useState } from "react";
 import { C, RF, FONT } from "../theme";
 import { PROVIDERS } from "../data";
 import { useStore } from "../store";
-import { ScreenHeader } from "../components/Panoptes";
 
 const CLOUD_IDS = new Set(["groq", "gemini", "claude", "openrouter"]);
 
@@ -19,139 +21,131 @@ export function Settings() {
   const live = s.isDesktop && s.status;
   // Ollama's own local API has been observed taking 2+ seconds to answer even
   // when already running, so a status refresh here is a real multi-second
-  // wait, not instant — without this, every provider switch / test-connection
-  // / model pick silently did nothing on screen for that whole stretch, which
-  // is indistinguishable from the app having frozen.
+  // wait — without surfacing it, every provider switch looked like a freeze.
   const busy = s.statusLoading || s.savingModel || s.savingKey;
 
   return (
-    <section>
-      <ScreenHeader
-        title="Settings"
-        subtitle={live ? "how Argus is configured" : "demo preview — open in the desktop app for real config"}
-        action={busy ? (
-          <span style={{ fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: RF.dust, display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ width: 7, height: 7, borderRadius: "50%", background: RF.clay, animation: "argusPulse 1.2s ease-in-out infinite" }} />
-            Refreshing — Ollama can take a few seconds to answer…
-          </span>
-        ) : undefined}
-      />
+    <div style={{ maxWidth: 720, margin: "0 auto", padding: "38px 40px 60px", height: "100%", overflowY: "auto" }}>
+      <p className="aside" style={{ marginBottom: 4 }}>
+        Which mind reasons over what the eyes find.
+      </p>
+      {busy && (
+        <p style={{ fontFamily: FONT.code, fontSize: 11, letterSpacing: "0.1em", color: "var(--bone-dim)", display: "flex", alignItems: "center", gap: 8, margin: "10px 0 0" }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: RF.clay, animation: "argusPulse 1.2s ease-in-out infinite" }} />
+          REFRESHING…
+        </p>
+      )}
 
-      <div style={{ padding: "24px 46px 64px", maxWidth: 1200 }}>
-        <Head>LLM provider</Head>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 8, marginBottom: 18 }}>
-          {PROVIDERS.map((p) => {
-            const active = selectedId === p.id;
-            return (
-              <button key={p.id} onClick={() => s.setProvider(p.id)} style={{
-                display: "flex", flexDirection: "column", gap: 10, alignItems: "flex-start", padding: 16, cursor: "pointer",
-                background: active ? `linear-gradient(180deg, ${RF.ember}, ${RF.glazeLo})` : RF.glazeLo, border: `1px solid ${active ? RF.clay : RF.diluteLo}`,
-              }}>
-                <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: active ? RF.clay : RF.diluteLo, boxShadow: active ? "0 0 0 3px rgba(197,106,51,0.18)" : "none" }} />
-                  <span style={{ fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.06em", color: active ? RF.clayHi : RF.parchment }}>{p.name}</span>
-                </span>
-                <span style={{ fontFamily: FONT.code, fontSize: 10, color: RF.dust }}>{p.speed}</span>
+      <div className="leader" style={{ alignItems: "baseline", marginTop: 22 }}>
+        <span className="k" style={{ paddingTop: 4 }}>Provider</span>
+        <div style={{ flex: 1, display: "flex", flexWrap: "wrap", rowGap: 4 }}>
+          {PROVIDERS.map((p, i) => (
+            <span key={p.id}>
+              {i > 0 && <span className="pick-sep">/</span>}
+              <button className={`pick${selectedId === p.id ? " on" : ""}`} style={{ fontSize: 16 }} onClick={() => s.setProvider(p.id)}>
+                {p.name}
               </button>
-            );
-          })}
+            </span>
+          ))}
         </div>
+      </div>
 
-        {CLOUD_IDS.has(selectedId) && (
-          <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
-            <input value={keyInput} onChange={(e) => setKeyInput(e.target.value)} placeholder={`${selectedId} key…`} type="password"
-              style={{ flex: 1, background: RF.glazeLo, border: `1px solid ${RF.dilute}`, color: RF.parchment, fontFamily: FONT.code, fontSize: 12, padding: "12px 15px", outline: "none" }} />
-            <button disabled={!s.isDesktop || s.savingKey || !keyInput.trim()} onClick={async () => { await s.saveProviderKey(selectedId, keyInput); setKeyInput(""); }}
-              style={{ background: RF.glazeLo, border: `1px solid ${RF.dilute}`, color: RF.clay, fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", padding: "0 20px", cursor: s.isDesktop ? "pointer" : "not-allowed" }}>
-              {s.savingKey ? "Saving…" : "Save key"}
+      {CLOUD_IDS.has(selectedId) && (
+        <div style={{ padding: "8px 0 4px" }}>
+          <label style={{ display: "block", fontFamily: FONT.code, fontSize: 10, letterSpacing: "0.17em", textTransform: "uppercase", color: "var(--bone-dim)", marginBottom: 8 }}>
+            {selectedId} api key
+          </label>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 16 }}>
+            <input
+              className="line-input"
+              style={{ flex: 1 }}
+              value={keyInput}
+              onChange={(e) => setKeyInput(e.target.value)}
+              placeholder={`${selectedId} key`}
+              type="password"
+            />
+            <button className="pick on" style={{ fontSize: 15 }} disabled={!s.isDesktop || s.savingKey || !keyInput.trim()}
+              onClick={async () => { await s.saveProviderKey(selectedId, keyInput); setKeyInput(""); }}>
+              {s.savingKey ? "saving…" : "save"}
             </button>
           </div>
-        )}
-
-        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 44 }}>
-          <button disabled={!s.isDesktop} onClick={() => s.testConnection()}
-            style={{ background: RF.glazeLo, border: `1px solid ${RF.dilute}`, color: RF.clay, fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", padding: "10px 20px", cursor: s.isDesktop ? "pointer" : "not-allowed" }}>
-            Test connection
-          </button>
-          {s.connectionTestResult && (
-            <span style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 13, color: s.connectionTestResult === "ok" ? RF.clay : C.crimson }}>
-              {s.connectionTestResult === "ok" ? "● reachable" : s.connectionTestResult === "needs-key" ? "● selected — add an API key below to activate it" : "● configured but unreachable"}
-            </span>
-          )}
         </div>
+      )}
 
-        {live && (
-          <>
-            <Head>{selectedId === "local" ? "Local model" : "Model"}</Head>
-            <div style={{ border: `1px solid ${RF.diluteLo}`, background: RF.glaze, padding: "24px 26px", marginBottom: 44 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                <span style={{ fontFamily: FONT.code, fontSize: 13, color: RF.parchment }}>
-                  {s.status!.gpu.detected ? `${s.status!.gpu.name} · ${s.status!.gpu.vram_gb} GB VRAM` : "No GPU detected"}
-                </span>
-                <span style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 14, color: s.status!.gpu.detected ? RF.clay : RF.dust }}>
-                  {s.status!.gpu.detected ? "● detected" : "○ not found"}
-                </span>
-              </div>
-              <div style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 14, color: RF.dust }}>
-                {s.status!.resolved_provider
-                  ? <>Active model: <span style={{ fontStyle: "normal", color: RF.clay, fontFamily: FONT.code, fontSize: 12 }}>{s.status!.model}</span></>
-                  : "No provider configured — Argus still runs the deterministic scan."}
-              </div>
-              {s.status!.recommended_model && (
-                <div style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 14, color: RF.dust, marginTop: 6 }}>
-                  Recommended local model: <span style={{ fontStyle: "normal", color: RF.clay, fontFamily: FONT.code, fontSize: 12 }}>{s.status!.recommended_model}</span>
-                </div>
-              )}
-
-              {s.status!.local_models.length > 0 && (
-                <div style={{ marginTop: 18 }}>
-                  <div style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 14, color: RF.dust, marginBottom: 10 }}>
-                    Installed models — pick one to use:
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {s.status!.local_models.map((m) => {
-                      const active = s.status!.model === m;
-                      return (
-                        <button key={m} disabled={s.savingModel} onClick={() => s.setLocalModel(m)}
-                          style={{
-                            display: "flex", alignItems: "center", gap: 10, textAlign: "left", padding: "10px 14px", cursor: s.savingModel ? "wait" : "pointer",
-                            background: active ? `linear-gradient(180deg, ${RF.ember}, ${RF.glazeLo})` : RF.glazeLo,
-                            border: `1px solid ${active ? RF.clay : RF.diluteLo}`,
-                          }}>
-                          <span style={{ width: 7, height: 7, borderRadius: "50%", background: active ? RF.clay : RF.diluteLo }} />
-                          <span style={{ fontFamily: FONT.code, fontSize: 12, color: active ? RF.clayHi : RF.parchment }}>{m}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {s.modelSaveError && (
-                    <div style={{ fontFamily: FONT.body, fontStyle: "italic", fontSize: 13, color: C.crimson, marginTop: 10 }}>{s.modelSaveError}</div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <Head>Scan defaults</Head>
-            <div style={{ border: `1px solid ${RF.diluteLo}`, background: RF.glaze }}>
-              {[
-                { label: "Default depth", value: capitalize(s.status!.scan_defaults.depth) },
-                { label: "Attack agents available", value: String(s.status!.agent_count) },
-                { label: "Report output path", value: s.status!.report_defaults.output_dir },
-              ].map((r, i) => (
-                <div key={r.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 24px", borderBottom: i < 2 ? `1px solid rgba(125,79,40,0.22)` : "none" }}>
-                  <span style={{ fontFamily: FONT.body, fontSize: 16, color: RF.parchment }}>{r.label}</span>
-                  <span style={{ fontFamily: FONT.code, fontSize: 12, color: RF.clay }}>{r.value}</span>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
+      <div className="leader">
+        <span className="k">Reach</span>
+        <span className="dots" />
+        <button className="pick" style={{ fontSize: 15 }} disabled={!s.isDesktop} onClick={() => s.testConnection()}>test connection</button>
       </div>
-    </section>
+      {s.connectionTestResult && (
+        <p style={{ fontFamily: FONT.ui, fontSize: 13.5, color: s.connectionTestResult === "ok" ? RF.patina : C.crimson, margin: "-4px 0 0" }}>
+          {s.connectionTestResult === "ok" ? "Reachable." : s.connectionTestResult === "needs-key" ? "Selected — add an API key above to activate it." : "Configured but unreachable."}
+        </p>
+      )}
+
+      {live && (
+        <>
+          <p className="aside" style={{ marginTop: 30, marginBottom: 4 }}>
+            The engine itself.
+          </p>
+          <div className="leader">
+            <span className="k">GPU</span><span className="dots" />
+            <span className={`v${s.status!.gpu.detected ? " gold" : ""}`} style={{ fontSize: 16 }}>
+              {s.status!.gpu.detected ? `${s.status!.gpu.name} · ${s.status!.gpu.vram_gb} GB` : "none detected"}
+            </span>
+          </div>
+          <div className="leader">
+            <span className="k">Active model</span><span className="dots" />
+            <span className="v" style={{ fontFamily: FONT.code, fontSize: 15 }}>
+              {s.status!.resolved_provider ? (s.status!.model ?? "—") : "none — deterministic scan only"}
+            </span>
+          </div>
+          {s.status!.recommended_model && (
+            <div className="leader">
+              <span className="k">Recommended</span><span className="dots" />
+              <span className="v" style={{ fontFamily: FONT.code, fontSize: 15 }}>{s.status!.recommended_model}</span>
+            </div>
+          )}
+          <div className="leader">
+            <span className="k">Default depth</span><span className="dots" />
+            <span className="v" style={{ fontSize: 16 }}>{capitalize(s.status!.scan_defaults.depth)}</span>
+          </div>
+          <div className="leader">
+            <span className="k">Agents available</span><span className="dots" />
+            <span className="v gold" style={{ fontSize: 20 }}>{s.status!.agent_count}</span>
+          </div>
+          <div className="leader">
+            <span className="k">Reports saved to</span><span className="dots" />
+            <span className="v" style={{ fontFamily: FONT.code, fontSize: 12.5 }}>{s.status!.report_defaults.output_dir}</span>
+          </div>
+
+          {s.status!.local_models.length > 0 && (
+            <>
+              <p className="aside" style={{ marginTop: 26, marginBottom: 10 }}>Installed local models.</p>
+              <div style={{ borderTop: "1px solid var(--rule)" }}>
+                {s.status!.local_models.map((m) => {
+                  const active = s.status!.model === m;
+                  return (
+                    <button key={m} disabled={s.savingModel} onClick={() => s.setLocalModel(m)} style={{
+                      display: "flex", alignItems: "baseline", gap: 12, width: "100%", textAlign: "left",
+                      background: "none", border: "none", borderBottom: "1px solid var(--rule)",
+                      padding: "9px 0", cursor: s.savingModel ? "wait" : "pointer",
+                    }}>
+                      <span style={{ fontFamily: FONT.code, fontSize: 9.5, color: active ? RF.clay : "var(--bone-dim)" }}>{active ? "●" : "○"}</span>
+                      <span style={{ fontFamily: FONT.code, fontSize: 13, color: active ? "var(--bone)" : "var(--bone-dim)" }}>{m}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {s.modelSaveError && (
+                <p style={{ fontFamily: FONT.ui, fontSize: 12.5, color: C.crimson, marginTop: 10 }}>{s.modelSaveError}</p>
+              )}
+            </>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 
 function capitalize(s: string): string { return s.charAt(0).toUpperCase() + s.slice(1); }
-function Head({ children }: { children: React.ReactNode }) {
-  return <div style={{ fontFamily: FONT.display, fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase", color: RF.clay, marginBottom: 16 }}>{children}</div>;
-}
