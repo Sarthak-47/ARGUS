@@ -15,10 +15,10 @@ import type { Severity } from "./theme";
 // invocation while invisible here, un-selectable and unlisted in the live
 // feed's agent grid) — keep it exhaustive.
 export const AGENTS = [
-  "ReconBot", "Injector", "SSTIProber", "AuthBreaker", "IDORHunter", "AuthzTester",
-  "CrawlerBot", "Fuzzer", "HeaderPoker", "FileAttacker", "RaceCondition", "SSRFProber",
-  "XSSHunter", "WebSocketAgent", "GraphQLAgent", "DataExposure", "MCPSecurityAgent",
-  "PromptInjectionAgent", "BusinessLogicAgent",
+  "ReconBot", "Injector", "SSTIProber", "IDORHunter", "XSSHunter", "AuthBreaker",
+  "SSRFProber", "CrawlerBot", "Fuzzer", "HeaderPoker", "FileAttacker", "RaceCondition",
+  "GraphQLAgent", "WebSocketAgent", "DataExposure", "BusinessLogicAgent",
+  "PromptInjectionAgent", "MCPSecurityAgent", "AuthzTester",
 ] as const;
 
 export type AgentName = (typeof AGENTS)[number];
