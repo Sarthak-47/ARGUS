@@ -68,6 +68,17 @@ argus = ["scanner/rules/*.yaml", "report/templates/*.j2"]
 line-length = 100
 target-version = "py310"
 
+[tool.ruff.lint]
+# Pinned explicitly — ruff's own "no select configured" default has grown
+# across versions (0.16 pulled in isort/pep8-naming/bandit/pylint/refurb
+# rule families on top of this), and since ruff itself is unpinned
+# (`ruff>=0.4`), that silently broke CI on an unrelated release with no
+# code change. This is the rule set that was actually being enforced when
+# CI was last green — locking it in keeps a future ruff upgrade from doing
+# the same thing again. Broadening the rule set is a deliberate choice to
+# make separately, not a side effect of a linter version bump.
+select = ["E4", "E7", "E9", "F"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
