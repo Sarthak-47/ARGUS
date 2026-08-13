@@ -5,6 +5,21 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.28] — 2026-08-13
+
+### Changed
+- GUI: redesigned all three screens (The Watch, Set the Watch, The Register)
+  to the pinned "keeper's watch-ledger" visual world — dotted-leader rows,
+  Bodoni Moda/IBM Plex Mono typography, a single gold accent with grave-red
+  reserved for critical findings, no cards/gradients/glow.
+- GUI: the hundred-eyes field on The Watch is a real rotating Fibonacci-sphere
+  canvas (ported from the pinned design reference), sized and positioned
+  correctly regardless of window size; every screen now fits the app window
+  with no page-level scrolling, with only genuinely long lists (agent roster,
+  findings) scrolling in their own bounded lane.
+- GUI: raised the desktop window's minimum size (960×640 → 1180×760) to match
+  what the redesigned layout actually needs.
+
 ## [1.2.27] — 2026-07-22
 
 ### Fixed
