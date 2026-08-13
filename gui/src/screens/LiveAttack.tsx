@@ -16,6 +16,11 @@ export function LiveAttack() {
     const opened = AGENTS.filter((n) => s.scanChecked[n]);
     const phaseLabel = s.phase1 && s.phase2 ? "Phase 1 + Phase 2" : s.phase1 ? "Phase 1" : "Phase 2";
     const effectiveTarget = !s.phase1 && s.phase2 && s.targetUrl.trim() ? s.targetUrl : s.target;
+    // Every real agent emits its own "sweep complete" / "…complete —
+    // N confirmed" line when it finishes (see argus/agents/*.py) — that's a
+    // real per-agent completion signal already streaming into the feed, not
+    // an invented status.
+    const completed = new Set(s.feed.filter((l) => /complete/i.test(l.text)).map((l) => l.agent));
 
     return (
       <section style={{ height: "100%", overflowY: "auto" }}>
@@ -46,17 +51,21 @@ export function LiveAttack() {
 
         <div style={{ padding: "30px 46px" }}>
           <div style={{ fontFamily: FONT.ui, fontSize: 11, fontWeight: 500, letterSpacing: "0.16em", textTransform: "uppercase", color: RF.dust, marginBottom: 18 }}>
-            Agents running · {opened.length} live
+            Agents running · {opened.length} live · {completed.size} done
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "12px 16px", marginBottom: 32 }}>
             {AGENTS.map((n, i) => {
               const on = s.scanChecked[n];
+              const done = completed.has(n);
               return (
-                <div key={n} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: RF.glazeLo, border: `1px solid ${on ? RF.dilute : RF.diluteLo}`, opacity: on ? 1 : 0.4 }}>
-                  <span style={{ display: "inline-flex", lineHeight: 0, animation: on ? `argusBreathe 2.6s ease-in-out ${(i % 5) * 0.3}s infinite` : "none" }}>
+                <div key={n} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: done ? RF.ember : RF.glazeLo, border: `1px solid ${done ? RF.clay : on ? RF.dilute : RF.diluteLo}`, opacity: on ? 1 : 0.4 }}>
+                  <span style={{ display: "inline-flex", lineHeight: 0, animation: on && !done ? `argusBreathe 2.6s ease-in-out ${(i % 5) * 0.3}s infinite` : "none" }}>
                     <EyeGlyph sleeping={!on} w={22} h={14} />
                   </span>
-                  <span style={{ fontFamily: FONT.display, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", color: on ? RF.clayHi : RF.dust }}>{n}</span>
+                  <span style={{ fontFamily: FONT.display, fontSize: 10, letterSpacing: "0.06em", textTransform: "uppercase", color: done ? RF.clayHi : on ? RF.clayHi : RF.dust, flex: 1 }}>{n}</span>
+                  {done && (
+                    <span style={{ fontFamily: FONT.code, fontSize: 8.5, letterSpacing: "0.1em", color: RF.clay, flex: "0 0 auto" }}>DONE</span>
+                  )}
                 </div>
               );
             })}

@@ -12,20 +12,12 @@ const DEPTH_NOTE: Record<string, string> = {
   Standard: "Authenticated crawl, dependencies resolved to source, each agent one pass.",
   Deep: "Every lid open. Fuzzing, chained findings, and a second pass over anything that flinched.",
 };
-const DEPTH_MULT: Record<string, number> = { Quick: 0.4, Standard: 2.2, Deep: 21 };
-
-function estimateWatch(openCount: number, depth: string): string {
-  const mins = Math.max(2, Math.round(openCount * (DEPTH_MULT[depth] ?? 2.2)));
-  return mins > 90 ? `${(mins / 60).toFixed(1)} h` : `${mins} min`;
-}
-
 export function NewScan() {
   const s = useStore();
   const isCode = s.scanMode === "code";
   const openCount = AGENTS.filter((n) => s.scanChecked[n]).length;
   const canStart = isCode ? !!s.target.trim() : !!s.targetUrl.trim();
   const providerReachable = s.isDesktop && s.status?.resolved_provider === s.provider && s.status?.available;
-  const estimate = estimateWatch(openCount, s.depth);
 
   useEffect(() => {
     if (s.isDesktop) s.checkArgusAvailable();
@@ -40,7 +32,7 @@ export function NewScan() {
         letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--bone-dim-2)",
       }}>
         <span>{openCount} OF {AGENTS.length} AGENTS SELECTED</span>
-        <span>{s.depth.toUpperCase()} · {estimate.toUpperCase()} · {s.phase2 && isCode ? "STRIKING" : "READING ONLY"}</span>
+        <span>{s.depth.toUpperCase()} · {s.phase2 && isCode ? "STRIKING" : "READING ONLY"}</span>
       </div>
 
       <div style={{
@@ -175,11 +167,6 @@ export function NewScan() {
             })}
           </div>
 
-          <div className="leader" style={{ borderBottom: "none", paddingTop: 16, flex: "0 0 auto" }}>
-            <span className="k">Estimated watch</span>
-            <span className="dots" />
-            <span className="v gold">{estimate}</span>
-          </div>
 
           <button
             className="commit"

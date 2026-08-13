@@ -5,6 +5,21 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.29] — 2026-08-13
+
+### Changed
+- GUI: removed the "estimated watch" duration on Set the Watch — it was
+  computed from placeholder multipliers with no real timing data behind
+  them (a Deep sweep of the full roster showed 6.7h, which read as absurd).
+- GUI: Live Attack now shows real per-agent completion. Every attack agent
+  already emits its own "sweep complete" event when it finishes; that was
+  streaming into the feed unused. Agent tiles now show a DONE tag and stop
+  their running animation once that real event lands.
+- GUI: Dashboard's posture panel now reads "of 19" (the real attack-agent
+  roster size) instead of "of 51" (the vulnerability-class catalogue the
+  eye field itself binds to) — those are two different real counts, and
+  showing 51 next to "19 agents" elsewhere in the app read as inconsistent.
+
 ## [1.2.28] — 2026-08-13
 
 ### Changed

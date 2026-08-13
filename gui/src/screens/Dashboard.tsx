@@ -10,7 +10,7 @@
 import { bandColor, bandLabel } from "../theme";
 import { useStore } from "../store";
 import { Constellation } from "../components/Constellation";
-import { VULN_CHECKS } from "../data";
+import { AGENTS } from "../data";
 
 function timeAgo(ts: number | null): string {
   if (!ts) return "—";
@@ -36,7 +36,12 @@ export function Dashboard() {
   const latest = realHistory ? realHistory[realHistory.length - 1] : null;
 
   const open = findings.length;
-  const lulled = VULN_CHECKS.length - open; // classes with nothing found — asleep, not absent
+  // Measured against the real 19-agent roster, not the 51-class vulnerability
+  // catalogue the eye field itself binds to — those are two different real
+  // counts and showing 51 here read as inconsistent with "19 agents"
+  // elsewhere in the app. Findings can in principle exceed the roster size;
+  // floor lulled at 0 rather than show a negative.
+  const lulled = Math.max(0, AGENTS.length - open);
   const grave = findings.filter((f) => f.severity === "CRITICAL").length;
   const assetsGuarded = realHistory ? realHistory.length : 0;
 
@@ -85,7 +90,7 @@ export function Dashboard() {
 
         <div className="posture">
           <span className="posture-num">{open}</span>
-          <span className="posture-of">of<br />{VULN_CHECKS.length}</span>
+          <span className="posture-of">of<br />{AGENTS.length}</span>
         </div>
         <p className="aside" style={{ marginTop: -8, marginBottom: 26 }}>
           {open === 0 ? "Every eye open, nothing found. The ground is quiet." : `${open} eye${open === 1 ? "" : "s"} open. ${lulled} lulled asleep.`}
