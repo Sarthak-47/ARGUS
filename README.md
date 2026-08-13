@@ -1,13 +1,13 @@
 <div align="center">
 
-<img src="docs/assets/hero-banner.svg" alt="ARGUS — the security tool built for the vibe-coding era" width="100%"/>
+<img src="docs/assets/hero-banner.svg" alt="ARGUS — Panoptes, the guard that does not sleep" width="100%"/>
 
 [![CI](https://github.com/Sarthak-47/ARGUS/actions/workflows/ci.yml/badge.svg)](https://github.com/Sarthak-47/ARGUS/actions/workflows/ci.yml)
-[![Latest release](https://img.shields.io/github/v/release/Sarthak-47/ARGUS?label=release&color=B8860B)](https://github.com/Sarthak-47/ARGUS/releases/latest)
-[![PyPI](https://img.shields.io/pypi/v/argus-panoptes?color=B8860B)](https://pypi.org/project/argus-panoptes/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-B8860B.svg)](LICENSE)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-B8860B.svg)](https://www.python.org)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-B8860B.svg)](CONTRIBUTING.md)
+[![Latest release](https://img.shields.io/github/v/release/Sarthak-47/ARGUS?label=release&color=C9A227)](https://github.com/Sarthak-47/ARGUS/releases/latest)
+[![PyPI](https://img.shields.io/pypi/v/argus-panoptes?color=C9A227)](https://pypi.org/project/argus-panoptes/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-C9A227.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-C9A227.svg)](https://www.python.org)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-C9A227.svg)](CONTRIBUTING.md)
 
 **[View the website →](https://sarthak-47.github.io/ARGUS/)**
 
@@ -259,10 +259,10 @@ its full surface tested.
 Running Argus on your repo? Let people know — drop this in your own README:
 
 ```markdown
-[![Scanned by Argus](https://img.shields.io/badge/security-scanned%20by%20Argus-B8860B)](https://github.com/Sarthak-47/ARGUS)
+[![Scanned by Argus](https://img.shields.io/badge/security-scanned%20by%20Argus-C9A227)](https://github.com/Sarthak-47/ARGUS)
 ```
 
-[![Scanned by Argus](https://img.shields.io/badge/security-scanned%20by%20Argus-B8860B)](https://github.com/Sarthak-47/ARGUS)
+[![Scanned by Argus](https://img.shields.io/badge/security-scanned%20by%20Argus-C9A227)](https://github.com/Sarthak-47/ARGUS)
 
 It's a static badge (Argus has no hosted backend to poll for live status), so it
 signals "we run Argus here," not a real-time pass/fail — pair it with the
@@ -291,7 +291,7 @@ an obvious vulnerable pattern *before* it ever lands in git history. Add to your
 ```yaml
 repos:
   - repo: https://github.com/Sarthak-47/ARGUS
-    rev: v1.2.13
+    rev: v1.2.30
     hooks:
       - id: argus            # blocks on HIGH+ findings (use `argus-strict` for MEDIUM+)
 ```
@@ -329,13 +329,15 @@ than guess what's yours and what's the patch.
 
 ## Desktop GUI
 
-A React + Vite + Tauri desktop app in a red-figure-pottery visual language — matte black-glaze,
-terracotta, and oxblood, with the Argus eye as its motif (Argus Panoptes was the hundred-eyed
-watchman, painted on Attic vases). Six screens, each its own page — Dashboard, New Scan, Live
-Attack, Reports, CodeView, Settings. On the report, the "hundred eyes" are the **~50 vulnerability
-classes Argus checks for**: a red eye caught something, a tan eye came back clean, and hovering any
-eye names it. Inside the native app it **invokes the Python engine directly** to run real scans; in
-the browser dev build it renders a dropped-in `argus scan --format json` result at
+A React + Vite + Tauri desktop app in a "keeper's watch-ledger" visual language — a cool-graphite
+ground, a single old-gold accent, grave red reserved for critical findings only, Bodoni Moda and
+IBM Plex Mono carrying the structure through dotted leaders instead of cards. Three pinned screens
+— **I · The Watch** (posture of the estate, and the hundred eyes), **II · Set the Watch** (commission
+a sweep), **III · The Register** (every finding, with evidence and a fix) — plus Live Attack,
+Settings, and Code View. The hundred eyes on The Watch are a rotating field bound to the real
+vulnerability classes Argus checks for: shut for nothing found, grave and alternating red for
+something caught. Inside the native app it **invokes the Python engine directly** to run real scans;
+in the browser dev build it renders a dropped-in `argus scan --format json` result at
 `gui/public/report.json`.
 
 ```bash
@@ -390,7 +392,7 @@ Nobody else combines all six. That's the gap Argus owns.
   CodeView, Settings) rendering real engine data, including captured PoCs.
 - ✅ **Desktop shell**: Tauri 2.0 wraps the GUI as a real native app that invokes the Python engine
   directly (real scans, not just dropped-in JSON). `desktop-release.yml` builds Windows/macOS
-  (universal)/Linux installers on tag; v0.1.0–v1.1.0 published. Ships with no demo
+  (universal)/Linux installers on tag; v0.1.0–v1.2.30 published. Ships with no demo
   data — every screen shows real engine output or an honest empty/first-run state.
 - ✅ **CI-ready**: SARIF output, `--fail-on`, per-rule policy gating (`.argus-policy.toml`),
   GitHub Action, Docker image, green test suite (200+ tests).
