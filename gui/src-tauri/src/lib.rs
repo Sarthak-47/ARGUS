@@ -369,10 +369,24 @@ fn run_audit_blocking(
   *AUDIT_CANCELED.lock().unwrap() = false;
   *AUDIT_CHILD.lock().unwrap() = Some(child.id());
 
+  // Every non-sentinel stdout line is Rich-decorated progress/error text —
+  // normally redundant with the structured report, so only sentinel lines
+  // become live events. But `out.error()` (policy gates, --fail-on, caught
+  // exceptions — every *intentional* CLI failure) prints through the same
+  // Rich console to stdout, not stderr. Keep a rolling tail of raw stdout so
+  // a failure has a real message to fall back on instead of a blind generic
+  // one when stderr (the true crash/panic channel) comes back empty.
+  const STDOUT_TAIL_LINES: usize = 40;
+  let mut stdout_tail: std::collections::VecDeque<String> = std::collections::VecDeque::with_capacity(STDOUT_TAIL_LINES);
   if let Some(stdout) = child.stdout.take() {
     for line in BufReader::new(stdout).lines().map_while(Result::ok) {
       if let Some(rest) = line.strip_prefix(EVENT_SENTINEL) {
         let _ = window.emit("argus://event", rest.to_string());
+      } else {
+        if stdout_tail.len() == STDOUT_TAIL_LINES {
+          stdout_tail.pop_front();
+        }
+        stdout_tail.push_back(line);
       }
     }
   }
@@ -388,6 +402,10 @@ fn run_audit_blocking(
     let mut err = String::new();
     if let Some(mut stderr) = child.stderr.take() {
       let _ = stderr.read_to_string(&mut err);
+    }
+    if err.trim().is_empty() {
+      let tail: Vec<String> = stdout_tail.into_iter().collect();
+      err = tail.join("\n");
     }
     return Err(if err.trim().is_empty() { "the scan failed".into() } else { err });
   }

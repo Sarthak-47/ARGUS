@@ -6,17 +6,19 @@ self-contained executable (dist/argus-cli[.exe]) with no dependency on a
 system Python or `pip install argus-panoptes` having been run at all; the
 Tauri app ships this binary as a resource and calls it directly.
 
-Only the CLI's *core* dependencies are bundled (typer/rich/httpx/jinja2/
-GitPython/PyYAML/etc. — see pyproject.toml's [project.dependencies]) — the
-optional extras (sandbox/browser/llm-provider SDKs) stay out to keep this
-lean, matching how those are already opt-in for a pip install. A user who
-needs them can still point Settings' CLI-path override at a full `pip install
-'argus-panoptes[...]'` environment; this bundle covers the common path (scan,
-audit against a local target, report, history, status, config) with zero
-setup.
+The CLI's core dependencies are bundled (typer/rich/httpx/jinja2/GitPython/
+PyYAML/etc. — see pyproject.toml's [project.dependencies]), plus the `sandbox`
+extra (`docker>=7.0` — a pure-Python client for a locally-running Docker
+daemon, not the Docker Engine itself) so "Strike the app" against a bare repo
+path works out of the box in the desktop app, same as attacking a URL
+directly. The remaining extras (browser/most LLM SDKs) stay out to keep this
+lean — they pull in much heavier native dependencies (Playwright's browser
+binaries, torch-class SDKs) for features most sessions don't touch. A user
+who needs those can still point Settings' CLI-path override at a full `pip
+install 'argus-panoptes[...]'` environment.
 
 Build: `pyinstaller packaging/argus.spec` from the repo root (after `pip
-install -e . pyinstaller` in the environment being frozen).
+install -e ".[sandbox]" pyinstaller` in the environment being frozen).
 """
 
 from PyInstaller.utils.hooks import collect_submodules, copy_metadata
@@ -42,9 +44,10 @@ a = Analysis(
     runtime_hooks=[],
     excludes=[
         "tkinter", "test", "unittest",
-        # Optional extras (sandbox/browser/most LLM SDKs) are deliberately
-        # excluded from the bundled build — see module docstring above.
-        "playwright", "docker",
+        # Heavier optional extras stay excluded from the bundled build — see
+        # module docstring above. `docker` (sandbox) is deliberately NOT
+        # excluded here; it ships.
+        "playwright",
     ],
     noarchive=False,
     optimize=1,

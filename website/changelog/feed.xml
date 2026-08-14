@@ -6,6 +6,132 @@
     <description>Release history for Argus, the hundred-eyed security auditor.</description>
     <language>en-us</language>
     <item>
+      <title>1.2.30</title>
+      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.30</link>
+      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.30</guid>
+      <pubDate>Thu, 13 Aug 2026 00:00:00 GMT</pubDate>
+      <description>New app icon and logo mark across every platform and the in-app idle-screen mark.</description>
+    </item>
+    <item>
+      <title>1.2.29</title>
+      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.29</link>
+      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.29</guid>
+      <pubDate>Thu, 13 Aug 2026 00:00:00 GMT</pubDate>
+      <description>Removed the fabricated "estimated watch" duration, wired real per-agent completion into Live Attack, and fixed Dashboard's agent count to match the real 19-agent roster.</description>
+    </item>
+    <item>
+      <title>1.2.28</title>
+      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.28</link>
+      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.28</guid>
+      <pubDate>Thu, 13 Aug 2026 00:00:00 GMT</pubDate>
+      <description>Redesigned all three desktop screens to the "keeper's watch-ledger" visual world with a real rotating Fibonacci-sphere eye field and no-scroll layouts.</description>
+    </item>
+    <item>
+      <title>1.2.27</title>
+      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.27</link>
+      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.27</guid>
+      <pubDate>Wed, 22 Jul 2026 00:00:00 GMT</pubDate>
+      <description>Fixed a sandboxed target's port being published to every network interface, a real repo's .git/.env leaking into a generated sandbox, and a secret-detection bug hiding a real password.</description>
+    </item>
+    <item>
+      <title>1.2.26</title>
+      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.26</link>
+      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.26</guid>
+      <pubDate>Wed, 22 Jul 2026 00:00:00 GMT</pubDate>
+      <description>Phase 2 can now sandbox almost any repo via an LLM-written, verified-before-trusted Dockerfile when no deterministic stack probe matches.</description>
+    </item>
+    <item>
+      <title>1.2.25</title>
+      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.25</link>
+      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.25</guid>
+      <pubDate>Wed, 22 Jul 2026 00:00:00 GMT</pubDate>
+      <description>Fixed a false-positive hardcoded-DB-connection-string secret, and Phase 2 now auto-sandboxes plain static sites and basic PHP apps.</description>
+    </item>
+    <item>
+      <title>1.2.24</title>
+      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.24</link>
+      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.24</guid>
+      <pubDate>Wed, 22 Jul 2026 00:00:00 GMT</pubDate>
+      <description>Smoother, crisper desktop UI — uniform 140ms transitions, press-down button feedback, and fade-and-rise screen navigation.</description>
+    </item>
+    <item>
+      <title>1.2.23</title>
+      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.23</link>
+      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.23</guid>
+      <pubDate>Wed, 22 Jul 2026 00:00:00 GMT</pubDate>
+      <description>Argus now reports when a scan is blocked by bot protection, and New Scan gained two clear modes: Code vs Website.</description>
+    </item>
+    <item>
+      <title>1.2.22</title>
+      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.22</link>
+      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.22</guid>
+      <pubDate>Wed, 22 Jul 2026 00:00:00 GMT</pubDate>
+      <description>Fixed Reports showing a misleading "closed since" diff across different scan targets.</description>
+    </item>
+    <item>
+      <title>1.2.21</title>
+      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.21</link>
+      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.21</guid>
+      <pubDate>Wed, 22 Jul 2026 00:00:00 GMT</pubDate>
+      <description>A fresh desktop install now starts with an empty Recent Scans list instead of showing a previous install's history.</description>
+    </item>
+    <item>
+      <title>1.2.20</title>
+      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.20</link>
+      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.20</guid>
+      <pubDate>Wed, 22 Jul 2026 00:00:00 GMT</pubDate>
+      <description>argus mcp-server now prints a clean install hint instead of a raw traceback when the optional [mcp] extra is missing.</description>
+    </item>
+    <item>
+      <title>1.2.19</title>
+      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.19</link>
+      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.19</guid>
+      <pubDate>Tue, 21 Jul 2026 00:00:00 GMT</pubDate>
+      <description>Fixed blind SSRF/SQLi/XSS callback detection silently failing against Argus's own Docker-sandboxed targets.</description>
+    </item>
+    <item>
+      <title>1.2.18</title>
+      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.18</link>
+      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.18</guid>
+      <pubDate>Thu, 16 Jul 2026 00:00:00 GMT</pubDate>
+      <description>Fixed Phase 2 attacking github.com itself when given a .git repo URL — a git clone URL is now refused as an attack target.</description>
+    </item>
+    <item>
+      <title>1.2.17</title>
+      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.17</link>
+      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.17</guid>
+      <pubDate>Thu, 16 Jul 2026 00:00:00 GMT</pubDate>
+      <description>Fixed the desktop app going "Not Responding" under heavy local-LLM load, a double-tooltip glitch, and risk-score alignment issues.</description>
+    </item>
+    <item>
+      <title>1.2.16</title>
+      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.16</link>
+      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.16</guid>
+      <pubDate>Thu, 16 Jul 2026 00:00:00 GMT</pubDate>
+      <description>A systematic full-codebase audit found and fixed six real bugs across the GUI, backend pipeline, and attack agents.</description>
+    </item>
+    <item>
+      <title>1.2.15</title>
+      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.15</link>
+      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.15</guid>
+      <pubDate>Thu, 16 Jul 2026 00:00:00 GMT</pubDate>
+      <description>Fixed the cloud LLM provider picker silently reverting, "Strike the app" not skipping static analysis, and a stuck-looking static-analysis-only progress screen.</description>
+    </item>
+    <item>
+      <title>1.2.14</title>
+      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.14</link>
+      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.14</guid>
+      <pubDate>Thu, 16 Jul 2026 00:00:00 GMT</pubDate>
+      <description>Halved Settings page load time, restored 5 real agents the GUI had silently hidden, and fixed a dead Export report button.</description>
+    </item>
+    <item>
+      <title>1.2.13</title>
+      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.13</link>
+      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.13</guid>
+      <pubDate>Tue, 14 Jul 2026 00:00:00 GMT</pubDate>
+      <description>Added batch scanning, the SSTIProber agent, rate limiting, request logging, explicit attack authorization, and launched the marketing website.</description>
+    </item>
+    <item>
       <title>1.2.12</title>
       <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.12</link>
       <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.12</guid>

@@ -158,7 +158,7 @@ jobs:
       - name: Build the bundled Argus CLI (PyInstaller)
         shell: bash
         run: |
-          pip install -e . pyinstaller
+          pip install -e ".[sandbox]" pyinstaller
           pyinstaller packaging/argus.spec --distpath dist
           # onedir, not onefile — a onefile build self-extracts its entire
           # payload to a temp dir on *every single launch* (~1.1s measured

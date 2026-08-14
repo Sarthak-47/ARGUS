@@ -44,6 +44,199 @@
   <div class="wrap">
 
     <div class="rel-entry">
+      <h3>1.2.30</h3>
+      <span class="date">2026-08-13</span>
+      <h4>Changed</h4>
+      <ul>
+        <li>New app icon and logo mark (the eye-covered figure inside a compass ring) across every platform (Windows .ico, macOS .icns, all PNG sizes) and the in-app mark on the Live Attack idle screen.</li>
+      </ul>
+    </div>
+
+    <div class="rel-entry">
+      <h3>1.2.29</h3>
+      <span class="date">2026-08-13</span>
+      <h4>Changed</h4>
+      <ul>
+        <li>GUI: removed the "estimated watch" duration on Set the Watch — it was computed from placeholder multipliers with no real timing data behind them (a Deep sweep of the full roster showed 6.7h, which read as absurd).</li>
+        <li>GUI: Live Attack now shows real per-agent completion. Every attack agent already emits its own "sweep complete" event when it finishes; that was streaming into the feed unused. Agent tiles now show a DONE tag and stop their running animation once that real event lands.</li>
+        <li>GUI: Dashboard's posture panel now reads "of 19" (the real attack-agent roster size) instead of "of 51" (the vulnerability-class catalogue the eye field itself binds to) — those are two different real counts, and showing 51 next to "19 agents" elsewhere in the app read as inconsistent.</li>
+      </ul>
+    </div>
+
+    <div class="rel-entry">
+      <h3>1.2.28</h3>
+      <span class="date">2026-08-13</span>
+      <h4>Changed</h4>
+      <ul>
+        <li>GUI: redesigned all three screens (The Watch, Set the Watch, The Register) to the pinned "keeper's watch-ledger" visual world — dotted-leader rows, Bodoni Moda/IBM Plex Mono typography, a single gold accent with grave-red reserved for critical findings, no cards/gradients/glow.</li>
+        <li>GUI: the hundred-eyes field on The Watch is a real rotating Fibonacci-sphere canvas, sized and positioned correctly regardless of window size; every screen now fits the app window with no page-level scrolling, with only genuinely long lists (agent roster, findings) scrolling in their own bounded lane.</li>
+        <li>GUI: raised the desktop window's minimum size (960×640 → 1180×760) to match what the redesigned layout actually needs.</li>
+      </ul>
+    </div>
+
+    <div class="rel-entry">
+      <h3>1.2.27</h3>
+      <span class="date">2026-07-22</span>
+      <h4>Fixed</h4>
+      <ul>
+        <li><b>A sandboxed target's port was published to every network interface</b> (0.0.0.0), not just the scanning machine's loopback, for the whole duration of any sandboxed attack.</li>
+        <li><b>A generated sandbox container could leak a real repo's <code>.git</code>/<code>.env</code></b> — the static-site/PHP auto-sandbox cases serve any copied file verbatim. Now excluded from the build context, restored to the exact prior repo state afterward either way.</li>
+        <li><b>The LLM Dockerfile fallback broke on a markdown-fence-wrapped response</b> (common even with strict JSON mode), silently discarding an otherwise-correct answer.</li>
+        <li><b>The DB-connection-string secret fix from 1.2.25 had its own real bug</b>: either side of a credential pair merely looking like a common word (e.g. a username literally being "token") suppressed the entire finding — hiding a genuinely random, real password next to it.</li>
+        <li><b>Secrets committed then reverted in git history were never caught</b> for the generic-secret pattern class — the single most common "oops" shape — due to an unexplained exclusion.</li>
+        <li>Several smaller robustness fixes: attack-provider resolution no longer adds a real network delay to plain <code>--url</code> attacks that never need it; capped an unbounded directory walk and file reads in the new stack-detection code against adversarial/oversized repos.</li>
+      </ul>
+    </div>
+
+    <div class="rel-entry">
+      <h3>1.2.26</h3>
+      <span class="date">2026-07-22</span>
+      <h4>Added</h4>
+      <ul>
+        <li><b>Phase 2 can now sandbox almost any repo, not just a fixed stack list.</b> When no deterministic stack probe recognizes a repo (Go, Rust, Java, .NET, unusual layouts, ...) and an LLM provider is configured, Argus asks it to identify the stack and write a Dockerfile — verified before it's ever trusted. Raw-scan-only mode (no provider configured) is unaffected.</li>
+      </ul>
+    </div>
+
+    <div class="rel-entry">
+      <h3>1.2.25</h3>
+      <span class="date">2026-07-22</span>
+      <h4>Fixed</h4>
+      <ul>
+        <li><b>False-positive "hardcoded DB connection string" secret.</b> A <code>.env.example</code>-style placeholder like <code>postgresql://USER:PASSWORD@HOST</code> was flagged as a real secret because the placeholder filter was never applied to that detector at all. Now checks the actual matched username/password against common placeholder field-names.</li>
+        <li><b>Phase 2 now works for two very common no-Dockerfile cases: plain static sites and basic PHP apps.</b> Previously only Django, Flask, FastAPI, Rails, and Node were auto-sandboxed.</li>
+      </ul>
+    </div>
+
+    <div class="rel-entry">
+      <h3>1.2.24</h3>
+      <span class="date">2026-07-22</span>
+      <h4>Changed</h4>
+      <ul>
+        <li><b>Smoother, crisper desktop UI.</b> Every interactive element now eases its hover/active state over a uniform 140ms instead of snapping, action buttons give a subtle press-down on click, and navigating between screens glides with a quick fade-and-rise instead of a hard cut. Reduced-motion is respected.</li>
+      </ul>
+    </div>
+
+    <div class="rel-entry">
+      <h3>1.2.23</h3>
+      <span class="date">2026-07-22</span>
+      <h4>Added</h4>
+      <ul>
+        <li><b>Argus now clearly reports when a scan is blocked by bot protection.</b> ReconBot now detects the common anti-automation providers (Vercel, Cloudflare, Imperva, Sucuri, AWS WAF, generic CAPTCHA walls) and reports a plain-language notice that the real app wasn't reached.</li>
+        <li><b>Two clear scan modes in the desktop app: Code vs Website.</b> New Scan now starts with a single choice — scan a repo/local folder, or scan a live website URL — instead of two overlapping fields and toggles.</li>
+      </ul>
+    </div>
+
+    <div class="rel-entry">
+      <h3>1.2.22</h3>
+      <span class="date">2026-07-22</span>
+      <h4>Fixed</h4>
+      <ul>
+        <li><b>Reports no longer show a misleading "closed since" diff across different targets.</b> A live-URL attack could display a previous local code scan's findings as if they'd been fixed on the current target. The since-last-scan diff now renders only when the previous scan was the same target.</li>
+      </ul>
+    </div>
+
+    <div class="rel-entry">
+      <h3>1.2.21</h3>
+      <span class="date">2026-07-22</span>
+      <h4>Added</h4>
+      <ul>
+        <li><b>A fresh desktop install now starts with an empty Recent Scans list.</b> Scan history lives in <code>~/.argus</code> (which survives an uninstall/reinstall), so a reinstalled app used to show the previous install's scans. The app now records each install's moment and shows only scans run after it.</li>
+      </ul>
+    </div>
+
+    <div class="rel-entry">
+      <h3>1.2.20</h3>
+      <span class="date">2026-07-22</span>
+      <h4>Fixed</h4>
+      <ul>
+        <li><b><code>argus mcp-server</code> crashed with a raw traceback</b> on a base install missing the optional <code>[mcp]</code> extra, instead of the clean install-hint message every other optional integration already gives.</li>
+      </ul>
+    </div>
+
+    <div class="rel-entry">
+      <h3>1.2.19</h3>
+      <span class="date">2026-07-21</span>
+      <h4>Fixed</h4>
+      <ul>
+        <li><b>Blind SSRF/SQLi/XSS callback detection silently failed against Argus's own Docker-sandboxed targets.</b> The callback URL handed to a sandboxed target said <code>127.0.0.1</code>, which inside that container means its own loopback, not the host running the callback listener. Now advertises <code>host.docker.internal</code> to targets Argus sandboxed itself.</li>
+      </ul>
+    </div>
+
+    <div class="rel-entry">
+      <h3>1.2.18</h3>
+      <span class="date">2026-07-16</span>
+      <h4>Fixed</h4>
+      <ul>
+        <li><b>Phase 2 was attacking github.com itself when given a <code>.git</code> repo URL.</b> Pointing Argus at a GitHub clone URL for "Strike the app" sent real HTTP requests straight at GitHub's own server and reported its ordinary responses as confirmed vulnerabilities — entirely fabricated findings. A git clone URL is now refused as an attack target from every entry point.</li>
+      </ul>
+    </div>
+
+    <div class="rel-entry">
+      <h3>1.2.17</h3>
+      <span class="date">2026-07-16</span>
+      <h4>Fixed</h4>
+      <ul>
+        <li>Desktop app window going fully "Not Responding" mid-scan under heavy local-LLM/CPU load — every command that shells out to the CLI now runs strictly off the window's own thread, and the CLI child runs at a lower OS priority so it can't starve the GUI.</li>
+        <li>Glitchy double-tooltip on the vulnerability-check "eyes" (a native browser tooltip and the custom hover panel firing at once).</li>
+        <li>Risk-score number/"100" baseline misalignment on the Reports screen, and inconsistent digit spacing in Dashboard's recent-scans risk column.</li>
+      </ul>
+    </div>
+
+    <div class="rel-entry">
+      <h3>1.2.16</h3>
+      <span class="date">2026-07-16</span>
+      <h4>Fixed</h4>
+      <ul>
+        <li>A systematic full-codebase audit (GUI, backend pipeline, attack agents) found and fixed: the provider-display bug from 1.2.15 recurring in New Scan and the sidebar badge; <code>argus attack</code> never applying suppressions; three more attack agents missing the fallback-baseline false-positive guard shipped for BusinessLogicAgent in 1.2.14; synthesized attack-chain findings always reporting flat "high" confidence regardless of a weak constituent finding; two unguarded concurrent-write races in local state files; and three config options that were silently no-ops.</li>
+      </ul>
+    </div>
+
+    <div class="rel-entry">
+      <h3>1.2.15</h3>
+      <span class="date">2026-07-16</span>
+      <h4>Fixed</h4>
+      <ul>
+        <li><b>Settings — switching to a cloud LLM provider appeared to silently fail.</b> The status refresh right after a click was overwriting the selection with whatever the backend resolved to instead of what was actually clicked. The picker now shows your real selection and a "selected — add an API key below to activate it" hint when a key is needed.</li>
+        <li><b>"Strike the app" alone didn't skip "Read the code."</b> Deselecting "Read the code" and leaving only "Strike the app" on still ran full static analysis first, which tries to <code>git clone</code> the target — fatal against a live URL that isn't a repo. The desktop app now has a real Phase-2-only mode that goes straight at the target.</li>
+        <li><b>New Scan now has a separate field for a running app's URL</b>, instead of one box overloaded for both "read this repo" and "attack this URL."</li>
+        <li><b>Live Attack's Cancel button did nothing during "Read the code"-only scans</b> — the backend never recorded a killable process handle for that path.</li>
+        <li><b>"Read the code"-only scans showed zero progress for their entire duration</b>, stuck on a static message even after several minutes on a large codebase. Static analysis now streams the same kind of live per-step feed Phase 2 already had.</li>
+      </ul>
+    </div>
+
+    <div class="rel-entry">
+      <h3>1.2.14</h3>
+      <span class="date">2026-07-16</span>
+      <h4>Fixed</h4>
+      <ul>
+        <li><b>Settings page no longer feels frozen.</b> <code>argus status</code> was calling Ollama's local API twice per invocation for the same data — each call taking ~2.2s on a typical machine. Merged into a single probe, roughly halving load time.</li>
+        <li><b>New Scan / Live Attack was silently hiding 5 real agents</b> (SSTIProber, AuthzTester, MCPSecurityAgent, PromptInjectionAgent, BusinessLogicAgent) — the GUI's agent list had drifted out of sync with the backend registry.</li>
+        <li><b><code>BusinessLogicAgent</code> no longer reports fake findings on SPA-fallback targets.</b> Its LLM-proposed abuse paths could invent plausible admin paths that "succeed" against any catch-all handler. Now requires at least one response to be genuinely distinct from a baseline fallback response before confirming a finding.</li>
+        <li><b>Reports screen's "Export report" button was dead</b> (no handler at all) — now exports via <code>argus report</code> and shows the resulting file path.</li>
+      </ul>
+    </div>
+
+    <div class="rel-entry">
+      <h3>1.2.13</h3>
+      <span class="date">2026-07-14</span>
+      <h4>Added</h4>
+      <ul>
+        <li><b><code>argus scan --targets-file repos.txt</code></b> — batch-scan every target in a file, one aggregate summary table.</li>
+        <li><b><code>SSTIProber</code></b> — a new agent detecting server-side template injection across Jinja2/Twig, FreeMarker/Velocity/Thymeleaf, Ruby/JSF EL, and ERB.</li>
+        <li><b><code>--rate-limit &lt;req/s&gt;</code></b> — caps requests/second across the whole attack swarm.</li>
+        <li><b><code>--request-log &lt;path&gt;</code></b> — writes a JSON log of every request sent during Phase 2.</li>
+        <li><b>Explicit, logged authorization before Phase 2.</b> <code>attack</code>/<code>audit</code> now ask for interactive confirmation before sending a single request, or require <code>--yes-i-am-authorized</code> for CI/non-interactive use.</li>
+        <li><b>Benchmark suite now measures false positives, not just detection rate.</b></li>
+        <li>The desktop Reports screen's scan-to-scan diff view now shows a severity-colored dot per changed finding.</li>
+        <li>A new marketing website at <a href="https://sarthak-47.github.io/ARGUS" target="_blank" rel="noopener">sarthak-47.github.io/ARGUS</a>, with Docs/Download/Changelog/Security pages, published via GitHub Pages.</li>
+      </ul>
+      <h4>Fixed</h4>
+      <ul>
+        <li>A regression-guard test now fails if a future refactor drops the baseline-comparison usage from the four agents that probe path/header existence, silently reintroducing the v1.2.12 false-positive bug class.</li>
+      </ul>
+    </div>
+
+    <div class="rel-entry">
       <h3>1.2.12</h3>
       <span class="date">2026-07-11</span>
       <h4>Fixed</h4>
