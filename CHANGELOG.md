@@ -5,6 +5,40 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.31] — 2026-08-14
+
+### Fixed
+- **Desktop app showed a blind "the scan failed" / "the attack failed" on
+  every CLI failure, discarding the real reason.** `out.error()` (used by
+  every intentional CLI failure — policy gates, `--fail-on`, caught
+  exceptions) prints through Rich to stdout, not stderr; the desktop shell
+  only forwarded sentinel-prefixed stdout lines to the live feed and
+  silently dropped everything else, so a failure with nothing on stderr fell
+  back to a hardcoded generic message. The Rust side now keeps a rolling
+  tail of raw stdout and uses it as the real error message when stderr comes
+  back empty.
+- **"Strike the app" against a bare repo path (no running URL) always failed
+  in the desktop app** — the bundled CLI never included the `docker` Python
+  package (a pure-Python client for a locally-running Docker daemon,
+  excluded to keep the installer lean), so every auto-sandboxed Phase 2
+  attack hit "The 'docker' Python package isn't installed" regardless of
+  Docker Desktop being available. Now bundled (`packaging/argus.spec`,
+  `desktop-release.yml` builds with the `sandbox` extra) — verified end to
+  end against a real cloned repo, past the point that used to fail and into
+  an actual Docker sandbox build.
+- CI: pinned ruff's lint rule set (`select = ["E4","E7","E9","F"]`) — ruff's
+  own "no select configured" default had silently grown across versions and
+  broke the lint step with no code change.
+- CI: capped the `mcp` extra below 2.0 (`mcp>=1.28.1,<2`) — `mcp` 2.0.0
+  dropped/relocated `mcp.server.fastmcp`, which `argus/mcp_server.py` imports
+  directly, breaking every MCP server test.
+- Website: the "attack swarm" (19 agents) and "meets you where you work" (6
+  cards) grids used CSS Grid with `auto-fit`/`auto-fill`; since neither count
+  divides evenly into the columns that fit at typical widths, the leftover
+  grid cells exposed the container's own background as flat, unlabeled boxes.
+  Switched both to flexbox so the last row's items stretch to fill the width
+  instead of leaving empty cells.
+
 ## [1.2.30] — 2026-08-13
 
 ### Changed
