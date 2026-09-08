@@ -31,8 +31,8 @@ right before the Tauri build step.
 Only the CLI's *core* dependencies (typer, rich, httpx, jinja2, GitPython,
 PyYAML, etc. — see `pyproject.toml`'s `[project.dependencies]`) are frozen in.
 The optional extras — `[sandbox]` (Docker), `[browser]` (Playwright/DomXSS) —
-are excluded to keep the bundle lean, matching how they're already opt-in for
-a `pip install`. This bundle covers the GUI's core flows: scan, audit against
+are treated differently: `[sandbox]` is bundled, while `[browser]` is excluded
+to keep the installer lean. This bundle covers the GUI's core flows: scan, audit against
 a local target, report, history, status, config, suppress.
 
 A user who needs an excluded extra can still install `argus-panoptes` with

@@ -42,6 +42,27 @@ jobs:
       - name: Test (pytest)
         run: pytest -q
 
+  browser:
+    name: Browser security integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install browser test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,browser]"
+          python -m playwright install --with-deps chromium
+
+      - name: Test browser-assisted discovery and DOM XSS detection
+        run: pytest -q tests/unit/test_domxss.py tests/unit/test_reconbot.py
+
   gui:
     name: GUI (build)
     runs-on: ubuntu-latest

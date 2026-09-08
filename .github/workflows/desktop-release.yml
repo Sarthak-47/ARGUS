@@ -65,7 +65,7 @@ jobs:
           | Platform | Download |
           |---|---|
           | Windows | the `.exe` installer (or `.msi`) |
-          | macOS (Intel or Apple Silicon) | the `universal.dmg` |
+          | macOS (Apple Silicon) | the `.dmg` |
           | Debian / Ubuntu | the `.deb` |
           | Fedora / RHEL / openSUSE | the `.rpm` |
           | Any Linux, no install | the `.AppImage` (`chmod +x` and run) |
@@ -160,6 +160,13 @@ jobs:
         run: |
           pip install -e ".[sandbox]" pyinstaller
           pyinstaller packaging/argus.spec --distpath dist
+          # The executable is ignored in Git and rebuilt here. Refuse to
+          # attach an installer when its embedded CLI does not match the tag.
+          CLI="dist/argus-cli/argus-cli"
+          if [ "${{ runner.os }}" = "Windows" ]; then CLI="${CLI}.exe"; fi
+          EXPECTED_VERSION="${GITHUB_REF_NAME#v}"
+          ACTUAL_VERSION="$("$CLI" --version | awk '{print $2}')"
+          test "$ACTUAL_VERSION" = "$EXPECTED_VERSION"
           # onedir, not onefile — a onefile build self-extracts its entire
           # payload to a temp dir on *every single launch* (~1.1s measured
           # overhead per invocation), and the desktop app invokes this CLI many

@@ -61,7 +61,7 @@ Phase 2 actively exploits a **running** app — it needs something to attack.
 argus attack --url http://localhost:3000
 ```
 
-This points the 18-agent swarm (SQLi, XSS, SSRF, auth bypass, IDOR, CSRF, and
+This points the attack-agent swarm (SQLi, XSS, SSRF, auth bypass, IDOR, CSRF, and
 more) at the URL and reports only **confirmed** exploits — each with a runnable
 proof-of-concept (a `curl` command plus the real request/response), not just a
 pattern match.
