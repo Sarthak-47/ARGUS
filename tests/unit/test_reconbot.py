@@ -156,6 +156,19 @@ def test_seed_from_spec_adds_endpoints_and_emits_event():
 
 pytest.importorskip("playwright")
 
+
+@pytest.fixture
+async def chromium_runtime():
+    """Skip rendered-browser assertions when only the Playwright package exists."""
+    from playwright.async_api import async_playwright
+
+    async with async_playwright() as pw:
+        try:
+            browser = await pw.chromium.launch()
+        except Exception as exc:
+            pytest.skip(f"Playwright Chromium runtime unavailable: {exc}")
+        await browser.close()
+
 _SPA_PAGE = b"""<!doctype html><html><body>
 <div id="app"></div>
 <script>
@@ -198,7 +211,7 @@ def spa_server():
 
 
 @pytest.mark.asyncio
-async def test_js_crawl_finds_link_only_in_rendered_dom(spa_server):
+async def test_js_crawl_finds_link_only_in_rendered_dom(spa_server, chromium_runtime):
     """The core follow-up A case: a link that only exists after JS runs
     (Angular/React/Vue-style client rendering) — invisible to the static
     regex-over-server-HTML crawl, caught by rendering in a real browser."""
@@ -211,7 +224,7 @@ async def test_js_crawl_finds_link_only_in_rendered_dom(spa_server):
 
 
 @pytest.mark.asyncio
-async def test_js_crawl_finds_xhr_call_invisible_to_static_crawl(spa_server):
+async def test_js_crawl_finds_xhr_call_invisible_to_static_crawl(spa_server, chromium_runtime):
     """The Juice Shop / VAmPI-style gap: an API call the SPA fires via
     fetch/XHR after load, with no href/src anywhere in the server-rendered
     HTML for a static crawl to ever find."""

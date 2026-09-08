@@ -17,6 +17,23 @@ pytest.importorskip("playwright")
 from argus.agents.base import AttackContext, Endpoint  # noqa: E402
 from argus.agents.domxss import DomXSSHunter, async_playwright  # noqa: E402
 
+
+@pytest.fixture
+async def chromium_runtime():
+    """Skip browser-proof tests when Playwright has no downloaded browser.
+
+    Installing the Python ``playwright`` package and installing its Chromium
+    runtime are deliberately separate steps. Argus treats a missing runtime
+    as an optional-feature skip, so this test must do the same instead of
+    turning a valid core-only environment into a failed suite.
+    """
+    async with async_playwright() as pw:
+        try:
+            browser = await pw.chromium.launch()
+        except Exception as exc:
+            pytest.skip(f"Playwright Chromium runtime unavailable: {exc}")
+        await browser.close()
+
 _PAGE = b"""<!doctype html><html><body><div id="out"></div>
 <script>
   var params = new URLSearchParams(location.search);
@@ -57,7 +74,7 @@ def test_async_playwright_importable():
 
 
 @pytest.mark.asyncio
-async def test_domxss_confirms_real_dom_sink(dom_server):
+async def test_domxss_confirms_real_dom_sink(dom_server, chromium_runtime):
     """The genuine end-to-end case: a real DOM XSS sink (innerHTML from a query
     param), caught by actually running a headless browser against it — not a
     pattern guess, an executed proof."""
