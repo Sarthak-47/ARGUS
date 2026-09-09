@@ -17,6 +17,13 @@ All notable changes to Argus are documented here. Format loosely follows
   indistinguishable from a hang and was reported as one. All three reasoning
   passes (enrichment, `--deep` review, `--taint` tracing) now stream real
   per-item progress to the live feed. Regression-tested.
+- **A finished agent's DONE tag could disappear mid-run, and the "N done"
+  counter count *down*.** Live Attack derived per-agent completion by
+  scanning the retained feed, but the feed is capped at 200 lines and a real
+  audit emits far more than that — so once an agent's "sweep complete" line
+  aged out, that agent silently reverted to looking like it was still
+  running. Completion is now recorded as the event arrives, which is the only
+  point the information exists.
 
 ### Changed
 - The public surfaces that restate the release version or the changelog — the

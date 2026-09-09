@@ -18,9 +18,10 @@ export function LiveAttack() {
     const effectiveTarget = !s.phase1 && s.phase2 && s.targetUrl.trim() ? s.targetUrl : s.target;
     // Every real agent emits its own "sweep complete" / "…complete —
     // N confirmed" line when it finishes (see argus/agents/*.py) — that's a
-    // real per-agent completion signal already streaming into the feed, not
-    // an invented status.
-    const completed = new Set(s.feed.filter((l) => /complete/i.test(l.text)).map((l) => l.agent));
+    // real per-agent completion signal, not an invented status. The store
+    // records it as the event arrives; deriving it from `feed` here used to
+    // lose an agent's DONE tag once its line aged out of the capped feed.
+    const completed = s.completedAgents;
 
     return (
       <section style={{ height: "100%", overflowY: "auto" }}>

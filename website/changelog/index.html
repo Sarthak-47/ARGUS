@@ -49,6 +49,7 @@
       <h4>Fixed</h4>
       <ul>
         <li><b>The desktop app went completely silent during LLM reasoning, for as long as tens of minutes.</b> Enrichment is one sequential LLM call per finding, so on a local model a scan sits in that step for a very long time — and the only progress reporting was a Rich progress bar, which exists for a human at a terminal. The desktop app reads the sentinel event stream instead, so it showed "LLM reasoning over N finding(s)" and then nothing at all, which is indistinguishable from a hang and was reported as one. All three reasoning passes (enrichment, <code>--deep</code> review, <code>--taint</code> tracing) now stream real per-item progress to the live feed. Regression-tested.</li>
+        <li>*<em>A finished agent's DONE tag could disappear mid-run, and the "N done" counter count </em>down<em>.</em>* Live Attack derived per-agent completion by scanning the retained feed, but the feed is capped at 200 lines and a real audit emits far more than that — so once an agent's "sweep complete" line aged out, that agent silently reverted to looking like it was still running. Completion is now recorded as the event arrives, which is the only point the information exists.</li>
       </ul>
       <h4>Changed</h4>
       <ul>

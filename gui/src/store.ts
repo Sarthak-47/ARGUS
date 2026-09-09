@@ -75,6 +75,12 @@ interface State {
   // live per-agent events streamed from the running engine (desktop only).
   // Empty when nothing has streamed yet — Live Attack falls back to the clock.
   feed: FeedLine[];
+  /** Agents that have emitted their own "sweep complete" event this run.
+   *  Accumulated as events arrive rather than derived from `feed`, which is
+   *  capped — a real audit emits far more than the retained lines, so deriving
+   *  it made a finished agent's DONE tag disappear once its completion line
+   *  aged out, and the "N done" counter visibly count *down*. */
+  completedAgents: Set<string>;
   // ids of findings just suppressed in this session — hidden from the
   // current view immediately, without waiting for a re-scan
   suppressedIds: Set<number>;
@@ -151,6 +157,7 @@ export const useStore = create<State>((set, get) => ({
   argusPathSaving: false,
   argusPathError: null,
   feed: [],
+  completedAgents: new Set(),
   suppressedIds: new Set(),
   suppressionError: null,
 
@@ -252,7 +259,10 @@ export const useStore = create<State>((set, get) => ({
       set({ auditError: "Enter a running app URL (or a repo path to sandbox) for “Strike the app”." });
       return;
     }
-    set({ auditRunning: true, auditError: null, auditElapsedSec: 0, feed: [], screen: "live" });
+    set({
+      auditRunning: true, auditError: null, auditElapsedSec: 0,
+      feed: [], completedAgents: new Set(), screen: "live",
+    });
     if (auditTimer) clearInterval(auditTimer);
     auditTimer = setInterval(() => set((s) => ({ auditElapsedSec: s.auditElapsedSec + 1 })), 1000);
     try {
@@ -468,8 +478,16 @@ if (isTauri()) {
     try {
       const p = JSON.parse(e.payload) as { agent: string; text: string; sev: FeedLine["sev"] };
       const line: FeedLine = { agent: p.agent, text: p.text, sev: p.sev, id: feedId++ };
+      // Record completion here, while the event is in hand — the feed below is
+      // capped, so this can't be recovered from it later.
+      const done = /complete/i.test(p.text);
       // Cap the retained feed so a long audit can't grow it without bound.
-      useStore.setState((s) => ({ feed: [...s.feed.slice(-199), line] }));
+      useStore.setState((s) => ({
+        feed: [...s.feed.slice(-199), line],
+        completedAgents: done && !s.completedAgents.has(p.agent)
+          ? new Set(s.completedAgents).add(p.agent)
+          : s.completedAgents,
+      }));
     } catch {
       /* malformed line — ignore it rather than break the feed */
     }
