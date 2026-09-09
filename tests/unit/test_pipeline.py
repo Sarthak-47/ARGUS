@@ -593,3 +593,77 @@ def test_stream_event_emits_sentinel_json_when_enabled(capsys, monkeypatch):
     assert line.startswith(_EVENT_SENTINEL)
     payload = json.loads(line[len(_EVENT_SENTINEL):])
     assert payload == {"agent": "INJECTOR", "text": "SQL injection (error-based)", "sev": "crit"}
+
+
+def _event_texts(stdout: str) -> list[str]:
+    """Decode the sentinel-prefixed event lines out of captured stdout, so a
+    test asserts on what the desktop app actually receives rather than on the
+    JSON-escaped bytes (an em-dash on the wire is ``\\u2014``, not ``—``)."""
+    import json
+    from argus.pipeline import _EVENT_SENTINEL
+
+    texts = []
+    for line in stdout.splitlines():
+        line = line.strip()
+        if line.startswith(_EVENT_SENTINEL):
+            texts.append(json.loads(line[len(_EVENT_SENTINEL):])["text"])
+    return texts
+
+
+def test_run_llm_streams_per_finding_progress(tmp_path, monkeypatch, capsys):
+    """Enrichment is one sequential LLM call per finding — minutes to tens of
+    minutes on a local model. The desktop app reads this event stream, not
+    Rich's progress bar, so without a per-finding event the whole step goes
+    silent and is indistinguishable from a hang (it was reported as one)."""
+    class _FakeProvider:
+        name = "fake"
+        model = "fake-model"
+
+    result = ScanResult(target="t", phase="scan")
+    result.findings = [
+        Finding(title="A", severity=Severity.HIGH, category="c", detector="d"),
+        Finding(title="B", severity=Severity.LOW, category="c", detector="d"),
+    ]
+
+    def _fake_enrich(provider, root, findings, *, on_progress=None, **kw):
+        for i in range(1, len(findings) + 1):
+            on_progress(i, len(findings))
+        return findings, 1
+
+    monkeypatch.setenv("ARGUS_EVENT_STREAM", "1")
+    monkeypatch.setattr("argus.llm.provider.get_provider", lambda settings: _FakeProvider())
+    monkeypatch.setattr("argus.llm.reasoning.enrich_findings", _fake_enrich)
+
+    _run_llm(object(), tmp_path, result, deep=False, taint=False)
+
+    texts = _event_texts(capsys.readouterr().out)
+    assert "Reasoning over finding 1 of 2…" in texts
+    assert "Reasoning over finding 2 of 2…" in texts
+    assert any("dismissed 1 finding(s) as false positive(s)" in t for t in texts)
+
+
+def test_run_llm_streams_deep_review_progress(tmp_path, monkeypatch, capsys):
+    """Same silence problem for the --deep pass, which is slower still (it
+    reads whole files rather than a snippet around each finding)."""
+    class _FakeProvider:
+        name = "fake"
+        model = "fake-model"
+
+    result = ScanResult(target="t", phase="scan")
+    result.codebase_map = CodebaseMap(root=str(tmp_path), high_risk_files=["auth.py", "api.py"])
+
+    def _fake_review(provider, root, files, *, on_progress=None, **kw):
+        for i in range(1, len(files) + 1):
+            on_progress(i, len(files))
+        return []
+
+    monkeypatch.setenv("ARGUS_EVENT_STREAM", "1")
+    monkeypatch.setattr("argus.llm.provider.get_provider", lambda settings: _FakeProvider())
+    monkeypatch.setattr("argus.llm.reasoning.enrich_findings", lambda *a, **k: ([], 0))
+    monkeypatch.setattr("argus.llm.reasoning.freeform_review", _fake_review)
+
+    _run_llm(object(), tmp_path, result, deep=True, taint=False)
+
+    texts = _event_texts(capsys.readouterr().out)
+    assert "Deep review — file 1 of 2…" in texts
+    assert "Deep review — file 2 of 2…" in texts

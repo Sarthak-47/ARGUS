@@ -173,25 +173,55 @@ def _run_llm(settings, root: Path, result: ScanResult, deep: bool, taint: bool =
 
             def cb(done: int, total: int) -> None:
                 prog.update(task, completed=done, total=total)
+                # The Rich progress bar only exists for a human at a terminal.
+                # The desktop app reads the sentinel event stream instead, and
+                # without this it saw the "LLM reasoning over N finding(s)" line
+                # and then *nothing* for the minutes-to-tens-of-minutes this
+                # loop takes on a local model — one sequential call per finding,
+                # indistinguishable from a hang. (Safe to interleave: the raw
+                # write only happens under ARGUS_EVENT_STREAM=1, where stdout is
+                # a pipe and Rich has already disabled its live animation.)
+                _stream_event("system", f"Reasoning over finding {done} of {total}…", "ok")
 
             enriched, dropped = enrich_findings(provider, root, result.findings, on_progress=cb)
         result.findings = enriched
         if dropped:
             out.info(f"LLM dismissed {dropped} finding(s) as false positives.")
+            _stream_event("system", f"LLM dismissed {dropped} finding(s) as false positive(s).", "ok")
 
     if deep and result.codebase_map and result.codebase_map.high_risk_files:
         out.step("Deep review of high-risk files…")
-        extra = freeform_review(provider, root, result.codebase_map.high_risk_files)
+        _stream_event("system", "Deep review of high-risk files…", "ok")
+
+        def deep_cb(done: int, total: int) -> None:
+            _stream_event("system", f"Deep review — file {done} of {total}…", "ok")
+
+        extra = freeform_review(
+            provider, root, result.codebase_map.high_risk_files, on_progress=deep_cb
+        )
         if extra:
             result.extend(extra)
             out.success(f"Deep review surfaced {len(extra)} additional finding(s).")
+            _stream_event("system", f"Deep review surfaced {len(extra)} additional finding(s).", "ok")
 
     if taint and result.codebase_map and result.codebase_map.high_risk_files:
         out.step("Tracing taint flows (source → sink) in high-risk files…")
-        tainted = taint_trace(provider, root, result.codebase_map.high_risk_files)
+        _stream_event("system", "Tracing taint flows (source → sink)…", "ok")
+
+        def taint_cb(done: int, total: int) -> None:
+            _stream_event("system", f"Taint trace — file {done} of {total}…", "ok")
+
+        tainted = taint_trace(
+            provider, root, result.codebase_map.high_risk_files, on_progress=taint_cb
+        )
         if tainted:
             result.extend(tainted)
             out.success(f"Taint tracing confirmed {len(tainted)} complete source-to-sink flow(s).")
+            _stream_event(
+                "system",
+                f"Taint tracing confirmed {len(tainted)} source-to-sink flow(s).",
+                "ok",
+            )
 
 
 def run_scan(
