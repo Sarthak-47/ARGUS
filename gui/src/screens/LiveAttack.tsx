@@ -52,7 +52,11 @@ export function LiveAttack() {
 
         <div style={{ padding: "30px 46px" }}>
           <div style={{ fontFamily: FONT.ui, fontSize: 11, fontWeight: 500, letterSpacing: "0.16em", textTransform: "uppercase", color: RF.dust, marginBottom: 18 }}>
-            Agents running · {opened.length} live · {completed.size} done
+            {/* Count only agents actually in this run: the engine also emits
+                "Static scan complete…" under a pseudo-agent named "system",
+                which would otherwise be tallied as a finished agent and could
+                report more done than are running. */}
+            Agents running · {opened.length} live · {opened.filter((n) => completed.has(n)).length} done
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "12px 16px", marginBottom: 32 }}>
             {AGENTS.map((n, i) => {

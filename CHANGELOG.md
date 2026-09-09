@@ -23,7 +23,11 @@ All notable changes to Argus are documented here. Format loosely follows
   audit emits far more than that — so once an agent's "sweep complete" line
   aged out, that agent silently reverted to looking like it was still
   running. Completion is now recorded as the event arrives, which is the only
-  point the information exists.
+  point the information exists. The same header could also report *more*
+  agents done than were running, because the engine emits "Static scan
+  complete…" under a pseudo-agent named `system` that was tallied as if it
+  were one of the roster; the count is now taken over the agents actually in
+  the run.
 
 ### Changed
 - The public surfaces that restate the release version or the changelog — the
