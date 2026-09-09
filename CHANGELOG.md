@@ -5,6 +5,33 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.32] — 2026-09-10
+
+### Fixed
+- **The desktop app went completely silent during LLM reasoning, for as long
+  as tens of minutes.** Enrichment is one sequential LLM call per finding, so
+  on a local model a scan sits in that step for a very long time — and the
+  only progress reporting was a Rich progress bar, which exists for a human at
+  a terminal. The desktop app reads the sentinel event stream instead, so it
+  showed "LLM reasoning over N finding(s)" and then nothing at all, which is
+  indistinguishable from a hang and was reported as one. All three reasoning
+  passes (enrichment, `--deep` review, `--taint` tracing) now stream real
+  per-item progress to the live feed. Regression-tested.
+
+### Changed
+- The public surfaces that restate the release version or the changelog — the
+  README's `pre-commit` rev and version range, the download page's version,
+  and the site's changelog page and RSS feed — are now generated from
+  `CHANGELOG.md` and `pyproject.toml` by `scripts/sync_release_docs.py`, and
+  CI fails when they drift. They had gone stale twice: the site once sat
+  eighteen releases behind, then fell behind again on the very next tag.
+- ROADMAP.md is closed out. The last two open items are resolved with reasons
+  recorded: **D4** (GitHub App) — the outcome already ships via the Action and
+  `argus pr-comment`; what remained needed a hosted webhook receiver, which
+  contradicts the local-first promise. **D5** (VS Code extension) — superseded
+  by the MCP server, which puts scan/attack/fix inside every MCP-speaking
+  editor today rather than one.
+
 ## [1.2.31] — 2026-08-14
 
 ### Fixed
