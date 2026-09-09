@@ -42,6 +42,25 @@ jobs:
       - name: Test (pytest)
         run: pytest -q
 
+  release-docs:
+    name: Release docs in sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # The README's pre-commit rev, the download page's version, and the
+      # site's changelog + RSS feed all restate what CHANGELOG.md and
+      # pyproject.toml already say. They drifted twice (the site once sat
+      # eighteen releases behind), so they're generated now — this fails the
+      # build rather than letting a stale version reach a visitor.
+      - name: Check generated release docs match CHANGELOG.md
+        run: python scripts/sync_release_docs.py --check
+
   browser:
     name: Browser security integration
     runs-on: ubuntu-latest

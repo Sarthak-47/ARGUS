@@ -5,159 +5,147 @@
     <link>https://sarthak-47.github.io/ARGUS/changelog/</link>
     <description>Release history for Argus, the hundred-eyed security auditor.</description>
     <language>en-us</language>
+<!-- items:start -->
+    <item>
+      <title>1.2.32</title>
+      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.32</link>
+      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.32</guid>
+      <pubDate>Thu, 10 Sep 2026 00:00:00 GMT</pubDate>
+      <description>The desktop app went completely silent during LLM reasoning, for as long as tens of minutes. Enrichment is one sequential LLM call per finding, so on a local model a scan sits in that step for a very long time — and the only progress reporting was a Rich progress bar, which exists for a human at a terminal. The desktop app reads the sentinel event stream instead, so it showed "LLM reasoning over N finding(s)" and then nothing at all, which is indistinguishable from a hang and was reported as one. All three reasoning passes (enrichment, --deep review, --taint tracing) now stream real per-item progress to the live feed. Regression-tested.</description>
+    </item>
+    <item>
+      <title>1.2.31</title>
+      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.31</link>
+      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.31</guid>
+      <pubDate>Fri, 14 Aug 2026 00:00:00 GMT</pubDate>
+      <description>Desktop app showed a blind "the scan failed" / "the attack failed" on every CLI failure, discarding the real reason. out.error() (used by every intentional CLI failure — policy gates, --fail-on, caught exceptions) prints through Rich to stdout, not stderr; the desktop shell only forwarded sentinel-prefixed stdout lines to the live feed and silently dropped everything else, so a failure with nothing on stderr fell back to a hardcoded generic message. The Rust side now keeps a rolling tail of raw stdout and uses it as the real error message when stderr comes back empty.</description>
+    </item>
     <item>
       <title>1.2.30</title>
       <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.30</link>
       <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.30</guid>
       <pubDate>Thu, 13 Aug 2026 00:00:00 GMT</pubDate>
-      <description>New app icon and logo mark across every platform and the in-app idle-screen mark.</description>
+      <description>New app icon and logo mark (the eye-covered figure inside a compass ring) across every platform (Windows .ico, macOS .icns, all PNG sizes) and the in-app mark on the Live Attack idle screen.</description>
     </item>
     <item>
       <title>1.2.29</title>
       <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.29</link>
       <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.29</guid>
       <pubDate>Thu, 13 Aug 2026 00:00:00 GMT</pubDate>
-      <description>Removed the fabricated "estimated watch" duration, wired real per-agent completion into Live Attack, and fixed Dashboard's agent count to match the real 19-agent roster.</description>
+      <description>GUI: removed the "estimated watch" duration on Set the Watch — it was computed from placeholder multipliers with no real timing data behind them (a Deep sweep of the full roster showed 6.7h, which read as absurd).</description>
     </item>
     <item>
       <title>1.2.28</title>
       <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.28</link>
       <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.28</guid>
       <pubDate>Thu, 13 Aug 2026 00:00:00 GMT</pubDate>
-      <description>Redesigned all three desktop screens to the "keeper's watch-ledger" visual world with a real rotating Fibonacci-sphere eye field and no-scroll layouts.</description>
+      <description>GUI: redesigned all three screens (The Watch, Set the Watch, The Register) to the pinned "keeper's watch-ledger" visual world — dotted-leader rows, Bodoni Moda/IBM Plex Mono typography, a single gold accent with grave-red reserved for critical findings, no cards/gradients/glow.</description>
     </item>
     <item>
       <title>1.2.27</title>
       <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.27</link>
       <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.27</guid>
       <pubDate>Wed, 22 Jul 2026 00:00:00 GMT</pubDate>
-      <description>Fixed a sandboxed target's port being published to every network interface, a real repo's .git/.env leaking into a generated sandbox, and a secret-detection bug hiding a real password.</description>
+      <description>A sandboxed target's port was published to every network interface (0.0.0.0), not just the scanning machine's loopback, for the whole duration of any sandboxed attack.</description>
     </item>
     <item>
       <title>1.2.26</title>
       <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.26</link>
       <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.26</guid>
       <pubDate>Wed, 22 Jul 2026 00:00:00 GMT</pubDate>
-      <description>Phase 2 can now sandbox almost any repo via an LLM-written, verified-before-trusted Dockerfile when no deterministic stack probe matches.</description>
+      <description>Phase 2 can now sandbox almost any repo, not just a fixed stack list. When no deterministic stack probe recognizes a repo (Go, Rust, Java, .NET, unusual layouts, ...) and an LLM provider is configured, Argus asks it to identify the stack and write a Dockerfile — verified before it's ever trusted (the sandbox actually checks the container becomes reachable, so a wrong guess fails cleanly instead of silently reporting "0 findings, clean"). Includes one corrective retry for the common multi-stage glibc/musl mismatch mistake. Verified end-to-end against a real Go repo with no Dockerfile. Raw-scan-only mode (no provider configured) is unaffected.</description>
     </item>
     <item>
       <title>1.2.25</title>
       <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.25</link>
       <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.25</guid>
       <pubDate>Wed, 22 Jul 2026 00:00:00 GMT</pubDate>
-      <description>Fixed a false-positive hardcoded-DB-connection-string secret, and Phase 2 now auto-sandboxes plain static sites and basic PHP apps.</description>
+      <description>False-positive "hardcoded DB connection string" secret. A .env.example-style placeholder like postgresql://USER:PASSWORD@HOST was flagged as a real secret (in the working tree and git history) because the placeholder filter was never applied to that detector at all. Now checks the actual matched username/password against common placeholder field-names — a real credential in the same shape is still caught.</description>
     </item>
     <item>
       <title>1.2.24</title>
       <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.24</link>
       <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.24</guid>
       <pubDate>Wed, 22 Jul 2026 00:00:00 GMT</pubDate>
-      <description>Smoother, crisper desktop UI — uniform 140ms transitions, press-down button feedback, and fade-and-rise screen navigation.</description>
+      <description>Smoother, crisper desktop UI. Every interactive element now eases its hover/active state over a uniform 140ms instead of snapping, action buttons give a subtle press-down on click, and navigating between screens glides with a quick fade-and-rise instead of a hard cut. Purely interaction polish — the theme is unchanged, and reduced-motion is respected.</description>
     </item>
     <item>
       <title>1.2.23</title>
       <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.23</link>
       <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.23</guid>
       <pubDate>Wed, 22 Jul 2026 00:00:00 GMT</pubDate>
-      <description>Argus now reports when a scan is blocked by bot protection, and New Scan gained two clear modes: Code vs Website.</description>
+      <description>Argus now clearly reports when a scan is blocked by bot protection. Scanning a Vercel/Cloudflare/WAF-protected site used to produce a thin, low-risk result that looked like a clean bill of health when really the scan never got past the challenge page. ReconBot now detects the common anti-automation providers (Vercel, Cloudflare, Imperva, Sucuri, AWS WAF, generic CAPTCHA walls) and reports a plain-language notice that the real app wasn't reached and the results don't reflect its actual security.</description>
     </item>
     <item>
       <title>1.2.22</title>
       <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.22</link>
       <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.22</guid>
       <pubDate>Wed, 22 Jul 2026 00:00:00 GMT</pubDate>
-      <description>Fixed Reports showing a misleading "closed since" diff across different scan targets.</description>
+      <description>Reports no longer show a misleading "closed since" diff across different targets. A live-URL attack could display a previous local code scan's findings (SQL injection, YAML deserialisation, etc. — things a URL attack can't produce) as if they'd been fixed on the current target. The since-last-scan diff now renders only when the previous scan was the same target.</description>
     </item>
     <item>
       <title>1.2.21</title>
       <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.21</link>
       <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.21</guid>
       <pubDate>Wed, 22 Jul 2026 00:00:00 GMT</pubDate>
-      <description>A fresh desktop install now starts with an empty Recent Scans list instead of showing a previous install's history.</description>
+      <description>A fresh desktop install now starts with an empty Recent Scans list. Scan history lives in ~/.argus (which survives an uninstall/reinstall), so a reinstalled app used to show the previous install's scans. The app now records each install's moment and shows only scans run after it; a reinstall resets the list, and new scans accumulate from there. The CLI's argus history still shows everything.</description>
     </item>
     <item>
       <title>1.2.20</title>
       <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.20</link>
       <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.20</guid>
       <pubDate>Wed, 22 Jul 2026 00:00:00 GMT</pubDate>
-      <description>argus mcp-server now prints a clean install hint instead of a raw traceback when the optional [mcp] extra is missing.</description>
+      <description>argus mcp-server crashed with a raw traceback on a base install missing the optional [mcp] extra, instead of the clean install-hint message every other optional integration (semgrep, pip-audit, trivy, docker) already gives. Now prints pip install 'argus-panoptes[mcp]' and exits cleanly.</description>
     </item>
     <item>
       <title>1.2.19</title>
       <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.19</link>
       <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.19</guid>
       <pubDate>Tue, 21 Jul 2026 00:00:00 GMT</pubDate>
-      <description>Fixed blind SSRF/SQLi/XSS callback detection silently failing against Argus's own Docker-sandboxed targets.</description>
+      <description>Blind SSRF/SQLi/XSS callback detection silently failed against Argus's own Docker-sandboxed targets. Found via rigorous testing with a real vulnerable sample app: attacking an already-running URL correctly confirmed a blind SSRF, but attacking the exact same app through argus attack &lt;repo-path&gt; (Phase 2's own Docker-sandbox flow) always reported 0 confirmed, with no error anywhere — the callback URL handed to a sandboxed target said 127.0.0.1, which inside that container means its own loopback, not the host running the callback listener. Now advertises host.docker.internal to targets Argus sandboxed itself, verified end-to-end.</description>
     </item>
     <item>
       <title>1.2.18</title>
       <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.18</link>
       <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.18</guid>
       <pubDate>Thu, 16 Jul 2026 00:00:00 GMT</pubDate>
-      <description>Fixed Phase 2 attacking github.com itself when given a .git repo URL — a git clone URL is now refused as an attack target.</description>
+      <description>Phase 2 was attacking github.com itself when given a .git repo URL. Pointing Argus at https://github.com/user/repo.git for "Strike the app" sent real HTTP requests straight at GitHub's own server and reported its ordinary responses (redirects, 404s) as confirmed vulnerabilities in the target repo — entirely fabricated findings. A git clone URL is now refused as an attack target from every entry point (CLI positional target, --url, and the desktop app's URL field) with a clear explanation, instead of silently attacking the wrong host.</description>
     </item>
     <item>
       <title>1.2.17</title>
       <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.17</link>
       <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.17</guid>
       <pubDate>Thu, 16 Jul 2026 00:00:00 GMT</pubDate>
-      <description>Fixed the desktop app going "Not Responding" under heavy local-LLM load, a double-tooltip glitch, and risk-score alignment issues.</description>
+      <description>Desktop app window going fully "Not Responding" mid-scan under heavy local-LLM/CPU load — every command that shells out to the CLI now runs strictly off the window's own thread, and the CLI child runs at a lower OS priority so it can't starve the GUI.</description>
     </item>
     <item>
       <title>1.2.16</title>
       <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.16</link>
       <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.16</guid>
       <pubDate>Thu, 16 Jul 2026 00:00:00 GMT</pubDate>
-      <description>A systematic full-codebase audit found and fixed six real bugs across the GUI, backend pipeline, and attack agents.</description>
+      <description>A systematic full-codebase audit (GUI, backend pipeline, attack agents) found and fixed: the provider-display bug from 1.2.15 recurring in New Scan and the sidebar badge; argus attack never applying suppressions (an ignored finding kept resurfacing); three more attack agents (PromptInjectionAgent, RaceCondition, IDORHunter) missing the fallback-baseline false-positive guard shipped for BusinessLogicAgent in 1.2.14; synthesized attack-chain findings always reporting flat "high" confidence regardless of a weak constituent finding; two unguarded concurrent-write races in local state files; and three config options that were silently no-ops. Full detail in the commit message.</description>
     </item>
     <item>
       <title>1.2.15</title>
       <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.15</link>
       <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.15</guid>
       <pubDate>Thu, 16 Jul 2026 00:00:00 GMT</pubDate>
-      <description>Fixed the cloud LLM provider picker silently reverting, "Strike the app" not skipping static analysis, and a stuck-looking static-analysis-only progress screen.</description>
+      <description>Settings — switching to a cloud LLM provider (Groq/Gemini/Claude/OpenRouter) appeared to silently fail. The status refresh right after a click was overwriting the selection with whatever the backend resolved to (which falls back to Local GPU whenever no API key is saved yet) instead of what was actually clicked. The picker now shows your real selection and a "selected — add an API key below to activate it" hint when a key is needed.</description>
     </item>
     <item>
       <title>1.2.14</title>
       <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.14</link>
       <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.14</guid>
       <pubDate>Thu, 16 Jul 2026 00:00:00 GMT</pubDate>
-      <description>Halved Settings page load time, restored 5 real agents the GUI had silently hidden, and fixed a dead Export report button.</description>
+      <description>Settings page no longer feels frozen. argus status was calling Ollama's local API twice per invocation for the same data (once via provider.available(), once via list_ollama_models()) — each call taking ~2.2s on a typical machine. Merged into a single probe, roughly halving load time (5.5–7.9s → 3.3–4.4s). The remaining wait now shows a visible "Refreshing…" indicator instead of a silent hang.</description>
     </item>
     <item>
       <title>1.2.13</title>
       <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.13</link>
       <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.13</guid>
       <pubDate>Tue, 14 Jul 2026 00:00:00 GMT</pubDate>
-      <description>Added batch scanning, the SSTIProber agent, rate limiting, request logging, explicit attack authorization, and launched the marketing website.</description>
+      <description>argus scan --targets-file repos.txt — batch-scan every target in a file, one aggregate summary table. A bad target (typo'd path, unreachable repo) is recorded as an error row instead of aborting the rest of the batch; --fail-on gates only after every target has been scanned.</description>
     </item>
-    <item>
-      <title>1.2.12</title>
-      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.12</link>
-      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.12</guid>
-      <pubDate>Fri, 11 Jul 2026 00:00:00 GMT</pubDate>
-      <description>Fixed path-probing agents (ReconBot, CrawlerBot) reporting fake findings on SPA-fallback sites, plus the same false-positive class in AuthzTester, HeaderPoker, and Injector.</description>
-    </item>
-    <item>
-      <title>1.2.11</title>
-      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.11</link>
-      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.11</guid>
-      <pubDate>Fri, 11 Jul 2026 00:00:00 GMT</pubDate>
-      <description>Origin-scope enforcement on every request, TLS verification restored, strict desktop CSP, Live Attack cancel button, --max-requests cap, and a pre-publish benchmark gate.</description>
-    </item>
-    <item>
-      <title>1.2.9</title>
-      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.9</link>
-      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.9</guid>
-      <pubDate>Fri, 11 Jul 2026 00:00:00 GMT</pubDate>
-      <description>Fixed the Dashboard/Reports risk-band mismatch and Live Attack silently doing nothing; Settings can now pick your own local Ollama model.</description>
-    </item>
-    <item>
-      <title>1.2.8</title>
-      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.8</link>
-      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.8</guid>
-      <pubDate>Fri, 11 Jul 2026 00:00:00 GMT</pubDate>
-      <description>The desktop app now bundles the Argus CLI directly inside the installer instead of depending on a PATH-reachable install.</description>
-    </item>
+<!-- items:end -->
   </channel>
 </rss>
