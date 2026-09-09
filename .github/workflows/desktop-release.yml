@@ -57,8 +57,9 @@ jobs:
           **Argus** is an AI-powered security audit tool — point it at a repo, it reads the
           code, spins up the app, and attacks it.
 
-          This release is the desktop app: five screens (Dashboard, New Scan, Live Attack,
-          Reports, Settings) that can run the real Argus engine against a target.
+          This release is the desktop app: three numbered screens — **I · The Watch**,
+          **II · Set the Watch**, **III · The Register** — plus a live attack feed and
+          settings, all driving the real Argus engine against a real target.
 
           ## Install
 
