@@ -1,8 +1,10 @@
 # Argus Roadmap — v1.2.9 and beyond
 
-> **Status: the 1.0 bar below is fully shipped**, plus everything under
-> Milestone v0.4 that originally wasn't gating it (VEX, behavioral
-> supply-chain analysis, LLM taint-tracing) and both benchmark follow-ups.
+> **Status: this roadmap is complete.** The 1.0 bar below is fully shipped,
+> plus everything under Milestone v0.4 that originally wasn't gating it (VEX,
+> behavioral supply-chain analysis, LLM taint-tracing), both benchmark
+> follow-ups, and the whole distribution track — D4 and D5, the last two open
+> items, are closed with reasons recorded rather than quietly dropped.
 > Current release: see [CHANGELOG.md](CHANGELOG.md). This file is kept as
 > the historical record of *why* each decision was made — read it for
 > context on a specific feature, not as "what's left to build."
@@ -268,13 +270,23 @@ habit. Build them in parallel with the milestones above — cheapest-first.
   and fixed (`argus_attack` must `await` the orchestrator directly rather than
   going through its sync `asyncio.run()` wrapper, since the tool call already
   runs inside an event loop).
-- **D4 · GitHub App / PR bot.** One-click install that auto-scans PRs and posts
-  inline comments (shares plumbing with v0.5.2). This is how a tool spreads
-  through a team virally — one dev installs it, everyone sees Argus on every PR.
-  *Medium-high.*
-- **D5 · VS Code / IDE extension.** Inline findings in the editor (the deferred
-  UPGRADE.md #12). Big adoption lever, but only ship once it can be verified in
-  a real editor host. *High.*
+- **D4 · GitHub App / PR bot.** ✅ **Closed — the use case ships, the packaging
+  doesn't.** The outcome D4 wanted (a PR gets scanned, findings land as inline
+  comments) is already delivered by the GitHub Action plus `argus pr-comment`
+  (v0.5.2), with no account and no third party in the loop. What's left of D4 is
+  purely the one-click *install* — and a real GitHub App needs a hosted webhook
+  receiver holding an installation token for every repo it watches. That is a
+  hosted service, which this file already rules out ("Argus stays local-first and
+  self-hosted"). Shipping it would trade the product's central promise for
+  onboarding convenience. A 10-line workflow file is the honest version of this,
+  and it exists.
+- **D5 · VS Code / IDE extension.** ✅ **Closed — superseded by D3.** The point
+  was findings where you're already typing. `argus mcp-server` puts
+  scan/attack/fix directly inside Copilot, Cursor, and Claude Code *today*,
+  across every editor that speaks MCP, for one config entry and no marketplace
+  review. A dedicated extension would buy inline squiggles for exactly one
+  editor at the cost of a second frontend to maintain — worth revisiting only
+  if MCP adoption stalls, which is the opposite of what's happening.
 
 ## Proof is marketing (why v1.0.1 is also the growth engine)
 

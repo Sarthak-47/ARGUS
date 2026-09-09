@@ -45,3 +45,6 @@ gui/public/report.json
 
 # Real auth credentials for authenticated scans — never commit
 .argus-auth.toml
+
+# Local, per-machine Claude Code settings (permissions etc.) — not shared.
+.claude/settings.local.json

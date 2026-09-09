@@ -54,11 +54,28 @@ purpose is illegal or malicious use. See [SECURITY.md](SECURITY.md).
 
 ## Cutting a release
 
-1. Bump `version` in `pyproject.toml`.
+1. Bump `version` in **all four** manifests — they're built by different
+   toolchains and nothing cross-checks them:
+   `pyproject.toml`, `gui/package.json`, `gui/src-tauri/tauri.conf.json`,
+   `gui/src-tauri/Cargo.toml`.
 2. Move the `[Unreleased]` section in [CHANGELOG.md](CHANGELOG.md) under a new
    `## [X.Y.Z] — YYYY-MM-DD` heading, update the compare links at the bottom, and
    leave a fresh empty `[Unreleased]` section above it.
-3. Commit, then tag and push:
+3. Regenerate the derived public docs (README's `pre-commit` rev and version
+   range, the download page's version, the site's changelog page and RSS feed):
+   ```bash
+   python scripts/sync_release_docs.py
+   ```
+   CI runs this with `--check` and fails on drift, so skipping it blocks the
+   build rather than quietly shipping a stale version to the site.
+4. Refresh both lockfiles so they carry the new version. A stale lockfile is
+   not cosmetic — `npm ci` and the cargo build in CI fail on it even when a
+   local `npm install` build works fine, which has broken a release before:
+   ```bash
+   (cd gui && npm install --package-lock-only)
+   (cd gui/src-tauri && cargo check)
+   ```
+5. Commit, then tag and push:
    ```bash
    git tag -a vX.Y.Z -m "Argus vX.Y.Z"
    git push origin vX.Y.Z
