@@ -75,15 +75,27 @@ jobs:
 
           ## Before you run a real scan
 
-          The desktop app drives the `argus` CLI. Install the engine first — `pip install
-          argus-panoptes`, or if that package isn't published yet, build from source: clone this
-          repo, then `pip install -e .`. Without it, the app still opens, but falls back to
-          bundled demo data.
+          Nothing to install. The engine ships inside the installer — open the app and scan.
+          Every screen shows real engine output or an honest empty state; there is no demo
+          data anywhere in the app.
+
+          Two optional things worth knowing:
+
+          - **An LLM is optional.** Without one, Argus runs its deterministic passes (rules,
+            secrets, dependency CVEs, IaC) and reports exactly what they find. Point it at a
+            local Ollama model or your own Groq/Gemini/Claude/OpenRouter key in Settings to
+            add reasoning, false-positive triage, and fix generation. Nothing leaves your
+            machine unless you configure a cloud provider.
+          - **Attacking a repo needs Docker running.** "Strike the app" sandboxes the target
+            to attack it; the Docker client ships with the app, but Docker Desktop itself must
+            be installed and running. Attacking an already-running URL needs no Docker at all.
 
           ## Known limitations
 
           - **Unsigned build** — Windows SmartScreen / macOS Gatekeeper will warn on first
-            launch. Expected for now; code signing is on the roadmap.
+            launch. This is a deliberate trade-off, not an oversight: signing certificates are
+            a recurring paid cost, and Argus is free and unmonetised. Verify the download
+            against the build logs of the public CI run that produced it.
 
           Full docs: [README](https://github.com/Sarthak-47/ARGUS#readme) ·
           [Security policy](https://github.com/Sarthak-47/ARGUS/blob/main/SECURITY.md)
