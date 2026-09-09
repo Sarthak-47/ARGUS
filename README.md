@@ -395,7 +395,7 @@ Nobody else combines all six. That's the gap Argus owns.
   (universal)/Linux installers on tag; v0.1.0–v1.2.32 published. Ships with no demo
   data — every screen shows real engine output or an honest empty/first-run state.
 - ✅ **CI-ready**: SARIF output, `--fail-on`, per-rule policy gating (`.argus-policy.toml`),
-  GitHub Action, Docker image, green test suite (200+ tests).
+  GitHub Action, Docker image, green test suite (580+ tests).
 - ✅ **Package verified**: `python -m build` + `twine check` pass; the built wheel installs into
   a clean venv and runs. `release.yml` publishes to PyPI on tag via trusted publishing.
 
