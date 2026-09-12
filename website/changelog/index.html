@@ -44,6 +44,15 @@
   <div class="wrap">
 <!-- releases:start -->
     <div class="rel-entry">
+      <h3>1.2.34</h3>
+      <span class="date">2026-09-12</span>
+      <h4>Fixed</h4>
+      <ul>
+        <li><b>Cloud LLM providers were broken by a decommissioned default model.</b> Groq retired <code>llama-3.1-70b-versatile</code>, but Argus hardcoded it as the Groq model — so selecting Groq (with a perfectly valid API key) produced a misleading "provider: groq — reachable" in <code>argus status</code> while every actual scan call failed with an HTTP 400. Found live: a valid key returned 200 from the API, but the hardcoded model was no longer served. Three fixes: - Updated the stale defaults to currently-served models (Groq → <code>openai/gpt-oss-20b</code>, verified working with JSON mode; Gemini → <code>gemini-2.0-flash</code>, since <code>gemini-1.5-flash</code> is being retired). - <b>The cloud model is now config-overridable</b> (<code>[cloud].&lt;provider&gt;_model</code> in <code>~/.argus/config.toml</code>), so the next time a provider rotates a model name it can be corrected without waiting for a release — the model was previously hardcoded with no override. - <code>available()</code> for OpenAI-compatible providers (Groq/OpenRouter) now verifies the model is actually in the provider's served list instead of only checking that a key is set, so <code>argus status</code> stops reporting a dead model as reachable. Falls back to the key check when offline.</li>
+      </ul>
+    </div>
+
+    <div class="rel-entry">
       <h3>1.2.33</h3>
       <span class="date">2026-09-12</span>
       <h4>Fixed</h4>
@@ -239,18 +248,6 @@
         <li><b>New Scan now has a separate field for a running app's URL</b>, instead of one box overloaded for both "read this repo" and "attack this URL."</li>
         <li><b>Live Attack's Cancel button did nothing during "Read the code"-only scans</b> — the backend never recorded a killable process handle for that path, so Cancel was silently a no-op and the scan ran to completion regardless.</li>
         <li><b>"Read the code"-only scans showed zero progress for their entire duration</b>, stuck on a static "this is usually quick" message even after several minutes on a large codebase — indistinguishable from a freeze. Static analysis now streams the same kind of live per-step feed Phase 2 already had.</li>
-      </ul>
-    </div>
-
-    <div class="rel-entry">
-      <h3>1.2.14</h3>
-      <span class="date">2026-07-16</span>
-      <h4>Fixed</h4>
-      <ul>
-        <li><b>Settings page no longer feels frozen.</b> <code>argus status</code> was calling Ollama's local API twice per invocation for the same data (once via <code>provider.available()</code>, once via <code>list_ollama_models()</code>) — each call taking ~2.2s on a typical machine. Merged into a single probe, roughly halving load time (5.5–7.9s → 3.3–4.4s). The remaining wait now shows a visible "Refreshing…" indicator instead of a silent hang.</li>
-        <li><b>New Scan / Live Attack was silently hiding 5 real agents</b> (SSTIProber, AuthzTester, MCPSecurityAgent, PromptInjectionAgent, BusinessLogicAgent) — the GUI's agent list had drifted out of sync with the backend registry, so they ran on every scan but weren't selectable or visible in the live feed.</li>
-        <li><b><code>BusinessLogicAgent</code> no longer reports fake findings on SPA-fallback targets.</b> Its LLM-proposed abuse paths aren't constrained to real discovered endpoints, and could invent plausible admin paths (jenkins/, phpmyadmin/, actuator, swagger-ui) that "succeed" against any catch-all handler. Now requires at least one response to be genuinely distinct from a baseline fallback response before confirming a finding.</li>
-        <li><b>Reports screen's "Export report" button was dead</b> (no handler at all) — now exports via <code>argus report</code> and shows the resulting file path.</li>
       </ul>
     </div>
 <!-- releases:end -->

@@ -5,6 +5,27 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.34] — 2026-09-12
+
+### Fixed
+- **Cloud LLM providers were broken by a decommissioned default model.** Groq
+  retired `llama-3.1-70b-versatile`, but Argus hardcoded it as the Groq model —
+  so selecting Groq (with a perfectly valid API key) produced a misleading
+  "provider: groq — reachable" in `argus status` while every actual scan call
+  failed with an HTTP 400. Found live: a valid key returned 200 from the API,
+  but the hardcoded model was no longer served. Three fixes:
+  - Updated the stale defaults to currently-served models (Groq →
+    `openai/gpt-oss-20b`, verified working with JSON mode; Gemini →
+    `gemini-2.0-flash`, since `gemini-1.5-flash` is being retired).
+  - **The cloud model is now config-overridable** (`[cloud].<provider>_model`
+    in `~/.argus/config.toml`), so the next time a provider rotates a model name
+    it can be corrected without waiting for a release — the model was previously
+    hardcoded with no override.
+  - `available()` for OpenAI-compatible providers (Groq/OpenRouter) now verifies
+    the model is actually in the provider's served list instead of only checking
+    that a key is set, so `argus status` stops reporting a dead model as
+    reachable. Falls back to the key check when offline.
+
 ## [1.2.33] — 2026-09-12
 
 ### Fixed

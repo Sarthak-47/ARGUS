@@ -83,6 +83,18 @@ class Settings:
     def cloud_key(self, provider: str) -> str:
         return self.data.get("cloud", {}).get(f"{provider}_key", "") or ""
 
+    def cloud_model(self, provider: str) -> str:
+        """The model to use for a cloud provider. A ``[cloud].<provider>_model``
+        override in the config wins; otherwise the built-in default. The override
+        exists because providers rotate model names out from under us — Groq
+        decommissioned ``llama-3.1-70b-versatile``, which silently broke every
+        Groq scan — so a stale default can be corrected in config without waiting
+        for a new release."""
+        from argus.config.defaults import DEFAULT_CLOUD_MODELS
+
+        configured = self.data.get("cloud", {}).get(f"{provider}_model", "") or ""
+        return configured or DEFAULT_CLOUD_MODELS.get(provider, "")
+
     def has_key(self, provider: str) -> bool:
         return bool(self.cloud_key(provider))
 
