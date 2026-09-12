@@ -44,12 +44,21 @@
   <div class="wrap">
 <!-- releases:start -->
     <div class="rel-entry">
+      <h3>1.2.33</h3>
+      <span class="date">2026-09-12</span>
+      <h4>Fixed</h4>
+      <ul>
+        <li><b>The bundled CLI reported a stale version after an in-place desktop upgrade</b> — and so did every SBOM/VEX export's tool-version field. The CLI ships as a PyInstaller onedir whose <code>*.dist-info</code> directory is named with the release version, and the NSIS installer upgrades by overlaying files without removing ones the new version no longer has. So an upgrade left the previous version's <code>argus_panoptes-&lt;old&gt;.dist-info</code> orphaned beside the new one, and <code>importlib.metadata</code> resolved whichever it saw first — observed live: a 1.2.30→1.2.32 in-place upgrade reported <code>argus 1.2.30</code>. Two fixes: version resolution now takes the highest version when more than one dist-info is present (self-healing, and correct for a security tool that stamps its own version into audit artifacts), and the Windows installer now wipes the <code>argus-cli</code> bundle before reinstalling so only one dist-info ever exists. User data in <code>~/.argus</code> is untouched. Found while reinstalling and testing the app end-to-end on a repo, a website, and a local folder — all three target types verified working against real targets.</li>
+      </ul>
+    </div>
+
+    <div class="rel-entry">
       <h3>1.2.32</h3>
       <span class="date">2026-09-10</span>
       <h4>Fixed</h4>
       <ul>
         <li><b>The desktop app went completely silent during LLM reasoning, for as long as tens of minutes.</b> Enrichment is one sequential LLM call per finding, so on a local model a scan sits in that step for a very long time — and the only progress reporting was a Rich progress bar, which exists for a human at a terminal. The desktop app reads the sentinel event stream instead, so it showed "LLM reasoning over N finding(s)" and then nothing at all, which is indistinguishable from a hang and was reported as one. All three reasoning passes (enrichment, <code>--deep</code> review, <code>--taint</code> tracing) now stream real per-item progress to the live feed. Regression-tested.</li>
-        <li>*<em>A finished agent's DONE tag could disappear mid-run, and the "N done" counter count </em>down<em>.</em><em> Live Attack derived per-agent completion by scanning the retained feed, but the feed is capped at 200 lines and a real audit emits far more than that — so once an agent's "sweep complete" line aged out, that agent silently reverted to looking like it was still running. Completion is now recorded as the event arrives, which is the only point the information exists. The same header could also report </em>more* agents done than were running, because the engine emits "Static scan complete…" under a pseudo-agent named <code>system</code> that was tallied as if it were one of the roster; the count is now taken over the agents actually in the run.</li>
+        <li><b>A finished agent's DONE tag could disappear mid-run, and the "N done" counter count <em>down</em>.</b> Live Attack derived per-agent completion by scanning the retained feed, but the feed is capped at 200 lines and a real audit emits far more than that — so once an agent's "sweep complete" line aged out, that agent silently reverted to looking like it was still running. Completion is now recorded as the event arrives, which is the only point the information exists. The same header could also report <em>more</em> agents done than were running, because the engine emits "Static scan complete…" under a pseudo-agent named <code>system</code> that was tallied as if it were one of the roster; the count is now taken over the agents actually in the run.</li>
       </ul>
       <h4>Changed</h4>
       <ul>
@@ -242,26 +251,6 @@
         <li><b>New Scan / Live Attack was silently hiding 5 real agents</b> (SSTIProber, AuthzTester, MCPSecurityAgent, PromptInjectionAgent, BusinessLogicAgent) — the GUI's agent list had drifted out of sync with the backend registry, so they ran on every scan but weren't selectable or visible in the live feed.</li>
         <li><b><code>BusinessLogicAgent</code> no longer reports fake findings on SPA-fallback targets.</b> Its LLM-proposed abuse paths aren't constrained to real discovered endpoints, and could invent plausible admin paths (jenkins/, phpmyadmin/, actuator, swagger-ui) that "succeed" against any catch-all handler. Now requires at least one response to be genuinely distinct from a baseline fallback response before confirming a finding.</li>
         <li><b>Reports screen's "Export report" button was dead</b> (no handler at all) — now exports via <code>argus report</code> and shows the resulting file path.</li>
-      </ul>
-    </div>
-
-    <div class="rel-entry">
-      <h3>1.2.13</h3>
-      <span class="date">2026-07-14</span>
-      <h4>Added</h4>
-      <ul>
-        <li><b><code>argus scan --targets-file repos.txt</code></b> — batch-scan every target in a file, one aggregate summary table. A bad target (typo'd path, unreachable repo) is recorded as an error row instead of aborting the rest of the batch; <code>--fail-on</code> gates only after every target has been scanned.</li>
-        <li><b><code>SSTIProber</code></b> — a new agent detecting server-side template injection across Jinja2/Twig, FreeMarker/Velocity/Thymeleaf, Ruby/JSF EL, and ERB, confirming the <em>evaluated</em> result appears (not the payload merely reflected back) before reporting.</li>
-        <li><b><code>--rate-limit &lt;req/s&gt;</code></b> — caps requests/second across the whole attack swarm, a companion to <code>--max-requests</code> (which bounds total volume but not burst rate).</li>
-        <li><b><code>--request-log &lt;path&gt;</code></b> — writes a JSON log of every request sent during Phase 2 (agent, method, url, status, latency) for diagnosing a false positive or a slow run without manually re-probing by hand.</li>
-        <li><b>Explicit, logged authorization before Phase 2.</b> <code>attack</code>/<code>audit</code> now ask for interactive confirmation before sending a single request, or require <code>--yes-i-am-authorized</code> for CI/non-interactive use — every confirmation is appended to <code>~/.argus/authorizations.jsonl</code>. <code>argus demo</code> and the desktop GUI (whose button click is itself the consent gesture) are exempted.</li>
-        <li><b>Benchmark suite now measures false positives, not just detection rate.</b> A new <code>clean_spa</code> case — a minimal target that serves the same body for every path with real security headers set — has empty ground truth, so any finding at all fails the run unconditionally. Existed specifically because the v1.2.12 false-positive bug class would have sailed through every prior benchmark run undetected.</li>
-        <li>The desktop Reports screen's scan-to-scan diff view now shows a severity-colored dot per changed finding, surfaces the unchanged count, and shows an explicit "no change" message instead of silently vanishing when nothing changed.</li>
-        <li>A new marketing website at <a href="https://sarthak-47.github.io/ARGUS/" target="_blank" rel="noopener">sarthak-47.github.io/ARGUS</a>, with Docs/Download/Changelog/Security pages, published via GitHub Pages.</li>
-      </ul>
-      <h4>Fixed</h4>
-      <ul>
-        <li>A regression-guard test now fails if a future refactor drops the fetch_fallback_baseline/response_matches_fallback usage from the four agents that probe path/header existence, silently reintroducing the v1.2.12 false-positive bug class.</li>
       </ul>
     </div>
 <!-- releases:end -->

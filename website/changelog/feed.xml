@@ -7,6 +7,13 @@
     <language>en-us</language>
 <!-- items:start -->
     <item>
+      <title>1.2.33</title>
+      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.33</link>
+      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.33</guid>
+      <pubDate>Sat, 12 Sep 2026 00:00:00 GMT</pubDate>
+      <description>The bundled CLI reported a stale version after an in-place desktop upgrade — and so did every SBOM/VEX export's tool-version field. The CLI ships as a PyInstaller onedir whose *.dist-info directory is named with the release version, and the NSIS installer upgrades by overlaying files without removing ones the new version no longer has. So an upgrade left the previous version's argus_panoptes-&lt;old&gt;.dist-info orphaned beside the new one, and importlib.metadata resolved whichever it saw first — observed live: a 1.2.30→1.2.32 in-place upgrade reported argus 1.2.30. Two fixes: version resolution now takes the highest version when more than one dist-info is present (self-healing, and correct for a security tool that stamps its own version into audit artifacts), and the Windows installer now wipes the argus-cli bundle before reinstalling so only one dist-info ever exists. User data in ~/.argus is untouched. Found while reinstalling and testing the app end-to-end on a repo, a website, and a local folder — all three target types verified working against real targets.</description>
+    </item>
+    <item>
       <title>1.2.32</title>
       <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.32</link>
       <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.32</guid>
@@ -138,13 +145,6 @@
       <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.14</guid>
       <pubDate>Thu, 16 Jul 2026 00:00:00 GMT</pubDate>
       <description>Settings page no longer feels frozen. argus status was calling Ollama's local API twice per invocation for the same data (once via provider.available(), once via list_ollama_models()) — each call taking ~2.2s on a typical machine. Merged into a single probe, roughly halving load time (5.5–7.9s → 3.3–4.4s). The remaining wait now shows a visible "Refreshing…" indicator instead of a silent hang.</description>
-    </item>
-    <item>
-      <title>1.2.13</title>
-      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.13</link>
-      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.13</guid>
-      <pubDate>Tue, 14 Jul 2026 00:00:00 GMT</pubDate>
-      <description>argus scan --targets-file repos.txt — batch-scan every target in a file, one aggregate summary table. A bad target (typo'd path, unreachable repo) is recorded as an error row instead of aborting the rest of the batch; --fail-on gates only after every target has been scanned.</description>
     </item>
 <!-- items:end -->
   </channel>
