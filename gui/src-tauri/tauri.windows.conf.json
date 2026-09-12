@@ -2,6 +2,11 @@
   "bundle": {
     "resources": {
       "binaries/argus-cli": "argus-cli"
+    },
+    "windows": {
+      "nsis": {
+        "installerHooks": "installer-hooks.nsh"
+      }
     }
   }
 }
