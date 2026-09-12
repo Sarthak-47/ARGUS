@@ -143,7 +143,11 @@ def parse_changelog(text: str) -> list[Release]:
 # --------------------------------------------------------------------------- #
 
 LINK_RE = re.compile(r"\[([^\]]+)\]\((https?://[^)\s]+)\)")
-BOLD_RE = re.compile(r"\*\*([^*]+)\*\*")
+# Non-greedy and *-tolerant so a bold span can wrap a nested italic
+# (``**a *b* c**``); ``[^*]+`` broke on the inner asterisks and produced
+# mangled <em> nesting. Bold is converted before italic, leaving the inner
+# ``*b*`` for ITALIC_RE to pick up inside the <b>.
+BOLD_RE = re.compile(r"\*\*(.+?)\*\*")
 # Runs only after BOLD_RE, so a ``**bold**`` run is already consumed and can't
 # be mistaken for a pair of single-asterisk emphases.
 ITALIC_RE = re.compile(r"\*([^*\n]+)\*")
