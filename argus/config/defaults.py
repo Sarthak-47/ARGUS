@@ -29,8 +29,8 @@ PROVIDER_CHAIN = ("local", "groq", "gemini", "claude", "openrouter")
 
 # Default cloud model per provider (sensible, cheap/fast defaults).
 DEFAULT_CLOUD_MODELS = {
-    "groq": "llama-3.1-70b-versatile",
-    "gemini": "gemini-1.5-flash",
+    "groq": "openai/gpt-oss-20b",
+    "gemini": "gemini-2.0-flash",
     "claude": "claude-3-5-sonnet-latest",
     "openrouter": "meta-llama/llama-3.1-70b-instruct",
 }

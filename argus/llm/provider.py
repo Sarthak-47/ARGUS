@@ -12,10 +12,7 @@ from dataclasses import dataclass
 
 import httpx
 
-from argus.config.defaults import (
-    DEFAULT_CLOUD_MODELS,
-    PROVIDER_ENDPOINTS,
-)
+from argus.config.defaults import PROVIDER_ENDPOINTS
 from argus.config.settings import Settings
 
 
@@ -90,7 +87,23 @@ class OpenAICompatProvider(BaseProvider):
         self.endpoint = endpoint
 
     def available(self) -> bool:
-        return bool(self.api_key)
+        # Not just "is a key set" — verify the *model* is actually served. A
+        # provider can decommission a model while the key stays valid (Groq
+        # dropped llama-3.1-70b-versatile), which used to report a misleading
+        # "reachable" in `argus status` while every real call failed. If the
+        # model list can't be fetched (offline/transient), fall back to the
+        # key check rather than falsely reporting unavailable.
+        if not self.api_key:
+            return False
+        models_url = self.endpoint.replace("/chat/completions", "/models")
+        try:
+            r = httpx.get(models_url, headers={"Authorization": f"Bearer {self.api_key}"}, timeout=5.0)
+            if r.status_code != 200:
+                return True
+            ids = {m.get("id") for m in r.json().get("data", [])}
+            return self.model in ids if ids else True
+        except httpx.HTTPError:
+            return True
 
     def complete(self, system: str, user: str, *, json_mode: bool = False) -> LLMResult:
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
@@ -194,13 +207,13 @@ def build_provider(name: str, settings: Settings) -> BaseProvider | None:
         key = settings.cloud_key(name)
         if not key:
             return None
-        return OpenAICompatProvider(name, key, DEFAULT_CLOUD_MODELS[name], PROVIDER_ENDPOINTS[name])
+        return OpenAICompatProvider(name, key, settings.cloud_model(name), PROVIDER_ENDPOINTS[name])
     if name == "claude":
         key = settings.cloud_key("claude")
-        return ClaudeProvider(key, DEFAULT_CLOUD_MODELS["claude"]) if key else None
+        return ClaudeProvider(key, settings.cloud_model("claude")) if key else None
     if name == "gemini":
         key = settings.cloud_key("gemini")
-        return GeminiProvider(key, DEFAULT_CLOUD_MODELS["gemini"]) if key else None
+        return GeminiProvider(key, settings.cloud_model("gemini")) if key else None
     return None
 
 

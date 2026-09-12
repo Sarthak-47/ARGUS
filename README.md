@@ -291,7 +291,7 @@ an obvious vulnerable pattern *before* it ever lands in git history. Add to your
 ```yaml
 repos:
   - repo: https://github.com/Sarthak-47/ARGUS
-    rev: v1.2.33
+    rev: v1.2.34
     hooks:
       - id: argus            # blocks on HIGH+ findings (use `argus-strict` for MEDIUM+)
 ```
@@ -392,7 +392,7 @@ Nobody else combines all six. That's the gap Argus owns.
   CodeView, Settings) rendering real engine data, including captured PoCs.
 - ✅ **Desktop shell**: Tauri 2.0 wraps the GUI as a real native app that invokes the Python engine
   directly (real scans, not just dropped-in JSON). `desktop-release.yml` builds Windows/macOS
-  (universal)/Linux installers on tag; v0.1.0–v1.2.33 published. Ships with no demo
+  (universal)/Linux installers on tag; v0.1.0–v1.2.34 published. Ships with no demo
   data — every screen shows real engine output or an honest empty/first-run state.
 - ✅ **CI-ready**: SARIF output, `--fail-on`, per-rule policy gating (`.argus-policy.toml`),
   GitHub Action, Docker image, green test suite (580+ tests).

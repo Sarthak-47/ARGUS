@@ -7,6 +7,13 @@
     <language>en-us</language>
 <!-- items:start -->
     <item>
+      <title>1.2.34</title>
+      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.34</link>
+      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.34</guid>
+      <pubDate>Sat, 12 Sep 2026 00:00:00 GMT</pubDate>
+      <description>Cloud LLM providers were broken by a decommissioned default model. Groq retired llama-3.1-70b-versatile, but Argus hardcoded it as the Groq model — so selecting Groq (with a perfectly valid API key) produced a misleading "provider: groq — reachable" in argus status while every actual scan call failed with an HTTP 400. Found live: a valid key returned 200 from the API, but the hardcoded model was no longer served. Three fixes: - Updated the stale defaults to currently-served models (Groq → openai/gpt-oss-20b, verified working with JSON mode; Gemini → gemini-2.0-flash, since gemini-1.5-flash is being retired). - The cloud model is now config-overridable ([cloud].&lt;provider&gt;_model in ~/.argus/config.toml), so the next time a provider rotates a model name it can be corrected without waiting for a release — the model was previously hardcoded with no override. - available() for OpenAI-compatible providers (Groq/OpenRouter) now verifies the model is actually in the provider's served list instead of only checking that a key is set, so argus status stops reporting a dead model as reachable. Falls back to the key check when offline.</description>
+    </item>
+    <item>
       <title>1.2.33</title>
       <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.33</link>
       <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.33</guid>
@@ -138,13 +145,6 @@
       <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.15</guid>
       <pubDate>Thu, 16 Jul 2026 00:00:00 GMT</pubDate>
       <description>Settings — switching to a cloud LLM provider (Groq/Gemini/Claude/OpenRouter) appeared to silently fail. The status refresh right after a click was overwriting the selection with whatever the backend resolved to (which falls back to Local GPU whenever no API key is saved yet) instead of what was actually clicked. The picker now shows your real selection and a "selected — add an API key below to activate it" hint when a key is needed.</description>
-    </item>
-    <item>
-      <title>1.2.14</title>
-      <link>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.14</link>
-      <guid>https://github.com/Sarthak-47/ARGUS/releases/tag/v1.2.14</guid>
-      <pubDate>Thu, 16 Jul 2026 00:00:00 GMT</pubDate>
-      <description>Settings page no longer feels frozen. argus status was calling Ollama's local API twice per invocation for the same data (once via provider.available(), once via list_ollama_models()) — each call taking ~2.2s on a typical machine. Merged into a single probe, roughly halving load time (5.5–7.9s → 3.3–4.4s). The remaining wait now shows a visible "Refreshing…" indicator instead of a silent hang.</description>
     </item>
 <!-- items:end -->
   </channel>
