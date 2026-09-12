@@ -5,6 +5,25 @@ All notable changes to Argus are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [1.2.33] — 2026-09-12
+
+### Fixed
+- **The bundled CLI reported a stale version after an in-place desktop
+  upgrade** — and so did every SBOM/VEX export's tool-version field. The CLI
+  ships as a PyInstaller onedir whose `*.dist-info` directory is named with the
+  release version, and the NSIS installer upgrades by overlaying files without
+  removing ones the new version no longer has. So an upgrade left the previous
+  version's `argus_panoptes-<old>.dist-info` orphaned beside the new one, and
+  `importlib.metadata` resolved whichever it saw first — observed live: a
+  1.2.30→1.2.32 in-place upgrade reported `argus 1.2.30`. Two fixes: version
+  resolution now takes the highest version when more than one dist-info is
+  present (self-healing, and correct for a security tool that stamps its own
+  version into audit artifacts), and the Windows installer now wipes the
+  `argus-cli` bundle before reinstalling so only one dist-info ever exists.
+  User data in `~/.argus` is untouched. Found while reinstalling and testing
+  the app end-to-end on a repo, a website, and a local folder — all three
+  target types verified working against real targets.
+
 ## [1.2.32] — 2026-09-10
 
 ### Fixed
