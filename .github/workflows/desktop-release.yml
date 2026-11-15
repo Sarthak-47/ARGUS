@@ -116,7 +116,7 @@ jobs:
           NEW_ID=$(gh api "repos/${{ github.repository }}/releases" -X POST \
             -f tag_name="$TAG" \
             -f name="Argus Desktop $TAG" \
-            -f body=@/tmp/release_notes.md \
+            -F body=@/tmp/release_notes.md \
             -F draft=true \
             -F prerelease=false \
             --jq .id)
